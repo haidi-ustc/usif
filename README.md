@@ -67,8 +67,8 @@ pip install -e .
 
 ### Basic Usage
 ```python
-from usif_ds_v2 import USIF, USIFStructure, StructureType, StorageMode
-from usif_ds_v2 import WyckoffSite, StructureProperties
+from usif import USIF, USIFStructure, StructureType, StorageMode
+from usif import WyckoffSite, StructureProperties
 import numpy as np
 
 # Create a simple NaCl crystal
@@ -114,7 +114,7 @@ print(f"Decoded formula: {decoded_structure.formula}")
 ### Pymatgen Integration
 ```python
 from pymatgen.core import Structure, Lattice
-from usif_ds_v2 import StructureConverter
+from usif import StructureConverter
 import numpy as np
 
 # Convert from pymatgen Structure
@@ -138,7 +138,7 @@ pmg_structure = StructureConverter.to_pymatgen(usif_structure)
 
 ### File I/O Operations
 ```python
-from usif_ds_v2 import USIF, AtomSite, AtomicProperties
+from usif import USIF, AtomSite, AtomicProperties
 
 # Create a molecule with atomic properties
 atom_sites = [
@@ -164,7 +164,7 @@ loaded_water = encoder.load("water_molecule.usif")
 
 ### Enhanced Container Usage
 ```python
-from usif_ds_v2 import EnhancedStructureContainer
+from usif import EnhancedStructureContainer
 
 # Create container for multiple structures
 with EnhancedStructureContainer("materials.usifc", mode='w') as container:
@@ -198,7 +198,7 @@ with EnhancedStructureContainer("materials.usifc", mode='r') as container:
 
 ### Custom Properties
 ```python
-from usif_ds_v2 import PropertyRegistry, PropertyDefinition
+from usif import PropertyRegistry, PropertyDefinition
 
 # Register custom properties
 band_gap_def = PropertyDefinition(
@@ -323,7 +323,7 @@ Advanced container for multiple structures:
 """Complete USIF example demonstrating all major features"""
 
 import numpy as np
-from usif_ds_v2 import *
+from usif import *
 
 def run_example():
     # 1. Create a crystal structure
