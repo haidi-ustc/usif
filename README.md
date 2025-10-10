@@ -164,10 +164,10 @@ loaded_water = encoder.load("water_molecule.usif")
 
 ### Enhanced Container Usage
 ```python
-from usif import EnhancedStructureContainer
+from usif import StructureContainer
 
 # Create container for multiple structures
-with EnhancedStructureContainer("materials.usifc", mode='w') as container:
+with StructureContainer("materials.usifc", mode='w') as container:
     # Add structures with organization
     container.add(nacl_structure, name="nacl", group="/crystals/salts")
     container.add(diamond_structure, name="diamond", group="/crystals/carbon")
@@ -177,7 +177,7 @@ with EnhancedStructureContainer("materials.usifc", mode='w') as container:
     metals_group = container.create_group("/materials/metals")
 
 # Query structures
-with EnhancedStructureContainer("materials.usifc", mode='r') as container:
+with StructureContainer("materials.usifc", mode='r') as container:
     # Query by formula
     carbon_structures = container.query(formula="C")
     
@@ -291,7 +291,7 @@ Pymatgen integration:
 - `to_pymatgen(usif_structure)`: Convert to pymatgen
 - `from_file(filename)`: Load from various file formats
 
-#### EnhancedStructureContainer
+#### StructureContainer
 Advanced container for multiple structures:
 - `add(structure, name, group)`: Add structure with naming
 - `get(identifier)`: Retrieve structure by hash or name
@@ -355,7 +355,7 @@ def run_example():
     encoder.save(nacl, "nacl.usif")
     
     # 4. Use container for multiple structures
-    with EnhancedStructureContainer("materials.usifc", mode='w') as container:
+    with StructureContainer("materials.usifc", mode='w') as container:
         container.add(nacl, "nacl", "/crystals")
         
         # Add more structures...
