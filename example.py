@@ -12,7 +12,7 @@ from monty.serialization import dumpfn, loadfn
 # Import the USIF modules
 from usif import (
     USIF, USIFStructure, StructureType, StorageMode, CompressionType,
-    StructureConverter, EnhancedStructureContainer,
+    StructureConverter, StructureContainer,
     WyckoffSite, PointGroupSite, AtomSite, AtomicProperties, StructureProperties,
     PropertyRegistry, PropertyDefinition
 )
@@ -154,7 +154,7 @@ def demo_simple_container():
     
     try:
         # Create container in write mode
-        with EnhancedStructureContainer(container_file, mode='w', use_mmap=False) as container:
+        with StructureContainer(container_file, mode='w', use_mmap=False) as container:
             # Create a simple structure
             lattice_matrix = np.array([
                 [4.0, 0.0, 0.0],
@@ -214,7 +214,7 @@ def demo_simple_container():
             print(f"  Total size: {stats['total_size_bytes']} bytes")
         
         # Reopen container in read mode
-        with EnhancedStructureContainer(container_file, mode='r', use_mmap=False) as container:
+        with StructureContainer(container_file, mode='r', use_mmap=False) as container:
             print(f"\nReopened container with {len(container)} structures")
             
             # Retrieve structures

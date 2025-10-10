@@ -1349,8 +1349,8 @@ class USIFGroup:
         
         return results
 
-# Replace the EnhancedStructureContainer class with this corrected version
-class EnhancedStructureContainer:
+# Replace the StructureContainer class with this corrected version
+class StructureContainer:
     """
     Enhanced container with HDF5-like features:
     - Hierarchical organization
