@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """ 
-USIF (Universal Structure Interchange Format) - Optimized Implementation v2.0
+USIF (Universal Structure Interchange Format)
 Unified format for crystals and molecules with intelligent compression
     
 Features:
 - Unified interface for periodic and non-periodic structures
 - Intelligent compression: symmetric (crystals + molecules) or atomic (all types)
 - Point group symmetry support for molecules
+- Space group symmetry support for crystals
 - 4-6x compression vs traditional formats
 - Modular property system with type safety
 - Random access container
     
 Author: haidi@hfut.edu.cn
-Version: 2.0
+Version: 4.0
 """    
 
 import struct
@@ -70,126 +71,371 @@ class PropertyDefinition:
 
 
 class PropertySerializer:
-    """Serialize and deserialize property values"""
+    """Serialize and deserialize property values with complete type support"""
+    
+    # Type mapping for struct format characters
+    TYPE_FORMATS = {
+        float: {
+            'scalar': 'd',      # 8 bytes
+            'array': 'f',       # 4 bytes per element
+            'pack_multiple': lambda fmt, values: struct.pack(f'{len(values)}{fmt}', *values),
+            'unpack_multiple': lambda fmt, data, count: struct.unpack(f'{count}{fmt}', data)
+        },
+        int: {
+            'scalar': 'q',      # 8 bytes
+            'array': 'i',       # 4 bytes per element  
+            'pack_multiple': lambda fmt, values: struct.pack(f'{len(values)}{fmt}', *values),
+            'unpack_multiple': lambda fmt, data, count: struct.unpack(f'{count}{fmt}', data)
+        },
+        bool: {
+            'scalar': '?',      # 1 byte
+            'array': '?',       # 1 byte per element
+            'pack_multiple': lambda fmt, values: struct.pack(f'{len(values)}{fmt}', *values),
+            'unpack_multiple': lambda fmt, data, count: struct.unpack(f'{count}{fmt}', data)
+        },
+        str: {
+            'scalar': None,     # Special handling with length prefix
+            'array': None,      # Special handling for string arrays
+            'pack_multiple': None,
+            'unpack_multiple': None
+        },
+        tuple: {
+            'scalar': None,     # Tuples are treated as arrays
+            'array': 'f',       # Default to float for compatibility
+            'pack_multiple': lambda fmt, values: struct.pack(f'{len(values)}{fmt}', *values),
+            'unpack_multiple': lambda fmt, data, count: struct.unpack(f'{count}{fmt}', data)
+        }
+    }
     
     @staticmethod
     def serialize_value(value: Any, prop_def: PropertyDefinition, 
                        num_atoms: int = None) -> bytes:
-        """Serialize property value to bytes"""
+        """Serialize property value to bytes with complete type support"""
         if value is None:
             return b''
         
         data = bytearray()
         
+        # Handle scalar properties
         if prop_def.is_scalar():
-            if prop_def.data_type == float:
-                data.extend(struct.pack('d', value))
-            elif prop_def.data_type == int:
-                data.extend(struct.pack('q', value))
-            elif prop_def.data_type == bool:
-                data.extend(struct.pack('?', value))
-            elif prop_def.data_type == str:
-                str_bytes = value.encode('utf-8')
-                data.extend(struct.pack('<I', len(str_bytes)))
-                data.extend(str_bytes)
+            PropertySerializer._serialize_scalar(data, value, prop_def)
+        
+        # Handle array properties (both per-atom and structure-level)
         else:
-            if prop_def.is_per_atom:
-                # For per-atom properties
-                # Handle both single atom (tuple/array) and multiple atoms (list of tuples/arrays)
-                if num_atoms == 1:
-                    # Single atom - value is the property directly (e.g., a 3-tuple for force)
-                    data.extend(struct.pack('<I', 1))
-                    if prop_def.data_type == tuple and len(prop_def.dimensions) == 1:
-                        dim = prop_def.dimensions[0]
-                        data.extend(struct.pack(f'{dim}f', *value))
-                    elif prop_def.data_type == float and len(prop_def.dimensions) == 1:
-                        dim = prop_def.dimensions[0]
-                        data.extend(struct.pack(f'{dim}f', *value))
-                    elif prop_def.data_type == float:
-                        data.extend(struct.pack('f', value))
-                else:
-                    # Multiple atoms - value is a list of properties
-                    if num_atoms is None:
-                        num_atoms = len(value)
-                    data.extend(struct.pack('<I', num_atoms))
-                    for atom_value in value:
-                        if prop_def.data_type == tuple and len(prop_def.dimensions) == 1:
-                            dim = prop_def.dimensions[0]
-                            data.extend(struct.pack(f'{dim}f', *atom_value))
-                        elif prop_def.data_type == float and len(prop_def.dimensions) == 1:
-                            dim = prop_def.dimensions[0]
-                            data.extend(struct.pack(f'{dim}f', *atom_value))
-                        elif prop_def.data_type == float:
-                            data.extend(struct.pack('f', atom_value))
-            else:
-                # Structure-level array properties (e.g., stress tensor)
-                if prop_def.data_type == tuple and len(prop_def.dimensions) == 1:
-                    dim = prop_def.dimensions[0]
-                    data.extend(struct.pack(f'{dim}f', *value))
-                elif prop_def.data_type == float and len(prop_def.dimensions) == 1:
-                    dim = prop_def.dimensions[0]
-                    data.extend(struct.pack(f'{dim}f', *value))
+            PropertySerializer._serialize_array(data, value, prop_def, num_atoms)
         
         return bytes(data)
     
     @staticmethod
+    def _serialize_scalar(data: bytearray, value: Any, prop_def: PropertyDefinition):
+        """Serialize scalar value based on data type"""
+        data_type = prop_def.data_type
+        
+        if data_type == float:
+            data.extend(struct.pack('d', value))
+        elif data_type == int:
+            data.extend(struct.pack('q', value))
+        elif data_type == bool:
+            data.extend(struct.pack('?', value))
+        elif data_type == str:
+            str_bytes = value.encode('utf-8')
+            data.extend(struct.pack('<I', len(str_bytes)))
+            data.extend(str_bytes)
+        else:
+            raise ValueError(f"Unsupported scalar data type: {data_type}")
+    
+    @staticmethod
+    def _serialize_array(data: bytearray, value: Any, prop_def: PropertyDefinition, num_atoms: int = None):
+        """Serialize array value with proper type handling"""
+        data_type = prop_def.data_type
+        
+        # Handle per-atom properties
+        if prop_def.is_per_atom:
+            if num_atoms == 1:
+                # Single atom case - wrap single value in list
+                data.extend(struct.pack('<I', 1))
+                PropertySerializer._serialize_array_element(data, value, prop_def)
+            else:
+                # Multiple atoms case
+                actual_atoms = num_atoms if num_atoms is not None else len(value)
+                data.extend(struct.pack('<I', actual_atoms))
+                
+                # Handle both single value (repeat for all atoms) and list of values
+                if not isinstance(value, (list, tuple, np.ndarray)) or (isinstance(value, np.ndarray) and value.ndim == 0):
+                    # Single value repeated for all atoms
+                    for _ in range(actual_atoms):
+                        PropertySerializer._serialize_array_element(data, value, prop_def)
+                else:
+                    # List of values, one per atom
+                    for atom_value in value:
+                        PropertySerializer._serialize_array_element(data, atom_value, prop_def)
+        
+        # Handle structure-level array properties
+        else:
+            PropertySerializer._serialize_array_element(data, value, prop_def)
+    
+    @staticmethod
+    def _serialize_array_element(data: bytearray, value: Any, prop_def: PropertyDefinition):
+        """Serialize a single array element based on dimensions and data type"""
+        data_type = prop_def.data_type
+        
+        # Handle zero-dimensional arrays (scalar elements)
+        if len(prop_def.dimensions) == 0:
+            if data_type == float:
+                data.extend(struct.pack('f', value))
+            elif data_type == int:
+                data.extend(struct.pack('i', value))
+            elif data_type == bool:
+                data.extend(struct.pack('?', value))
+            elif data_type == str:
+                str_bytes = value.encode('utf-8')
+                data.extend(struct.pack('<I', len(str_bytes)))
+                data.extend(str_bytes)
+            else:
+                raise ValueError(f"Unsupported array element type: {data_type}")
+        
+        # Handle multi-dimensional arrays
+        else:
+            dim = prop_def.dimensions[0]
+            
+            # Convert to iterable if single value
+            if not isinstance(value, (list, tuple, np.ndarray)):
+                value = [value] * dim
+            
+            # Ensure we have the right number of elements
+            if len(value) != dim:
+                raise ValueError(f"Expected {dim} elements for property {prop_def.name}, got {len(value)}")
+            
+            # Pack based on data type
+            if data_type in (float, tuple):
+                data.extend(struct.pack(f'{dim}f', *value))
+            elif data_type == int:
+                data.extend(struct.pack(f'{dim}i', *value))
+            elif data_type == bool:
+                # Convert bool to bytes (0/1) for compact storage
+                bool_bytes = [1 if x else 0 for x in value]
+                data.extend(struct.pack(f'{dim}B', *bool_bytes))
+            else:
+                raise ValueError(f"Unsupported multi-dimensional array type: {data_type}")
+    
+    @staticmethod
     def deserialize_value(prop_def: PropertyDefinition, data: bytes, 
                          offset: int, num_atoms: int = None) -> Tuple[Any, int]:
-        """Deserialize property value from bytes"""
-        if len(data) == offset:
+        """Deserialize property value from bytes with complete type support"""
+        if len(data) <= offset:
             return None, offset
         
-        value = None  # Initialize value to avoid UnboundLocalError
+        value = None
         
+        # Handle scalar properties
         if prop_def.is_scalar():
-            if prop_def.data_type == float:
-                value = struct.unpack('d', data[offset:offset+8])[0]
-                offset += 8
-            elif prop_def.data_type == int:
-                value = struct.unpack('q', data[offset:offset+8])[0]
-                offset += 8
-            elif prop_def.data_type == bool:
+            value, offset = PropertySerializer._deserialize_scalar(data, offset, prop_def)
+        
+        # Handle array properties
+        else:
+            value, offset = PropertySerializer._deserialize_array(data, offset, prop_def, num_atoms)
+        
+        return value, offset
+    
+    @staticmethod
+    def _deserialize_scalar(data: bytes, offset: int, prop_def: PropertyDefinition) -> Tuple[Any, int]:
+        """Deserialize scalar value based on data type"""
+        data_type = prop_def.data_type
+        
+        if data_type == float:
+            value = struct.unpack('d', data[offset:offset+8])[0]
+            offset += 8
+        elif data_type == int:
+            value = struct.unpack('q', data[offset:offset+8])[0]
+            offset += 8
+        elif data_type == bool:
+            value = struct.unpack('?', data[offset:offset+1])[0]
+            offset += 1
+        elif data_type == str:
+            str_len = struct.unpack('<I', data[offset:offset+4])[0]
+            offset += 4
+            value = data[offset:offset+str_len].decode('utf-8')
+            offset += str_len
+        else:
+            raise ValueError(f"Unsupported scalar data type: {data_type}")
+        
+        return value, offset
+    
+    @staticmethod
+    def _deserialize_array(data: bytes, offset: int, prop_def: PropertyDefinition, 
+                          num_atoms: int = None) -> Tuple[Any, int]:
+        """Deserialize array value with proper type handling"""
+        data_type = prop_def.data_type
+        
+        # Handle per-atom properties
+        if prop_def.is_per_atom:
+            count = struct.unpack('<I', data[offset:offset+4])[0]
+            offset += 4
+            
+            # Validate count if num_atoms is provided
+            if num_atoms is not None and count != num_atoms and count != 1:
+                raise ValueError(f"Atom count mismatch: expected {num_atoms}, got {count}")
+            
+            values = []
+            for _ in range(count):
+                atom_value, offset = PropertySerializer._deserialize_array_element(data, offset, prop_def)
+                values.append(atom_value)
+            
+            # If single value was stored for multiple atoms, expand it
+            if count == 1 and num_atoms is not None and num_atoms > 1:
+                values = values * num_atoms
+            
+            value = values
+        
+        # Handle structure-level array properties
+        else:
+            value, offset = PropertySerializer._deserialize_array_element(data, offset, prop_def)
+        
+        return value, offset
+    
+    @staticmethod
+    def _deserialize_array_element(data: bytes, offset: int, prop_def: PropertyDefinition) -> Tuple[Any, int]:
+        """Deserialize a single array element based on dimensions and data type"""
+        data_type = prop_def.data_type
+        
+        # Handle zero-dimensional arrays (scalar elements)
+        if len(prop_def.dimensions) == 0:
+            if data_type == float:
+                value = struct.unpack('f', data[offset:offset+4])[0]
+                offset += 4
+            elif data_type == int:
+                value = struct.unpack('i', data[offset:offset+4])[0]
+                offset += 4
+            elif data_type == bool:
                 value = struct.unpack('?', data[offset:offset+1])[0]
                 offset += 1
-            elif prop_def.data_type == str:
+            elif data_type == str:
                 str_len = struct.unpack('<I', data[offset:offset+4])[0]
                 offset += 4
                 value = data[offset:offset+str_len].decode('utf-8')
                 offset += str_len
-        else:
-            # Array/tuple properties
-            if prop_def.is_per_atom:
-                # Per-atom array properties (e.g., forces per atom)
-                count = struct.unpack('<I', data[offset:offset+4])[0]
-                offset += 4
-                value = []
-                for _ in range(count):
-                    if prop_def.data_type == tuple and len(prop_def.dimensions) == 1:
-                        dim = prop_def.dimensions[0]
-                        atom_value = struct.unpack(f'{dim}f', data[offset:offset+dim*4])
-                        value.append(tuple(atom_value))
-                        offset += dim * 4
-                    elif prop_def.data_type == float and len(prop_def.dimensions) == 1:
-                        dim = prop_def.dimensions[0]
-                        atom_value = struct.unpack(f'{dim}f', data[offset:offset+dim*4])
-                        value.append(tuple(atom_value))
-                        offset += dim * 4
-                    elif prop_def.data_type == float:
-                        atom_value = struct.unpack('f', data[offset:offset+4])[0]
-                        value.append(atom_value)
-                        offset += 4
             else:
-                # Structure-level array properties (e.g., stress tensor)
-                if prop_def.data_type == tuple and len(prop_def.dimensions) == 1:
-                    dim = prop_def.dimensions[0]
-                    value = struct.unpack(f'{dim}f', data[offset:offset+dim*4])
-                    offset += dim * 4
-                elif prop_def.data_type == float and len(prop_def.dimensions) == 1:
-                    dim = prop_def.dimensions[0]
-                    value = struct.unpack(f'{dim}f', data[offset:offset+dim*4])
-                    offset += dim * 4
+                raise ValueError(f"Unsupported array element type: {data_type}")
+        
+        # Handle multi-dimensional arrays
+        else:
+            dim = prop_def.dimensions[0]
+            
+            if data_type in (float, tuple):
+                values = struct.unpack(f'{dim}f', data[offset:offset+dim*4])
+                value = tuple(values)
+                offset += dim * 4
+            elif data_type == int:
+                values = struct.unpack(f'{dim}i', data[offset:offset+dim*4])
+                value = tuple(values)
+                offset += dim * 4
+            elif data_type == bool:
+                bool_values = struct.unpack(f'{dim}B', data[offset:offset+dim])
+                value = tuple(bool(x) for x in bool_values)
+                offset += dim
+            else:
+                raise ValueError(f"Unsupported multi-dimensional array type: {data_type}")
         
         return value, offset
+    
+    @staticmethod
+    def validate_value(value: Any, prop_def: PropertyDefinition, num_atoms: int = None) -> bool:
+        """Validate that a value matches the property definition"""
+        if value is None:
+            return True
+        
+        # Check basic type
+        if not isinstance(value, prop_def.data_type):
+            # Allow tuples for properties defined as float with dimensions
+            if prop_def.data_type == float and isinstance(value, tuple) and len(prop_def.dimensions) > 0:
+                pass  # This is acceptable
+            else:
+                return False
+        
+        # Check dimensions for array properties
+        if not prop_def.is_scalar():
+            if prop_def.is_per_atom:
+                # For per-atom properties, value should be a list/tuple/array
+                if num_atoms == 1:
+                    # Single atom - value is the property directly
+                    if len(prop_def.dimensions) > 0:
+                        if not isinstance(value, (tuple, list, np.ndarray)) or len(value) != prop_def.dimensions[0]:
+                            return False
+                else:
+                    # Multiple atoms - value should be a sequence
+                    if not isinstance(value, (list, tuple, np.ndarray)):
+                        return False
+                    if num_atoms is not None and len(value) != num_atoms:
+                        return False
+                    
+                    # Check each element
+                    for elem in value:
+                        if len(prop_def.dimensions) > 0:
+                            if not isinstance(elem, (tuple, list, np.ndarray)) or len(elem) != prop_def.dimensions[0]:
+                                return False
+            else:
+                # Structure-level array properties
+                if len(prop_def.dimensions) > 0:
+                    if not isinstance(value, (tuple, list, np.ndarray)) or len(value) != prop_def.dimensions[0]:
+                        return False
+        
+        return True
+    
+    @staticmethod
+    def get_expected_size(prop_def: PropertyDefinition, value: Any = None, num_atoms: int = None) -> int:
+        """Calculate expected size in bytes for serialized property value"""
+        if value is None:
+            return 0
+        
+        size = 0
+        
+        if prop_def.is_scalar():
+            if prop_def.data_type == float:
+                size = 8
+            elif prop_def.data_type == int:
+                size = 8
+            elif prop_def.data_type == bool:
+                size = 1
+            elif prop_def.data_type == str:
+                size = 4 + len(value.encode('utf-8'))
+        else:
+            if prop_def.is_per_atom:
+                size = 4  # Count field
+                element_size = PropertySerializer._get_element_size(prop_def)
+                
+                if num_atoms == 1:
+                    size += element_size
+                else:
+                    actual_atoms = num_atoms if num_atoms is not None else len(value)
+                    size += actual_atoms * element_size
+            else:
+                size = PropertySerializer._get_element_size(prop_def)
+        
+        return size
+    
+    @staticmethod
+    def _get_element_size(prop_def: PropertyDefinition) -> int:
+        """Calculate size of a single array element"""
+        if len(prop_def.dimensions) == 0:
+            if prop_def.data_type == float:
+                return 4
+            elif prop_def.data_type == int:
+                return 4
+            elif prop_def.data_type == bool:
+                return 1
+            elif prop_def.data_type == str:
+                # Cannot determine without actual value
+                return 0
+        else:
+            dim = prop_def.dimensions[0]
+            if prop_def.data_type in (float, tuple):
+                return dim * 4
+            elif prop_def.data_type == int:
+                return dim * 4
+            elif prop_def.data_type == bool:
+                return dim
+        
+        return 0
 
 class PropertyRegistry:
     """Registry for all supported properties"""
@@ -306,6 +552,32 @@ class AtomicProperties:
         props.update(self.custom)
         return props
 
+    def __eq__(self, other):
+        if not isinstance(other, AtomicProperties):
+            return False
+        
+        # Compare all built-in properties
+        for prop_name in PropertyRegistry._properties:
+            if PropertyRegistry.is_atomic_property(prop_name):
+                self_val = getattr(self, prop_name, None)
+                other_val = getattr(other, prop_name, None)
+                
+                if self_val != other_val:
+                    # Handle floating point comparison for numeric values
+                    if isinstance(self_val, float) and isinstance(other_val, float):
+                        if abs(self_val - other_val) > 1e-6:
+                            return False
+                    elif isinstance(self_val, tuple) and isinstance(other_val, tuple):
+                        if any(abs(a - b) > 1e-6 for a, b in zip(self_val, other_val)):
+                            return False
+                    else:
+                        return False
+        
+        # Compare custom properties
+        if self.custom != other.custom:
+            return False
+        
+        return True
 
 @dataclass
 class StructureProperties:
@@ -333,6 +605,29 @@ class StructureProperties:
         props.update(self.custom)
         return props
 
+    def __eq__(self, other):
+        if not isinstance(other, StructureProperties):
+            return False
+
+        # Compare all built-in properties
+        for prop_name in PropertyRegistry._properties:
+            if PropertyRegistry.is_structure_property(prop_name):
+                self_val = getattr(self, prop_name, None)
+                other_val = getattr(other, prop_name, None)
+
+                if self_val != other_val:
+                    # Handle floating point comparison for numeric values
+                    if isinstance(self_val, float) and isinstance(other_val, float):
+                        if abs(self_val - other_val) > 1e-6:
+                            return False
+                    else:
+                        return False
+
+        # Compare custom properties
+        if self.custom != other.custom:
+            return False
+
+        return True
 
 @dataclass
 class WyckoffSite:
@@ -341,6 +636,13 @@ class WyckoffSite:
     multiplicity: int
     coords: Tuple[float, float, float]  # Fractional
     occupancy: float = 1.0
+    def __eq__(self, other):
+        if not isinstance(other, WyckoffSite):
+            return False
+        return (self.atomic_number == other.atomic_number and
+                self.multiplicity == other.multiplicity and
+                all(abs(a - b) < 1e-6 for a, b in zip(self.coords, other.coords)) and
+                abs(self.occupancy - other.occupancy) < 1e-6)
 
 
 @dataclass
@@ -350,6 +652,14 @@ class PointGroupSite:
     multiplicity: int
     coords: Tuple[float, float, float]  # Cartesian (Å)
     occupancy: float = 1.0
+    def __eq__(self, other):
+        if not isinstance(other, PointGroupSite):
+            return False
+        return (self.atomic_number == other.atomic_number and
+                self.multiplicity == other.multiplicity and
+                all(abs(a - b) < 1e-6 for a, b in zip(self.coords, other.coords)) and
+                abs(self.occupancy - other.occupancy) < 1e-6)
+
 
 
 @dataclass
@@ -358,6 +668,12 @@ class AtomSite:
     atomic_number: int
     coords: Tuple[float, float, float]
     properties: AtomicProperties = field(default_factory=AtomicProperties)
+    def __eq__(self, other):
+        if not isinstance(other, AtomSite):
+            return False
+        return (self.atomic_number == other.atomic_number and
+                all(abs(a - b) < 1e-6 for a, b in zip(self.coords, other.coords)) and
+                self.properties == other.properties)
 
 
 class USIFStructure(MSONable):
@@ -375,6 +691,10 @@ class USIFStructure(MSONable):
     │ (Molecule)  │ (no lattice) │ (no lattice)    │
     └─────────────┴──────────────┴─────────────────┘
     """
+    
+    __slots__ = ['structure_type', 'storage_mode', 'lattice_matrix', 'spacegroup', 
+                'point_group', 'wyckoff_sites', 'point_group_sites', 'atom_sites',
+                'structure_properties', 'formula']
     
     def __init__(self, 
                  structure_type: StructureType = StructureType.PERIODIC,
@@ -450,7 +770,7 @@ class USIFStructure(MSONable):
             "storage_mode": self.storage_mode.value,
             "spacegroup": self.spacegroup,
             "point_group": self.point_group,
-            "structure_properties": self.structure_properties.as_dict() if hasattr(self.structure_properties, 'as_dict') else self.structure_properties,
+            "structure_properties": self.structure_properties,
             "formula": self.formula
         }
         
@@ -460,18 +780,35 @@ class USIFStructure(MSONable):
         
         # Handle Wyckoff sites
         if self.wyckoff_sites is not None:
-            d["wyckoff_sites"] = [site.as_dict() if hasattr(site, 'as_dict') else site 
-                                 for site in self.wyckoff_sites]
+            d["wyckoff_sites"] = [{
+                'atomic_number': site.atomic_number,
+                'multiplicity': site.multiplicity,
+                'coords': site.coords,
+                'occupancy': site.occupancy
+            } for site in self.wyckoff_sites]
         
         # Handle point group sites
         if self.point_group_sites is not None:
-            d["point_group_sites"] = [site.as_dict() if hasattr(site, 'as_dict') else site 
-                                     for site in self.point_group_sites]
+            d["point_group_sites"] = [{
+                'atomic_number': site.atomic_number,
+                'multiplicity': site.multiplicity,
+                'coords': site.coords,
+                'occupancy': site.occupancy
+            } for site in self.point_group_sites]
         
         # Handle atom sites
         if self.atom_sites is not None:
-            d["atom_sites"] = [site.as_dict() if hasattr(site, 'as_dict') else site 
-                              for site in self.atom_sites]
+            d["atom_sites"] = [{
+                'atomic_number': site.atomic_number,
+                'coords': site.coords,
+                'properties': {
+                    'force': site.properties.force,
+                    'charge': site.properties.charge,
+                    'magmom': site.properties.magmom,
+                    'velocity': site.properties.velocity,
+                    'custom': site.properties.custom
+                }
+            } for site in self.atom_sites]
         
         return d
     
@@ -496,42 +833,41 @@ class USIFStructure(MSONable):
         if "wyckoff_sites" in d and d["wyckoff_sites"] is not None:
             wyckoff_sites = []
             for site_dict in d["wyckoff_sites"]:
-                if hasattr(WyckoffSite, 'from_dict'):
-                    wyckoff_sites.append(WyckoffSite.from_dict(site_dict))
-                else:
-                    # Fallback for dataclass-based WyckoffSite
-                    wyckoff_sites.append(WyckoffSite(**site_dict))
+                wyckoff_sites.append(WyckoffSite(**site_dict))
         
         # Reconstruct point group sites
         point_group_sites = None
         if "point_group_sites" in d and d["point_group_sites"] is not None:
             point_group_sites = []
             for site_dict in d["point_group_sites"]:
-                if hasattr(PointGroupSite, 'from_dict'):
-                    point_group_sites.append(PointGroupSite.from_dict(site_dict))
-                else:
-                    # Fallback for dataclass-based PointGroupSite
-                    point_group_sites.append(PointGroupSite(**site_dict))
+                point_group_sites.append(PointGroupSite(**site_dict))
         
         # Reconstruct atom sites
         atom_sites = None
         if "atom_sites" in d and d["atom_sites"] is not None:
             atom_sites = []
             for site_dict in d["atom_sites"]:
-                if hasattr(AtomSite, 'from_dict'):
-                    atom_sites.append(AtomSite.from_dict(site_dict))
-                else:
-                    # Fallback for dataclass-based AtomSite
-                    atom_sites.append(AtomSite(**site_dict))
+                props_dict = site_dict.get('properties', {})
+                atom_props = AtomicProperties(
+                    force=props_dict.get('force'),
+                    charge=props_dict.get('charge'),
+                    magmom=props_dict.get('magmom'),
+                    velocity=props_dict.get('velocity'),
+                    custom=props_dict.get('custom', {})
+                )
+                atom_sites.append(AtomSite(
+                    atomic_number=site_dict['atomic_number'],
+                    coords=site_dict['coords'],
+                    properties=atom_props
+                ))
         
         # Reconstruct structure properties
         structure_properties = None
         if "structure_properties" in d:
-            if hasattr(StructureProperties, 'from_dict'):
-                structure_properties = StructureProperties.from_dict(d["structure_properties"])
-            else:
-                # Fallback for dataclass-based StructureProperties
+            if isinstance(d["structure_properties"], dict):
                 structure_properties = StructureProperties(**d["structure_properties"])
+            else:
+                structure_properties = d["structure_properties"]
         
         return cls(
             structure_type=StructureType(d["structure_type"]),
@@ -545,14 +881,21 @@ class USIFStructure(MSONable):
             structure_properties=structure_properties,
             formula=d["formula"]
         )
-    
+
     def __eq__(self, other):
         if not isinstance(other, USIFStructure):
             return False
         
+        # Compare lattice matrices with tolerance for floating point precision
+        lattice_equal = True
+        if self.lattice_matrix is not None and other.lattice_matrix is not None:
+            lattice_equal = np.allclose(self.lattice_matrix, other.lattice_matrix, atol=1e-6)
+        elif self.lattice_matrix != other.lattice_matrix:
+            lattice_equal = False
+        
         return (self.structure_type == other.structure_type and
                 self.storage_mode == other.storage_mode and
-                np.array_equal(self.lattice_matrix, other.lattice_matrix) and
+                lattice_equal and
                 self.spacegroup == other.spacegroup and
                 self.point_group == other.point_group and
                 self.wyckoff_sites == other.wyckoff_sites and
@@ -560,6 +903,7 @@ class USIFStructure(MSONable):
                 self.atom_sites == other.atom_sites and
                 self.structure_properties == other.structure_properties and
                 self.formula == other.formula)
+
     
     def __repr__(self):
         return (f"USIFStructure(structure_type={self.structure_type.name}, "
@@ -588,7 +932,7 @@ class USIF:
         data.extend(struct.pack('B', structure.storage_mode.value))
         
         if structure.is_periodic():
-            lattice_data = structure.lattice_matrix.tobytes()
+            lattice_data = structure.lattice_matrix.astype(np.float32).tobytes()
             data.extend(lattice_data)
             data.extend(struct.pack('H', structure.spacegroup))
         elif structure.is_molecular() and structure.storage_mode == StorageMode.SYMMETRIC:
@@ -787,7 +1131,7 @@ class USIF:
                 data.extend(struct.pack('B', len(structure.point_group_sites)))
                 for site in structure.point_group_sites:
                     data.extend(struct.pack('B', site.atomic_number))
-                    data.extend(struct.pack('B', site.multiplicity))
+                    data.extend(struct.pack('<H', site.multiplicity))
                     data.extend(struct.pack('3f', *site.coords))
                     data.extend(struct.pack('f', site.occupancy))
             else:
@@ -806,7 +1150,7 @@ class USIF:
                 data.extend(struct.pack('B', len(structure.wyckoff_sites)))
                 for site in structure.wyckoff_sites:
                     data.extend(struct.pack('B', site.atomic_number))
-                    data.extend(struct.pack('B', site.multiplicity))
+                    data.extend(struct.pack('<H', site.multiplicity))
                     data.extend(struct.pack('3f', *site.coords))
                     data.extend(struct.pack('f', site.occupancy))
             else:
@@ -885,10 +1229,10 @@ class USIF:
                 point_group_sites = []
                 for _ in range(num_sites):
                     z = struct.unpack('B', data[offset:offset+1])[0]
-                    mult = struct.unpack('B', data[offset+1:offset+2])[0]
-                    x, y, z_coord = struct.unpack('3f', data[offset+2:offset+14])
-                    occupancy = struct.unpack('f', data[offset+14:offset+18])[0]
-                    offset += 18
+                    mult = struct.unpack('<H', data[offset+1:offset+3])[0]  # Changed to 2 bytes
+                    x, y, z_coord = struct.unpack('3f', data[offset+3:offset+15])
+                    occupancy = struct.unpack('f', data[offset+15:offset+19])[0]
+                    offset += 19
                     point_group_sites.append(PointGroupSite(z, mult, (x, y, z_coord), occupancy))
             else:
                 num_atoms = struct.unpack('<I', data[offset:offset+4])[0]
@@ -916,10 +1260,10 @@ class USIF:
                 wyckoff_sites = []
                 for _ in range(num_sites):
                     z = struct.unpack('B', data[offset:offset+1])[0]
-                    mult = struct.unpack('B', data[offset+1:offset+2])[0]
-                    x, y, z_coord = struct.unpack('3f', data[offset+2:offset+14])
-                    occupancy = struct.unpack('f', data[offset+14:offset+18])[0]
-                    offset += 18
+                    mult = struct.unpack('<H', data[offset+1:offset+3])[0]  # Changed to 2 bytes
+                    x, y, z_coord = struct.unpack('3f', data[offset+3:offset+15])
+                    occupancy = struct.unpack('f', data[offset+15:offset+19])[0]
+                    offset += 19
                     wyckoff_sites.append(WyckoffSite(z, mult, (x, y, z_coord), occupancy))
             else:
                 num_atoms = struct.unpack('<I', data[offset:offset+4])[0]
@@ -964,7 +1308,7 @@ class USIF:
             )
         
         return structure, hash_value
-    
+
     def get_structure_hash(self, structure: USIFStructure) -> str:
         return self._calculate_hash(structure).hex()
     
@@ -1122,20 +1466,30 @@ class StructureConverter:
         
         wyckoff_sites = None
         atom_sites = None
+        spacegroup_number = 1
         
         if storage_mode == StorageMode.SYMMETRIC:
-            sga = SpacegroupAnalyzer(pmg_structure, symprec=1e-3)
-            spacegroup_number = sga.get_space_group_number()
-            symmetrized = sga.get_symmetrized_structure()
-            
-            wyckoff_sites = []
-            for equiv_sites in symmetrized.equivalent_sites:
-                rep = equiv_sites[0]
-                z = rep.specie.Z
-                wyckoff_sites.append(WyckoffSite(z, len(equiv_sites), tuple(rep.frac_coords)))
-        else:
-            sga = SpacegroupAnalyzer(pmg_structure, symprec=1e-3)
-            spacegroup_number = sga.get_space_group_number()
+            try:
+                sga = SpacegroupAnalyzer(pmg_structure, symprec=0.1)  # Increased tolerance
+                spacegroup_number = sga.get_space_group_number()
+                symmetrized = sga.get_symmetrized_structure()
+                
+                wyckoff_sites = []
+                for equiv_sites in symmetrized.equivalent_sites:
+                    rep = equiv_sites[0]
+                    z = rep.specie.Z
+                    wyckoff_sites.append(WyckoffSite(z, len(equiv_sites), tuple(rep.frac_coords)))
+            except Exception as e:
+                print(f"  Warning: Symmetry analysis failed, using full atomic: {e}")
+                storage_mode = StorageMode.FULL_ATOMIC
+        
+        if storage_mode == StorageMode.FULL_ATOMIC:
+            # Fallback to spacegroup 1 if analysis fails
+            try:
+                sga = SpacegroupAnalyzer(pmg_structure, symprec=0.1)
+                spacegroup_number = sga.get_space_group_number()
+            except:
+                spacegroup_number = 1
             
             atom_sites = []
             for i, site in enumerate(pmg_structure):
@@ -1179,7 +1533,7 @@ class StructureConverter:
             structure_properties=struct_props,
             formula=formula
         )
-    
+
     @staticmethod
     def to_pymatgen(usif_structure: USIFStructure) -> Union[PMGStructure, PMGMolecule]:
         if usif_structure.is_molecular():
@@ -1199,8 +1553,9 @@ class StructureConverter:
         if usif_structure.storage_mode == StorageMode.SYMMETRIC:
             for site in usif_structure.point_group_sites:
                 element = Element.from_Z(site.atomic_number)
-                species.append(element)
-                coords.append(site.coords)
+                for _ in range(site.multiplicity):
+                    species.append(element)
+                    coords.append(site.coords)
         else:
             for atom in usif_structure.atom_sites:
                 element = Element.from_Z(atom.atomic_number)
@@ -1232,8 +1587,9 @@ class StructureConverter:
         if usif_structure.storage_mode == StorageMode.SYMMETRIC:
             for site in usif_structure.wyckoff_sites:
                 element = Element.from_Z(site.atomic_number)
-                species.append(element)
-                coords.append(site.coords)
+                for _ in range(site.multiplicity):
+                    species.append(element)
+                    coords.append(site.coords)
         else:
             forces = []
             charges = []
@@ -1290,6 +1646,7 @@ class StructureConverter:
             pmg_obj = poscar.structure
         
         return StructureConverter.from_pymatgen(pmg_obj)
+
 
 # ============================================================================
 # Enhanced Container with HDF5-like Features
@@ -1349,7 +1706,7 @@ class USIFGroup:
         
         return results
 
-# Replace the StructureContainer class with this corrected version
+
 class StructureContainer:
     """
     Enhanced container with HDF5-like features:
@@ -1360,7 +1717,7 @@ class StructureContainer:
     - Memory mapping
     """
     
-    CONTAINER_MAGIC = b'USIFCv2'
+    CONTAINER_MAGIC = b'USIFCv4'
     CONTAINER_VERSION = 2
     HEADER_SIZE = 256
     CHUNK_SIZE = 64 * 1024  # 64KB chunks
@@ -1420,19 +1777,18 @@ class StructureContainer:
             self._start_prefetch_thread()
             
         elif self.mode == 'w':
-            self._file = open(self.filename, 'wb')
+            self._file = open(self.filename, 'w+b')  # Changed to w+b for read/write
             self._write_enhanced_header()
             
         elif self.mode == 'a':
             if self.filename.exists():
-                self._file = open(self.filename, 'r+b')
+                self._file = open(self.filename, 'r+b')  # Changed to r+b for read/write
                 if self.use_mmap:
                     self._mmap = mmap.mmap(self._file.fileno(), 0, access=mmap.ACCESS_WRITE)
                 self._read_enhanced_index()
             else:
-                self._file = open(self.filename, 'wb')
+                self._file = open(self.filename, 'w+b')  # Changed to w+b for read/write
                 self._write_enhanced_header()
-
     def _write_enhanced_header(self):
         """Write enhanced container header"""
         header = bytearray(self.HEADER_SIZE)
@@ -1696,8 +2052,11 @@ class StructureContainer:
         if self._mmap:
             return self._mmap[actual_offset:actual_offset + size]
         else:
+            current_pos = self._file.tell()
             self._file.seek(actual_offset)
-            return self._file.read(size)
+            data = self._file.read(size)
+            self._file.seek(current_pos)  # Restore original position
+            return data
 
     def query(self, 
               formula: str = None,
@@ -1879,3 +2238,241 @@ class StructureContainer:
                 results.append((name, structure))
         
         return results
+
+
+# ============================================================================
+# Performance Optimizations and Utilities
+# ============================================================================
+
+class USIFOptimizer:
+    """Performance optimization utilities for USIF"""
+    
+    @staticmethod
+    def optimize_structure(structure: USIFStructure, 
+                          tolerance: float = 1e-3) -> USIFStructure:
+        """
+        Optimize structure for maximum compression
+        
+        Args:
+            structure: Input USIF structure
+            tolerance: Symmetry tolerance for grouping
+            
+        Returns:
+            Optimized USIF structure
+        """
+        if structure.is_periodic():
+            return USIFOptimizer._optimize_crystal(structure, tolerance)
+        else:
+            return USIFOptimizer._optimize_molecule(structure, tolerance)
+    
+    @staticmethod
+    def _optimize_crystal(structure: USIFStructure, tolerance: float) -> USIFStructure:
+        """Optimize crystal structure"""
+        if structure.storage_mode == StorageMode.SYMMETRIC:
+            return structure  # Already optimized
+        
+        # Convert to pymatgen for symmetry analysis
+        pmg_structure = StructureConverter.to_pymatgen(structure)
+        
+        # Try symmetric storage
+        try:
+            sga = SpacegroupAnalyzer(pmg_structure, symprec=tolerance)
+            symmetrized = sga.get_symmetrized_structure()
+            
+            wyckoff_sites = []
+            for equiv_sites in symmetrized.equivalent_sites:
+                rep = equiv_sites[0]
+                z = rep.specie.Z
+                wyckoff_sites.append(WyckoffSite(z, len(equiv_sites), tuple(rep.frac_coords)))
+            
+            return USIFStructure(
+                structure_type=StructureType.PERIODIC,
+                storage_mode=StorageMode.SYMMETRIC,
+                lattice_matrix=structure.lattice_matrix,
+                spacegroup=sga.get_space_group_number(),
+                wyckoff_sites=wyckoff_sites,
+                structure_properties=structure.structure_properties,
+                formula=structure.formula
+            )
+        except Exception:
+            return structure  # Fall back to original
+    
+    @staticmethod
+    def _optimize_molecule(structure: USIFStructure, tolerance: float) -> USIFStructure:
+        """Optimize molecular structure"""
+        if structure.storage_mode == StorageMode.SYMMETRIC:
+            return structure  # Already optimized
+        
+        # Convert to pymatgen for symmetry analysis
+        pmg_molecule = StructureConverter.to_pymatgen(structure)
+        
+        # Try symmetric storage
+        try:
+            pga = PointGroupAnalyzer(pmg_molecule)
+            point_group = pga.sch_symbol
+            
+            # Simple symmetry detection
+            from collections import defaultdict
+            atom_groups = defaultdict(list)
+            
+            for i, site in enumerate(pmg_molecule):
+                z = site.specie.Z
+                atom_groups[z].append((i, np.array(site.coords)))
+            
+            point_group_sites = []
+            used = set()
+            
+            for z, atoms in atom_groups.items():
+                for idx, coords in atoms:
+                    if idx in used:
+                        continue
+                    
+                    equiv_count = 1
+                    used.add(idx)
+                    
+                    for other_idx, other_coords in atoms:
+                        if other_idx in used:
+                            continue
+                        
+                        min_dist = float('inf')
+                        for sym_op in pga.get_symmetry_operations():
+                            transformed = sym_op.operate(coords)
+                            dist = np.linalg.norm(transformed - other_coords)
+                            min_dist = min(min_dist, dist)
+                        
+                        if min_dist < tolerance:
+                            equiv_count += 1
+                            used.add(other_idx)
+                    
+                    point_group_sites.append(PointGroupSite(z, equiv_count, tuple(coords)))
+            
+            total_multiplicity = sum(s.multiplicity for s in point_group_sites)
+            if total_multiplicity == len(pmg_molecule) and len(point_group_sites) < len(pmg_molecule):
+                return USIFStructure(
+                    structure_type=StructureType.MOLECULAR,
+                    storage_mode=StorageMode.SYMMETRIC,
+                    point_group=point_group,
+                    point_group_sites=point_group_sites,
+                    structure_properties=structure.structure_properties,
+                    formula=structure.formula
+                )
+        except Exception:
+            pass
+        
+        return structure  # Fall back to original
+
+
+class USIFBenchmark:
+    """Benchmarking utilities for USIF performance"""
+    
+    @staticmethod
+    def benchmark_compression(structures: List[USIFStructure]) -> Dict[str, Any]:
+        """
+        Benchmark compression performance
+        
+        Args:
+            structures: List of structures to benchmark
+            
+        Returns:
+            Dictionary with benchmark results
+        """
+        encoder = USIF()
+        
+        total_original_size = 0
+        total_compressed_size = 0
+        compression_times = []
+        decompression_times = []
+        
+        import time
+        
+        for structure in structures:
+            # Measure compression
+            start = time.time()
+            compressed = encoder.encode(structure)
+            compression_times.append(time.time() - start)
+            
+            # Measure decompression
+            start = time.time()
+            decoded, _ = encoder.decode(compressed)
+            decompression_times.append(time.time() - start)
+            
+            # Calculate sizes
+            pmg_structure = StructureConverter.to_pymatgen(structure)
+            cif_size = len(pmg_structure.to(fmt="cif"))
+            total_original_size += cif_size
+            total_compressed_size += len(compressed)
+        
+        avg_compression_ratio = total_compressed_size / total_original_size if total_original_size > 0 else 0
+        avg_compression_time = np.mean(compression_times) if compression_times else 0
+        avg_decompression_time = np.mean(decompression_times) if decompression_times else 0
+        
+        return {
+            'num_structures': len(structures),
+            'total_original_size': total_original_size,
+            'total_compressed_size': total_compressed_size,
+            'average_compression_ratio': avg_compression_ratio,
+            'average_compression_time': avg_compression_time,
+            'average_decompression_time': avg_decompression_time,
+            'compression_speedup': 1.0 / avg_compression_ratio if avg_compression_ratio > 0 else 0
+        }
+
+
+# ============================================================================
+# Main Usage Examples
+# ============================================================================
+
+def main():
+    """Main demonstration function"""
+    print("USIF (Universal Structure Interchange Format) Demo")
+    print("=" * 50)
+    
+    # Create a simple crystal structure
+    lattice = np.array([
+        [5.0, 0.0, 0.0],
+        [0.0, 5.0, 0.0],
+        [0.0, 0.0, 5.0]
+    ])
+    
+    wyckoff_sites = [
+        WyckoffSite(14, 8, (0.0, 0.0, 0.0)),  # Silicon
+        WyckoffSite(8, 16, (0.25, 0.25, 0.25))  # Oxygen
+    ]
+    
+    crystal_structure = USIFStructure(
+        structure_type=StructureType.PERIODIC,
+        storage_mode=StorageMode.SYMMETRIC,
+        lattice_matrix=lattice,
+        spacegroup=227,
+        wyckoff_sites=wyckoff_sites,
+        formula="SiO2"
+    )
+    
+    # Create encoder
+    encoder = USIF()
+    
+    # Encode structure
+    encoded_data = encoder.encode(crystal_structure)
+    structure_hash = encoder.get_structure_hash(crystal_structure)
+    
+    print(f"Crystal structure: {crystal_structure.formula}")
+    print(f"Number of atoms: {crystal_structure.num_atoms()}")
+    print(f"Encoded size: {len(encoded_data)} bytes")
+    print(f"Structure hash: {structure_hash}")
+    
+    # Decode structure
+    decoded_structure, _ = encoder.decode(encoded_data)
+    print(f"Decoded successfully: {crystal_structure == decoded_structure}")
+    
+    # Test container
+    with StructureContainer("test_container.usifc", mode="w") as container:
+        container.add(crystal_structure, name="silica_crystal", group="/crystals")
+        
+        # Query container
+        results = container.query(formula="SiO2")
+        print(f"Found {len(results)} structures with formula SiO2")
+    
+    print("Demo completed successfully!")
+
+
+if __name__ == "__main__":
+    main()

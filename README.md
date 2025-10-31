@@ -418,4 +418,4 @@ For commercial licensing, please contact: haidi@hfut.edu.cn
 
 ---
 
-**USIF v2.0** - Universal Structure Interchange Format - Making computational materials data efficient and interoperable.
+**USIF v4.0** - Universal Structure Interchange Format - Making computational materials data efficient and interoperable.
