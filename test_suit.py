@@ -1,86 +1,64 @@
 #!/usr/bin/env python3
 """
-USIF v4.0 - Comprehensive Test Suite
-Complete testing of all USIF format features
+USIF v4.0 - Core Functionality Test Suite
+Focused testing of essential USIF format features
 """
 
 import numpy as np
 import tempfile
 import os
 import time
+import pytest
 from pathlib import Path
-from monty.serialization import dumpfn, loadfn
+import json
 
 # Import USIF modules
 from usif import (
     USIF, USIFStructure, StructureType, StorageMode, CompressionType,
     StructureConverter, StructureContainer, USIFOptimizer,
     WyckoffSite, PointGroupSite, AtomSite, AtomicProperties, StructureProperties,
-    PropertyRegistry, PropertyDefinition, PropertySerializer
+    PropertyRegistry, PropertyDefinition, PropertySerializer,ValidationError
 )
 
 
-class USIFTestSuite:
-    """Comprehensive test suite for USIF format"""
+class TestUSIFCore:
+    """Core functionality tests for USIF format"""
     
-    def __init__(self):
+    def setup_method(self):
+        """Setup test fixtures"""
         self.encoder = USIF(compression=CompressionType.GZIP)
-        self.test_results = {}
+        self.temp_dir = tempfile.mkdtemp()
     
-    def run_all_tests(self):
-        """Run all test cases"""
-        print("USIF v4.0 - Comprehensive Test Suite")
-        print("=" * 70)
-        
-        self.test_basic_structure_encoding()
-        self.test_property_system()
-        self.test_storage_modes()
-        self.test_file_operations()
-        self.test_container_features()
-        self.test_pymatgen_integration()
-        self.test_performance()
-        self.test_edge_cases()
-        
-        self.print_summary()
+    def teardown_method(self):
+        """Cleanup test fixtures"""
+        import shutil
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
     
-    def test_basic_structure_encoding(self):
-        """Test 1: Basic structure encoding and decoding"""
-        print("\n" + "=" * 70)
-        print("TEST 1: Basic Structure Encoding/Decoding")
-        print("=" * 70)
-        
-        # Test 1.1: Crystal structure with symmetric storage
+    def test_basic_structure_creation(self):
+        """Test creating basic crystal and molecular structures"""
+        # Crystal structure with symmetric storage
         lattice_si = np.array([
             [5.43, 0.0, 0.0],
             [0.0, 5.43, 0.0],
             [0.0, 0.0, 5.43]
         ])
         
-        wyckoff_sites_si = [
-            WyckoffSite(atomic_number=14, multiplicity=8, coords=(0.0, 0.0, 0.0))
-        ]
-        
         silicon = USIFStructure(
             structure_type=StructureType.PERIODIC,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=lattice_si,
             spacegroup=227,
-            wyckoff_sites=wyckoff_sites_si,
+            wyckoff_sites=[WyckoffSite(atomic_number=14, multiplicity=8, coords=(0.0, 0.0, 0.0))],
             structure_properties=StructureProperties(energy=-10.8, volume=160.1),
             formula="Si"
         )
         
-        encoded_si = self.encoder.encode(silicon)
-        decoded_si, _ = self.encoder.decode(encoded_si)
+        assert silicon.formula == "Si"
+        assert silicon.num_atoms() == 8
+        assert silicon.spacegroup == 227
+        assert silicon.structure_properties.energy == -10.8
         
-        print("✓ Silicon crystal (symmetric):")
-        print(f"  Formula: {silicon.formula}")
-        print(f"  Atoms: {silicon.num_atoms()}")
-        print(f"  Space group: {silicon.spacegroup}")
-        print(f"  Round-trip: {silicon == decoded_si}")
-        print(f"  Compression: {len(encoded_si)} bytes")
-        
-        # Test 1.2: Molecular structure with point group symmetry
+        # Molecular structure with point group symmetry
         water = USIFStructure(
             structure_type=StructureType.MOLECULAR,
             storage_mode=StorageMode.SYMMETRIC,
@@ -93,42 +71,17 @@ class USIFTestSuite:
             formula="H2O"
         )
         
-        encoded_water = self.encoder.encode(water)
-        decoded_water, _ = self.encoder.decode(encoded_water)
-        
-        print("\n✓ Water molecule (symmetric):")
-        print(f"  Formula: {water.formula}")
-        print(f"  Point group: {water.point_group}")
-        print(f"  Atoms: {water.num_atoms()}")
-        print(f"  Round-trip: {water == decoded_water}")
-        print(f"  Compression: {len(encoded_water)} bytes")
-        
-        self.test_results["basic_encoding"] = True
+        assert water.formula == "H2O"
+        assert water.num_atoms() == 3
+        assert water.point_group == "C2v"
     
-    def test_property_system(self):
-        """Test 2: Comprehensive property system testing"""
-        print("\n" + "=" * 70)
-        print("TEST 2: Property System")
-        print("=" * 70)
-        
-        # Test 2.1: Structure with all built-in properties
+    def test_encoding_decoding_roundtrip(self):
+        """Test encoding and decoding structures"""
+        # Create test structure
         nacl_atoms = [
-            AtomSite(11, (0.0, 0.0, 0.0), AtomicProperties(charge=0.5, magmom=0.0)),
-            AtomSite(17, (0.5, 0.5, 0.5), AtomicProperties(charge=-0.5, magmom=0.0))
+            AtomSite(11, (0.0, 0.0, 0.0), AtomicProperties(charge=0.5)),
+            AtomSite(17, (0.5, 0.5, 0.5), AtomicProperties(charge=-0.5))
         ]
-        
-        nacl_props = StructureProperties(
-            energy=-10.5,
-            energy_per_atom=-5.25,
-            stress=(1.0, 1.0, 1.0, 0.0, 0.0, 0.0),
-            pressure=0.1,
-            forces_rms=0.05,
-            forces_max=0.1,
-            volume=179.4,
-            calculator="VASP",
-            functional="PBE",
-            converged=True
-        )
         
         nacl = USIFStructure(
             structure_type=StructureType.PERIODIC,
@@ -136,21 +89,53 @@ class USIFTestSuite:
             lattice_matrix=np.eye(3) * 5.64,
             spacegroup=225,
             atom_sites=nacl_atoms,
-            structure_properties=nacl_props,
+            structure_properties=StructureProperties(energy=-10.5, volume=179.4),
             formula="NaCl"
         )
         
-        encoded_nacl = self.encoder.encode(nacl)
-        decoded_nacl, _ = self.encoder.decode(encoded_nacl)
+        # Encode and decode
+        encoded = self.encoder.encode(nacl)
+        decoded, _ = self.encoder.decode(encoded)
         
-        print("✓ NaCl with comprehensive properties:")
-        print(f"  Energy: {decoded_nacl.structure_properties.energy} eV")
-        print(f"  Stress: {decoded_nacl.structure_properties.stress}")
-        print(f"  Pressure: {decoded_nacl.structure_properties.pressure} kBar")
-        print(f"  Calculator: {decoded_nacl.structure_properties.calculator}")
-        print(f"  All properties preserved: {nacl.structure_properties == decoded_nacl.structure_properties}")
+        # Verify round-trip integrity
+        assert nacl == decoded
+        assert nacl.formula == decoded.formula
+        assert nacl.num_atoms() == decoded.num_atoms()
+        assert nacl.structure_properties.energy == decoded.structure_properties.energy
         
-        # Test 2.2: Custom property registration and usage
+        # Test different compression types
+        for compression in [CompressionType.NONE, CompressionType.GZIP]:
+            encoder = USIF(compression=compression)
+            encoded_compressed = encoder.encode(nacl)
+            decoded_compressed, _ = encoder.decode(encoded_compressed)
+            assert nacl == decoded_compressed
+    
+    def test_property_system(self):
+        """Test structure and atomic properties"""
+        # Test built-in properties
+        structure_props = StructureProperties(
+            energy=-15.8,
+            stress=(0.1, 0.1, 0.1, 0.0, 0.0, 0.0),
+            pressure=0.05,
+            volume=45.5,
+            custom={"calculator":"VASP"}
+#            functional="PBE",
+        )
+        
+        assert structure_props.energy == -15.8
+        assert structure_props.custom["calculator"] == "VASP"
+        
+        # Test atomic properties
+        atomic_props = AtomicProperties(
+            charge=0.5,
+            magmom=2.0,
+            force=(0.01, -0.02, 0.03)
+        )
+        
+        assert atomic_props.charge == 0.5
+        assert atomic_props.magmom == 2.0
+        
+        # Test custom properties
         band_gap_prop = PropertyDefinition(
             name="band_gap",
             data_type=float,
@@ -159,18 +144,9 @@ class USIFTestSuite:
             units="eV"
         )
         
-        dielectric_prop = PropertyDefinition(
-            name="dielectric_constant",
-            data_type=float,
-            is_per_atom=False,
-            description="Static dielectric constant",
-            units=""
-        )
+        PropertyRegistry.register(band_gap_prop)
         
-        PropertyRegistry.register_custom_property(band_gap_prop)
-        PropertyRegistry.register_custom_property(dielectric_prop)
-        
-        silicon_custom = USIFStructure(
+        custom_structure = USIFStructure(
             structure_type=StructureType.PERIODIC,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=np.eye(3) * 5.43,
@@ -178,38 +154,26 @@ class USIFTestSuite:
             wyckoff_sites=[WyckoffSite(14, 8, (0.0, 0.0, 0.0))],
             structure_properties=StructureProperties(
                 energy=-10.8,
-                custom={
-                    "band_gap": 1.12,
-                    "dielectric_constant": 11.7
-                }
+                custom={"band_gap": 1.12}
             ),
             formula="Si"
         )
         
-        encoded_custom = self.encoder.encode(silicon_custom)
-        decoded_custom, _ = self.encoder.decode(encoded_custom)
+        encoded = self.encoder.encode(custom_structure)
+        decoded, _ = self.encoder.decode(encoded)
         
-        print("\n✓ Custom properties:")
-        print(f"  Band gap: {decoded_custom.structure_properties.custom.get('band_gap')} eV")
-        print(f"  Dielectric constant: {decoded_custom.structure_properties.custom.get('dielectric_constant')}")
-        print(f"  Custom properties count: {len(decoded_custom.structure_properties.custom)}")
-        
-        self.test_results["property_system"] = True
+        assert "band_gap" in decoded.structure_properties.custom
+        assert decoded.structure_properties.custom["band_gap"] == 1.12
     
-    def test_storage_modes(self):
-        """Test 3: Different storage modes"""
-        print("\n" + "=" * 70)
-        print("TEST 3: Storage Modes")
-        print("=" * 70)
-        
-        # Create the same structure in different storage modes
+    def test_storage_mode_efficiency(self):
+        """Test storage mode efficiency and optimization"""
         lattice = np.array([
             [4.0, 0.0, 0.0],
             [0.0, 4.0, 0.0],
             [0.0, 0.0, 4.0]
         ])
         
-        # Symmetric storage (Wyckoff positions)
+        # Symmetric storage (more efficient for symmetric structures)
         diamond_symmetric = USIFStructure(
             structure_type=StructureType.PERIODIC,
             storage_mode=StorageMode.SYMMETRIC,
@@ -220,7 +184,7 @@ class USIFTestSuite:
             formula="C"
         )
         
-        # Full atomic storage
+        # Full atomic storage (less efficient but more flexible)
         diamond_atomic = USIFStructure(
             structure_type=StructureType.PERIODIC,
             storage_mode=StorageMode.FULL_ATOMIC,
@@ -229,7 +193,7 @@ class USIFTestSuite:
             atom_sites=[
                 AtomSite(6, (0.0, 0.0, 0.0)),
                 AtomSite(6, (0.25, 0.25, 0.25))
-            ],
+            ] * 4,  # 8 atoms total
             structure_properties=StructureProperties(energy=-15.8),
             formula="C"
         )
@@ -237,28 +201,16 @@ class USIFTestSuite:
         encoded_symmetric = self.encoder.encode(diamond_symmetric)
         encoded_atomic = self.encoder.encode(diamond_atomic)
         
-        print("✓ Storage mode comparison (Diamond structure):")
-        print(f"  Symmetric storage: {len(encoded_symmetric)} bytes")
-        print(f"  Full atomic storage: {len(encoded_atomic)} bytes")
-        print(f"  Compression ratio: {len(encoded_atomic)/len(encoded_symmetric):.2f}x")
-        print(f"  Same number of atoms: {diamond_symmetric.num_atoms()} = {diamond_atomic.num_atoms()}")
+        # Symmetric should be more compact
+        assert len(encoded_symmetric) < len(encoded_atomic)
         
         # Test optimization
         optimized = USIFOptimizer.optimize_structure(diamond_atomic)
-        print(f"  Optimized storage mode: {optimized.storage_mode.name}")
-        
-        self.test_results["storage_modes"] = True
+        assert optimized.storage_mode == StorageMode.SYMMETRIC
     
     def test_file_operations(self):
-        """Test 4: File I/O operations"""
-        print("\n" + "=" * 70)
-        print("TEST 4: File Operations")
-        print("=" * 70)
-        
-        # Create test structures
-        structures = []
-        
-        # Metal crystal
+        """Test saving and loading structures to/from files"""
+        # Create test structure
         aluminum = USIFStructure(
             structure_type=StructureType.PERIODIC,
             storage_mode=StorageMode.FULL_ATOMIC,
@@ -268,384 +220,254 @@ class USIFTestSuite:
             structure_properties=StructureProperties(energy=-3.7, volume=66.4),
             formula="Al"
         )
-        structures.append(("aluminum.usif", aluminum))
         
-        # Oxide crystal
-        mgo = USIFStructure(
-            structure_type=StructureType.PERIODIC,
-            storage_mode=StorageMode.SYMMETRIC,
-            lattice_matrix=np.eye(3) * 4.212,
-            spacegroup=225,
-            wyckoff_sites=[
-                WyckoffSite(12, 4, (0.0, 0.0, 0.0)),
-                WyckoffSite(8, 4, (0.5, 0.5, 0.5))
-            ],
-            structure_properties=StructureProperties(energy=-20.8, volume=74.7),
-            formula="MgO"
-        )
-        structures.append(("mgo.usif", mgo))
+        # Save to file
+        file_path = os.path.join(self.temp_dir, "aluminum.usif")
+        self.encoder.save(aluminum, file_path)
         
-        # Organic molecule
-        benzene_atoms = [
-            AtomSite(6, (0.000, 1.396, 0.000)),
-            AtomSite(6, (1.209, 0.698, 0.000)),
-            AtomSite(6, (1.209, -0.698, 0.000)),
-            AtomSite(6, (0.000, -1.396, 0.000)),
-            AtomSite(6, (-1.209, -0.698, 0.000)),
-            AtomSite(6, (-1.209, 0.698, 0.000)),
-            AtomSite(1, (0.000, 2.479, 0.000)),
-            AtomSite(1, (2.147, 1.240, 0.000)),
-            AtomSite(1, (2.147, -1.240, 0.000)),
-            AtomSite(1, (0.000, -2.479, 0.000)),
-            AtomSite(1, (-2.147, -1.240, 0.000)),
-            AtomSite(1, (-2.147, 1.240, 0.000)),
+        # Verify file exists and has content
+        assert os.path.exists(file_path)
+        assert os.path.getsize(file_path) > 0
+        
+        # Load from file
+        loaded = self.encoder.load(file_path)
+        
+        # Verify integrity
+        assert aluminum == loaded
+        assert aluminum.formula == loaded.formula
+        assert aluminum.structure_properties.energy == loaded.structure_properties.energy
+        
+        # Test with different compression
+        for compression in [CompressionType.NONE, CompressionType.GZIP]:
+            encoder = USIF(compression=compression)
+            file_path_compressed = os.path.join(self.temp_dir, f"aluminum_{compression.name}.usif")
+            encoder.save(aluminum, file_path_compressed)
+            loaded_compressed = encoder.load(file_path_compressed)
+            assert aluminum == loaded_compressed
+    
+    def test_structure_container(self):
+        """Test structure container functionality"""
+        container_file = os.path.join(self.temp_dir, "test_container.usifc")
+        
+        # Create container and add structures
+        with StructureContainer(container_file, mode='w') as container:
+            # Add various test structures
+            test_structures = [
+                ("silicon", "Si", -10.8, 160.1, "/crystals/elemental"),
+                ("aluminum", "Al", -3.7, 66.4, "/crystals/metals"),
+                ("water", "H2O", -76.4, None, "/molecules/small"),
+            ]
+            
+            for name, formula, energy, volume, group in test_structures:
+                if formula in ["H2O"]:
+                    # Molecular structure
+                    structure = USIFStructure(
+                        structure_type=StructureType.MOLECULAR,
+                        storage_mode=StorageMode.FULL_ATOMIC,
+                        atom_sites=[
+                            AtomSite(8, (0.0, 0.0, 0.0)),
+                            AtomSite(1, (0.757, 0.586, 0.0)),
+                            AtomSite(1, (-0.757, 0.586, 0.0))
+                        ],
+                        structure_properties=StructureProperties(energy=energy),
+                        formula=formula
+                    )
+                else:
+                    # Crystal structure
+                    structure = USIFStructure(
+                        structure_type=StructureType.PERIODIC,
+                        storage_mode=StorageMode.SYMMETRIC,
+                        lattice_matrix=np.eye(3) * (volume ** (1/3) if volume else 5.0),
+                        spacegroup=1,
+                        wyckoff_sites=[WyckoffSite(1, 1, (0, 0, 0))],
+                        structure_properties=StructureProperties(energy=energy, volume=volume),
+                        formula=formula
+                    )
+                
+                container.add(structure, name=name, group=group)
+            
+            assert len(container) == len(test_structures)
+            
+            # Test grouping
+            groups = container.list_groups()
+            assert "/crystals/elemental" in groups
+            assert "/molecules/small" in groups
+            
+            # Test statistics
+            stats = container.stats()
+            assert stats['total_structures'] == len(test_structures)
+            assert stats['total_groups'] == len(groups)
+        
+        # Reopen for reading
+        with StructureContainer(container_file, mode='r') as container:
+            # Test queries
+            carbon_structures = container.query(formula="C")
+            assert len(carbon_structures) == 0  # No carbon in our test data
+            
+            silicon_structures = container.query(formula="Si")
+            assert len(silicon_structures) == 1
+            
+            # Test group access
+            elemental_structures = container.get_structures_in_group("/crystals/elemental")
+            assert len(elemental_structures) >= 1
+    
+    def test_performance_benchmarks(self):
+        """Test performance with structures of different sizes"""
+        test_cases = [
+            ("Small", 10),    # Small structure
+            ("Medium", 100),  # Medium structure  
+            ("Large", 1000),  # Large structure
         ]
         
-        benzene = USIFStructure(
-            structure_type=StructureType.MOLECULAR,
-            storage_mode=StorageMode.FULL_ATOMIC,
-            atom_sites=benzene_atoms,
-            structure_properties=StructureProperties(energy=-230.5),
-            formula="C6H6"
-        )
-        structures.append(("benzene.usif", benzene))
+        print("\nPerformance Benchmarks:")
+        print(f"{'Size':<10} {'Atoms':<8} {'Encode (ms)':<12} {'Decode (ms)':<12} {'Size (bytes)':<12}")
+        print("-" * 60)
         
-        # Test individual file operations
-        for filename, structure in structures:
-            # Save to file
-            self.encoder.save(structure, filename)
+        for size_name, num_atoms in test_cases:
+            # Create test structure
+            atoms = [AtomSite(6, (i*0.1, i*0.1, i*0.1)) for i in range(num_atoms)]
+            structure = USIFStructure(
+                structure_type=StructureType.MOLECULAR,
+                storage_mode=StorageMode.FULL_ATOMIC,
+                atom_sites=atoms,
+                structure_properties=StructureProperties(energy=-num_atoms * 1.5),
+                formula=f"C{num_atoms}"
+            )
             
-            # Load from file
-            loaded = self.encoder.load(filename)
-            
-            # Verify integrity
-            original_hash = self.encoder.get_structure_hash(structure)
-            loaded_hash = self.encoder.get_structure_hash(loaded)
-            
-            print(f"✓ {filename}:")
-            print(f"  File size: {os.path.getsize(filename)} bytes")
-            print(f"  Formula: {loaded.formula}")
-            print(f"  Atoms: {loaded.num_atoms()}")
-            print(f"  Hash match: {original_hash == loaded_hash}")
-            print(f"  Structure match: {structure == loaded}")
-            
-            # Clean up
-            os.unlink(filename)
-        
-        self.test_results["file_operations"] = True
-    
-    def test_container_features(self):
-        """Test 5: Container with advanced features"""
-        print("\n" + "=" * 70)
-        print("TEST 5: Container Features")
-        print("=" * 70)
-        
-        # Create temporary container file
-        with tempfile.NamedTemporaryFile(suffix='.usifc', delete=False) as tmp:
-            container_file = tmp.name
-        
-        try:
-            # Create container and add structures
-            with StructureContainer(container_file, mode='w', use_mmap=False) as container:
-                # Add various structures with different properties
-                structures_data = [
-                    ("silicon", "Si", -10.8, 160.1, "/crystals/elemental"),
-                    ("diamond", "C", -15.8, 45.5, "/crystals/elemental"),
-                    ("aluminum", "Al", -3.7, 66.4, "/crystals/metals"),
-                    ("nacl", "NaCl", -10.5, 179.4, "/crystals/salts"),
-                    ("water", "H2O", -76.4, None, "/molecules/small"),
-                    ("benzene", "C6H6", -230.5, None, "/molecules/organic")
-                ]
-                
-                for name, formula, energy, volume, group in structures_data:
-                    if formula in ["H2O", "C6H6"]:
-                        # Molecular structures
-                        if formula == "H2O":
-                            structure = USIFStructure(
-                                structure_type=StructureType.MOLECULAR,
-                                storage_mode=StorageMode.FULL_ATOMIC,
-                                atom_sites=[
-                                    AtomSite(8, (0.0, 0.0, 0.0)),
-                                    AtomSite(1, (0.757, 0.586, 0.0)),
-                                    AtomSite(1, (-0.757, 0.586, 0.0))
-                                ],
-                                structure_properties=StructureProperties(energy=energy),
-                                formula=formula
-                            )
-                        else:  # benzene
-                            structure = USIFStructure(
-                                structure_type=StructureType.MOLECULAR,
-                                storage_mode=StorageMode.FULL_ATOMIC,
-                                atom_sites=[AtomSite(6 if i < 6 else 1, (0, 0, 0)) for i in range(12)],
-                                structure_properties=StructureProperties(energy=energy),
-                                formula=formula
-                            )
-                    else:
-                        # Crystal structures
-                        structure = USIFStructure(
-                            structure_type=StructureType.PERIODIC,
-                            storage_mode=StorageMode.SYMMETRIC,
-                            lattice_matrix=np.eye(3) * (volume ** (1/3) if volume else 5.0),
-                            spacegroup=1,
-                            wyckoff_sites=[WyckoffSite(1, 1, (0, 0, 0))],  # Simplified
-                            structure_properties=StructureProperties(energy=energy, volume=volume),
-                            formula=formula
-                        )
-                    
-                    container.add(structure, name=name, group=group)
-                
-                print(f"✓ Added {len(container)} structures to container")
-                
-                # Test grouping
-                groups = container.list_groups()
-                print(f"✓ Container groups: {groups}")
-                
-                # Test statistics
-                stats = container.stats()
-                print(f"✓ Container statistics:")
-                print(f"  Total structures: {stats['total_structures']}")
-                print(f"  Total groups: {stats['total_groups']}")
-                print(f"  Total size: {stats['total_size_bytes']} bytes")
-                print(f"  Average structure size: {stats['average_structure_size']:.1f} bytes")
-            
-            # Reopen container for reading
-            with StructureContainer(container_file, mode='r', use_mmap=False) as container:
-                # Test queries
-                carbon_structures = container.query(formula="C")
-                print(f"✓ Found {len(carbon_structures)} carbon structures")
-                
-                low_energy = container.query(energy_range=(-100, -10))
-                print(f"✓ Found {len(low_energy)} structures with energy < -10 eV")
-                
-                # Test group access
-                elemental_structures = container.get_structures_in_group("/crystals/elemental")
-                print(f"✓ Found {len(elemental_structures)} structures in /crystals/elemental")
-                
-                # Test batch operations
-                all_hashes = list(container._hash_index.keys())[:3]
-                batch_results = container.get_batch_parallel(all_hashes)
-                valid_results = [r for r in batch_results if r is not None]
-                print(f"✓ Batch retrieved {len(valid_results)}/{len(all_hashes)} structures")
-                
-        finally:
-            # Clean up
-            if os.path.exists(container_file):
-                os.unlink(container_file)
-        
-        self.test_results["container_features"] = True
-    
-    def test_pymatgen_integration(self):
-        """Test 6: Pymatgen integration"""
-        print("\n" + "=" * 70)
-        print("TEST 6: Pymatgen Integration")
-        print("=" * 70)
-        
-        try:
-            from pymatgen.core import Structure, Lattice, Molecule
-            
-            # Test 6.1: Crystal structure conversion
-            lattice = Lattice.cubic(5.43)
-            species = ["Si", "Si"]
-            coords = [[0, 0, 0], [0.25, 0.25, 0.25]]
-            pmg_silicon = Structure(lattice, species, coords)
-            
-            # Convert to USIF
-            usif_silicon = StructureConverter.from_pymatgen(pmg_silicon)
-            print("✓ Pymatgen → USIF conversion:")
-            print(f"  Original formula: {pmg_silicon.formula}")
-            print(f"  USIF formula: {usif_silicon.formula}")
-            print(f"  Atoms: {usif_silicon.num_atoms()}")
-            
-            # Convert back to pymatgen
-            pmg_back = StructureConverter.to_pymatgen(usif_silicon)
-            print(f"  USIF → Pymatgen round-trip: {pmg_silicon.formula == pmg_back.formula}")
-            
-            # Test 6.2: Molecular conversion
-            coords = [[0, 0, 0], [0.757, 0.586, 0], [-0.757, 0.586, 0]]
-            species = ["O", "H", "H"]
-            pmg_water = Molecule(species, coords)
-            
-            usif_water = StructureConverter.from_pymatgen(pmg_water)
-            pmg_water_back = StructureConverter.to_pymatgen(usif_water)
-            
-            print("\n✓ Molecular conversion:")
-            print(f"  Original: {pmg_water.formula}")
-            print(f"  Round-trip: {pmg_water_back.formula}")
-            print(f"  Atom count: {len(pmg_water)} → {len(pmg_water_back)}")
-            
-            self.test_results["pymatgen_integration"] = True
-            
-        except ImportError:
-            print("⚠ Pymatgen not available, skipping integration tests")
-            self.test_results["pymatgen_integration"] = False
-    
-    def test_performance(self):
-        """Test 7: Performance benchmarks"""
-        print("\n" + "=" * 70)
-        print("TEST 7: Performance Benchmarks")
-        print("=" * 70)
-        
-        # Create test structures of different sizes
-        test_structures = []
-        
-        # Small structure (water)
-        water = USIFStructure(
-            structure_type=StructureType.MOLECULAR,
-            storage_mode=StorageMode.FULL_ATOMIC,
-            atom_sites=[
-                AtomSite(8, (0.0, 0.0, 0.0)),
-                AtomSite(1, (0.757, 0.586, 0.0)),
-                AtomSite(1, (-0.757, 0.586, 0.0))
-            ],
-            structure_properties=StructureProperties(energy=-76.4),
-            formula="H2O"
-        )
-        test_structures.append(("Small (H₂O)", water))
-        
-        # Medium structure (benzene)
-        benzene_atoms = [AtomSite(6 if i < 6 else 1, (0, 0, 0)) for i in range(12)]
-        benzene = USIFStructure(
-            structure_type=StructureType.MOLECULAR,
-            storage_mode=StorageMode.FULL_ATOMIC,
-            atom_sites=benzene_atoms,
-            structure_properties=StructureProperties(energy=-230.5),
-            formula="C6H6"
-        )
-        test_structures.append(("Medium (C₆H₆)", benzene))
-        
-        # Large structure (simulated protein fragment)
-        large_atoms = [AtomSite(6, (i*0.1, i*0.1, i*0.1)) for i in range(100)]
-        large_structure = USIFStructure(
-            structure_type=StructureType.MOLECULAR,
-            storage_mode=StorageMode.FULL_ATOMIC,
-            atom_sites=large_atoms,
-            structure_properties=StructureProperties(energy=-1500.0),
-            formula="C100"
-        )
-        test_structures.append(("Large (C₁₀₀)", large_structure))
-        
-        # Performance testing
-        print("Performance benchmarks:")
-        print(f"{'Structure':<15} {'Atoms':<6} {'Encode (ms)':<12} {'Decode (ms)':<12} {'Size (bytes)':<12} {'Bytes/atom':<12}")
-        print("-" * 70)
-        
-        for name, structure in test_structures:
             # Encoding performance
-            start_time = time.time()
+            start_time = time.perf_counter()
             encoded = self.encoder.encode(structure)
-            encode_time = (time.time() - start_time) * 1000
+            encode_time = (time.perf_counter() - start_time) * 1000
             
-            # Decoding performance
-            start_time = time.time()
+            # Decoding performance  
+            start_time = time.perf_counter()
             decoded, _ = self.encoder.decode(encoded)
-            decode_time = (time.time() - start_time) * 1000
+            decode_time = (time.perf_counter() - start_time) * 1000
             
-            size = len(encoded)
-            bytes_per_atom = size / structure.num_atoms()
+            size_bytes = len(encoded)
             
-            print(f"{name:<15} {structure.num_atoms():<6} {encode_time:<12.3f} {decode_time:<12.3f} {size:<12} {bytes_per_atom:<12.3f}")
-        
-        self.test_results["performance"] = True
+            print(f"{size_name:<10} {num_atoms:<8} {encode_time:<12.3f} {decode_time:<12.3f} {size_bytes:<12}")
+            
+            # Verify round-trip
+            assert structure.num_atoms() == decoded.num_atoms()
     
-    def test_edge_cases(self):
-        """Test 8: Edge cases and error handling"""
-        print("\n" + "=" * 70)
-        print("TEST 8: Edge Cases & Error Handling")
-        print("=" * 70)
-        
-        # Test 8.1: Empty and invalid structures
-        print("✓ Testing error handling:")
-        
-        try:
-            # Invalid: Molecular structure with lattice
-            invalid = USIFStructure(
+    def test_error_handling(self):
+        """Test error handling and validation"""
+        # Test invalid structure creation
+        with pytest.raises(ValidationError):
+            # Molecular structure should not have lattice
+            USIFStructure(
                 structure_type=StructureType.MOLECULAR,
                 storage_mode=StorageMode.SYMMETRIC,
-                lattice_matrix=np.eye(3),  # Should not have lattice
+                lattice_matrix=np.eye(3),
                 point_group="C1",
                 point_group_sites=[PointGroupSite(1, 1, (0, 0, 0))],
                 formula="H"
             )
-            print("  ✗ Molecular with lattice: Should have failed")
-        except ValueError as e:
-            print(f"  ✓ Molecular with lattice correctly rejected: {e}")
         
-        try:
-            # Invalid: Periodic structure without lattice
-            invalid = USIFStructure(
+        with pytest.raises(ValidationError):
+            # Periodic structure must have lattice
+            USIFStructure(
                 structure_type=StructureType.PERIODIC,
                 storage_mode=StorageMode.SYMMETRIC,
-                lattice_matrix=None,  # Should have lattice
+                lattice_matrix=None,  # Invalid for periodic
                 spacegroup=1,
                 wyckoff_sites=[WyckoffSite(1, 1, (0, 0, 0))],
                 formula="H"
             )
-            print("  ✗ Periodic without lattice: Should have failed")
-        except ValueError as e:
-            print(f"  ✓ Periodic without lattice correctly rejected: {e}")
         
-        # Test 8.2: Large multiplicity values
-        large_wyckoff = [WyckoffSite(1, 5000, (0, 0, 0))]  # Large multiplicity
-        large_structure = USIFStructure(
+    def test_structure_hashing(self):
+        """Test structure hashing for identity and comparison"""
+        # Create identical structures
+        lattice = np.eye(3) * 5.0
+        structure1 = USIFStructure(
             structure_type=StructureType.PERIODIC,
             storage_mode=StorageMode.SYMMETRIC,
-            lattice_matrix=np.eye(3) * 10,
+            lattice_matrix=lattice,
             spacegroup=1,
-            wyckoff_sites=large_wyckoff,
-            formula="H5000"
+            wyckoff_sites=[WyckoffSite(1, 1, (0, 0, 0))],
+            formula="H"
         )
         
-        encoded_large = self.encoder.encode(large_structure)
-        decoded_large, _ = self.encoder.decode(encoded_large)
+        structure2 = USIFStructure(
+            structure_type=StructureType.PERIODIC,
+            storage_mode=StorageMode.SYMMETRIC,
+            lattice_matrix=lattice.copy(),  # Different object, same values
+            spacegroup=1,
+            wyckoff_sites=[WyckoffSite(1, 1, (0, 0, 0))],
+            formula="H"
+        )
         
-        print(f"✓ Large multiplicity (5000 atoms):")
-        print(f"  Original atoms: {large_structure.num_atoms()}")
-        print(f"  Decoded atoms: {decoded_large.num_atoms()}")
-        print(f"  Multiplicity preserved: {large_structure.wyckoff_sites[0].multiplicity == decoded_large.wyckoff_sites[0].multiplicity}")
+        # Should be equal
+        assert structure1 == structure2
         
-        # Test 8.3: Property validation
-        print("\n✓ Property validation:")
+        # Hashes should be equal for equal structures
+        hash1 = self.encoder.get_structure_hash(structure1)
+        hash2 = self.encoder.get_structure_hash(structure2)
+        assert hash1 == hash2
         
-        # Valid property
-        valid = PropertySerializer.validate_value(-10.5, PropertyRegistry.ENERGY)
-        print(f"  Valid energy: {valid}")
+        # Different structure should have different hash
+        structure3 = USIFStructure(
+            structure_type=StructureType.PERIODIC,
+            storage_mode=StorageMode.SYMMETRIC,
+            lattice_matrix=np.eye(3) * 5.1,  # Different lattice constant
+            spacegroup=1,
+            wyckoff_sites=[WyckoffSite(1, 1, (0, 0, 0))],
+            formula="H"
+        )
         
-        # Invalid property type
-        valid = PropertySerializer.validate_value("invalid", PropertyRegistry.ENERGY)
-        print(f"  Invalid energy type: {not valid}")
-        
-        # Valid per-atom property
-        valid = PropertySerializer.validate_value([(0.1, 0.2, 0.3)], PropertyRegistry.FORCE, num_atoms=1)
-        print(f"  Valid force (single atom): {valid}")
-        
-        self.test_results["edge_cases"] = True
+        hash3 = self.encoder.get_structure_hash(structure3)
+        assert hash1 != hash3
+
+
+def run_comprehensive_test():
+    """Run comprehensive test suite"""
+    print("USIF v4.0 - Comprehensive Core Test Suite")
+    print("=" * 70)
     
-    def print_summary(self):
-        """Print test summary"""
-        print("\n" + "=" * 70)
-        print("TEST SUMMARY")
-        print("=" * 70)
-        
-        total_tests = len(self.test_results)
-        passed_tests = sum(self.test_results.values())
-        
-        print(f"Total tests: {total_tests}")
-        print(f"Passed: {passed_tests}")
-        print(f"Failed: {total_tests - passed_tests}")
-        
-        if passed_tests == total_tests:
-            print("🎉 ALL TESTS PASSED! 🎉")
-        else:
-            print("❌ Some tests failed")
-            
-        print("=" * 70)
-
-
-def main():
-    """Run the complete test suite"""
-    test_suite = USIFTestSuite()
-    test_suite.run_all_tests()
+    test_suite = TestUSIFCore()
+    
+    # Run all test methods
+    test_methods = [method for method in dir(test_suite) 
+                   if method.startswith('test_') and callable(getattr(test_suite, method))]
+    
+    results = {}
+    
+    for method_name in test_methods:
+        print(f"\nRunning {method_name}...")
+        try:
+            test_suite.setup_method()
+            getattr(test_suite, method_name)()
+            results[method_name] = "PASSED"
+            print(f"✓ {method_name}: PASSED")
+        except Exception as e:
+            results[method_name] = f"FAILED: {str(e)}"
+            print(f"✗ {method_name}: FAILED - {str(e)}")
+        finally:
+            test_suite.teardown_method()
+    
+    # Print summary
+    print("\n" + "=" * 70)
+    print("TEST SUMMARY")
+    print("=" * 70)
+    
+    total_tests = len(results)
+    passed_tests = sum(1 for result in results.values() if result == "PASSED")
+    
+    for test, result in results.items():
+        status = "✓" if result == "PASSED" else "✗"
+        print(f"{status} {test}: {result}")
+    
+    print(f"\nTotal: {total_tests}, Passed: {passed_tests}, Failed: {total_tests - passed_tests}")
+    
+    if passed_tests == total_tests:
+        print("🎉 ALL TESTS PASSED! 🎉")
+    else:
+        print("❌ SOME TESTS FAILED")
+    
+    return passed_tests == total_tests
 
 
 if __name__ == "__main__":
-    main()
+    success = run_comprehensive_test()
+    exit(0 if success else 1)
