@@ -5,11 +5,12 @@ Universal structure representation for crystals and molecules
 """
 
 import numpy as np
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Tuple, Optional, Any, Union
+from pathlib import Path
 from monty.json import MSONable
 
-from usif.enums import StructureType, StorageMode
-from usif.exceptions import ValidationError
+from usif.enums import StructureType, StorageMode, CompressionType
+from usif.exceptions import ValidationError, StorageError
 from usif.structures.sites import WyckoffSite, PointGroupSite, AtomSite
 from usif.properties.structure import StructureProperties
 from usif.properties.atomic import AtomicProperties
@@ -252,9 +253,125 @@ class USIFStructure(MSONable):
                 f"storage_mode={self.storage_mode.name}, "
                 f"formula='{self.formula}', "
                 f"atoms={self.num_atoms()})")
+    
+    @classmethod
+    def from_pymatgen(cls, pmg_obj, 
+                     forces: Optional[np.ndarray] = None,
+                     stress: Optional[np.ndarray] = None,
+                     energy: Optional[float] = None,
+                     charges: Optional[np.ndarray] = None,
+                     magmoms: Optional[np.ndarray] = None,
+                     force_symmetric: bool = False,
+                     **kwargs) -> 'USIFStructure':
+        """
+        Create USIFStructure from pymatgen Structure or Molecule
+        
+        This is a convenient class method that automatically handles symmetry
+        analysis and Wyckoff site extraction from pymatgen objects.
+        
+        Args:
+            pmg_obj: Pymatgen Structure or Molecule object
+            forces: Optional forces array (Nx3)
+            stress: Optional stress tensor (3x3 or 6-element Voigt)
+            energy: Optional energy value
+            charges: Optional atomic charges array
+            magmoms: Optional magnetic moments array
+            force_symmetric: Force symmetric storage mode (default: auto-detect)
+            **kwargs: Additional properties to store in structure_properties.custom
+            
+        Returns:
+            USIFStructure instance with automatic symmetry analysis
+            
+        Example:
+            >>> from pymatgen.core import Structure
+            >>> pmg_struct = Structure.from_file("structure.cif")
+            >>> usif_struct = USIFStructure.from_pymatgen(
+            ...     pmg_struct,
+            ...     energy=-10.5,
+            ...     calculator="VASP"
+            ... )
+        """
+        from usif.converter import StructureConverter
+        return StructureConverter.from_pymatgen(
+            pmg_obj,
+            forces=forces,
+            stress=stress,
+            energy=energy,
+            charges=charges,
+            magmoms=magmoms,
+            force_symmetric=force_symmetric,
+            **kwargs
+        )
+    
+    def save(self, filename: Union[str, Path], 
+             compression: CompressionType = CompressionType.GZIP) -> None:
+        """
+        Save structure to file
+        
+        Automatically uses USIF encoder when file extension is .usif,
+        otherwise saves as JSON (MSONable format).
+        
+        Args:
+            filename: Output file path
+            compression: Compression type for .usif files (ignored for JSON)
+            
+        Example:
+            >>> structure.save("structure.usif")  # Uses USIF encoder
+            >>> structure.save("structure.json")  # Uses JSON format
+        """
+        filename = Path(filename)
+        
+        if filename.suffix.lower() == '.usif':
+            # Use USIF encoder for .usif files
+            from usif.encoder import USIF
+            encoder = USIF(compression=compression)
+            encoder.save(self, filename)
+        else:
+            # Use MSONable JSON format for other files
+            try:
+                import json
+                # Use monty.json's jsanitize for proper serialization
+                from monty.json import jsanitize
+                with open(filename, 'w') as f:
+                    json.dump(jsanitize(self.as_dict()), f, indent=2)
+            except IOError as e:
+                raise StorageError(f"Failed to save structure to {filename}: {e}") from e
+    
+    @classmethod
+    def load(cls, filename: Union[str, Path]) -> 'USIFStructure':
+        """
+        Load structure from file
+        
+        Automatically detects format based on file extension:
+        - .usif files: Uses USIF decoder
+        - Other files: Uses JSON (MSONable format)
+        
+        Args:
+            filename: Input file path
+            
+        Returns:
+            USIFStructure instance
+            
+        Example:
+            >>> structure = USIFStructure.load("structure.usif")
+            >>> structure = USIFStructure.load("structure.json")
+        """
+        filename = Path(filename)
+        
+        if filename.suffix.lower() == '.usif':
+            # Use USIF decoder for .usif files
+            from usif.encoder import USIF
+            encoder = USIF()
+            return encoder.load(filename)
+        else:
+            # Use MSONable JSON format for other files
+            try:
+                import json
+                with open(filename, 'r') as f:
+                    data = json.load(f)
+                return cls.from_dict(data)
+            except (IOError, FileNotFoundError) as e:
+                raise StorageError(f"Failed to load structure from {filename}: {e}") from e
 
 
-# ============================================================================
-# USIF Encoder/Decoder
-# ============================================================================
 
