@@ -5,6 +5,7 @@ Structure optimization utilities
 """
 
 import numpy as np
+import logging
 from typing import Optional
 
 try:
@@ -17,6 +18,8 @@ from usif.enums import StorageMode, StructureType
 from usif.exceptions import SymmetryAnalysisError
 from usif.structures.structure import USIFStructure
 from usif.structures.sites import WyckoffSite, PointGroupSite, AtomSite
+
+logger = logging.getLogger(__name__)
 
 class USIFOptimizer:
     """Performance optimization utilities for USIF"""
