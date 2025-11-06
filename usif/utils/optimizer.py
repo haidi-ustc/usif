@@ -37,7 +37,7 @@ class USIFOptimizer:
         Returns:
             Optimized USIF structure
         """
-        if structure.is_periodic():
+        if structure.is_crystal():
             return USIFOptimizer._optimize_crystal(structure, tolerance)
         else:
             return USIFOptimizer._optimize_molecule(structure, tolerance)

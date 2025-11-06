@@ -48,7 +48,7 @@ class TestUSIFOptimizer(unittest.TestCase):
         try:
             optimized = USIFOptimizer.optimize_structure(self.periodic_structure)
             self.assertIsInstance(optimized, USIFStructure)
-            self.assertTrue(optimized.is_periodic())
+            self.assertTrue(optimized.is_crystal())
             # Should maintain same number of atoms
             self.assertEqual(optimized.num_atoms(), self.periodic_structure.num_atoms())
         except Exception:

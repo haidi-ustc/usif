@@ -189,7 +189,7 @@ The main structure class with convenient methods:
   - Other extensions use JSON format
 
 - `num_atoms()` - Get total number of atoms
-- `is_periodic()` - Check if periodic structure
+- `is_crystal()` - Check if crystal structure
 - `is_molecular()` - Check if molecular structure
 - `is_symmetric()` - Check if using symmetric storage
 

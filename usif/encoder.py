@@ -39,7 +39,7 @@ class USIF:
         data.extend(struct.pack(BinaryFormat.UINT8, structure.structure_type.value))
         data.extend(struct.pack(BinaryFormat.UINT8, structure.storage_mode.value))
         
-        if structure.is_periodic():
+        if structure.is_crystal():
             lattice_data = structure.lattice_matrix.astype(np.float32).tobytes()
             data.extend(lattice_data)
             data.extend(struct.pack(BinaryFormat.UINT16, structure.spacegroup))
@@ -49,7 +49,7 @@ class USIF:
             data.extend(pg_bytes)
         
         if structure.storage_mode == StorageMode.SYMMETRIC:
-            if structure.is_periodic():
+            if structure.is_crystal():
                 data.extend(struct.pack(BinaryFormat.UINT8, len(structure.wyckoff_sites)))
                 for site in structure.wyckoff_sites:
                     data.extend(struct.pack(BinaryFormat.UINT8, site.atomic_number))

@@ -82,8 +82,8 @@ class USIFStructure(MSONable):
                 if self.atom_sites is None or len(self.atom_sites) == 0:
                     raise ValidationError("Crystal FULL_ATOMIC mode requires non-empty atom_sites")
     
-    def is_periodic(self) -> bool:
-        """Check if structure is periodic (crystal)"""
+    def is_crystal(self) -> bool:
+        """Check if structure is crystal"""
         return self.structure_type == StructureType.CRYSTAL
     
     def is_molecular(self) -> bool:
@@ -97,7 +97,7 @@ class USIFStructure(MSONable):
     def num_atoms(self) -> int:
         """Get total number of atoms"""
         if self.storage_mode == StorageMode.SYMMETRIC:
-            if self.is_periodic():
+            if self.is_crystal():
                 if self.wyckoff_sites is None:
                     return 0
                 return sum(site.multiplicity for site in self.wyckoff_sites)

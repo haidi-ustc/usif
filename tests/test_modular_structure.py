@@ -44,7 +44,7 @@ class TestModularStructure(unittest.TestCase):
         )
         
         self.assertEqual(structure.formula, "Si")
-        self.assertTrue(structure.is_periodic())
+        self.assertTrue(structure.is_crystal())
         self.assertTrue(structure.is_symmetric())
         self.assertEqual(structure.num_atoms(), 8)
     

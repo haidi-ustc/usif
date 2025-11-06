@@ -32,7 +32,7 @@ class TestStructureConverter(unittest.TestCase):
         
         usif_structure = StructureConverter.from_pymatgen(structure)
         self.assertIsInstance(usif_structure, USIFStructure)
-        self.assertTrue(usif_structure.is_periodic())
+        self.assertTrue(usif_structure.is_crystal())
         self.assertEqual(usif_structure.num_atoms(), 2)
     
     def test_from_pymatgen_molecule(self):
