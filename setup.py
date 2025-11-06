@@ -7,10 +7,14 @@ from setuptools import setup, find_packages
 from pathlib import Path
 
 # Read README for long description
-readme_file = Path(__file__).parent / "docs" / "README.md"
+readme_file = Path(__file__).parent / "README.md"
 if readme_file.exists():
-    with open(readme_file, "r", encoding="utf-8") as f:
-        long_description = f.read()
+    try:
+        with open(readme_file, "r", encoding="utf-8") as f:
+            long_description = f.read()
+    except UnicodeDecodeError:
+        # Fallback if encoding issues
+        long_description = "USIF (Universal Structure Interchange Format) - Unified format for crystals and molecules with intelligent compression"
 else:
     long_description = "USIF (Universal Structure Interchange Format) - Unified format for crystals and molecules with intelligent compression"
 
