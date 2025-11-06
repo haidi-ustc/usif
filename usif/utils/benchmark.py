@@ -5,11 +5,15 @@ Performance benchmarking utilities
 """
 
 import time
+import logging
 import numpy as np
 from typing import List, Dict, Any
 
 from usif.encoder import USIF
 from usif.structures.structure import USIFStructure
+from usif.converter import StructureConverter
+
+logger = logging.getLogger(__name__)
 
 class USIFBenchmark:
     """Benchmarking utilities for USIF performance"""
@@ -31,8 +35,6 @@ class USIFBenchmark:
         total_compressed_size = 0
         compression_times = []
         decompression_times = []
-        
-        import time
         
         for structure in structures:
             try:

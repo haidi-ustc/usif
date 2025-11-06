@@ -93,10 +93,16 @@ class USIFStructure(MSONable):
         """Get total number of atoms"""
         if self.storage_mode == StorageMode.SYMMETRIC:
             if self.is_periodic():
+                if self.wyckoff_sites is None:
+                    return 0
                 return sum(site.multiplicity for site in self.wyckoff_sites)
             else:
+                if self.point_group_sites is None:
+                    return 0
                 return sum(site.multiplicity for site in self.point_group_sites)
         else:
+            if self.atom_sites is None:
+                return 0
             return len(self.atom_sites)
     
     def as_dict(self) -> dict:

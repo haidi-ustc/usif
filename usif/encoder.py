@@ -7,11 +7,14 @@ Main encoder and decoder for USIF format
 import struct
 import hashlib
 import gzip
+import logging
 import numpy as np
 from typing import Optional, Tuple, Union
 from pathlib import Path
 
 from usif.constants import BinaryFormat
+
+logger = logging.getLogger(__name__)
 from usif.enums import CompressionType, StructureType, StorageMode
 from usif.exceptions import EncodingError, DecodingError, CorruptedDataError, ValidationError
 from usif.structures.structure import USIFStructure
