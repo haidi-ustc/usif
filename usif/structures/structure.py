@@ -65,17 +65,21 @@ class USIFStructure(MSONable):
         if self.structure_type == StructureType.MOLECULAR:
             if self.lattice_matrix is not None:
                 raise ValidationError("Molecular structures should not have lattice")
-            if self.storage_mode == StorageMode.SYMMETRIC and self.point_group_sites is None:
-                raise ValidationError("Molecular SYMMETRIC mode requires point_group_sites")
-            elif self.storage_mode == StorageMode.FULL_ATOMIC and self.atom_sites is None:
-                raise ValidationError("Molecular FULL_ATOMIC mode requires atom_sites")
+            if self.storage_mode == StorageMode.SYMMETRIC:
+                if self.point_group_sites is None or len(self.point_group_sites) == 0:
+                    raise ValidationError("Molecular SYMMETRIC mode requires non-empty point_group_sites")
+            elif self.storage_mode == StorageMode.FULL_ATOMIC:
+                if self.atom_sites is None or len(self.atom_sites) == 0:
+                    raise ValidationError("Molecular FULL_ATOMIC mode requires non-empty atom_sites")
         else:
             if self.lattice_matrix is None:
                 raise ValidationError("Periodic structures require lattice")
-            if self.storage_mode == StorageMode.SYMMETRIC and self.wyckoff_sites is None:
-                raise ValidationError("Periodic SYMMETRIC mode requires wyckoff_sites")
-            elif self.storage_mode == StorageMode.FULL_ATOMIC and self.atom_sites is None:
-                raise ValidationError("Periodic FULL_ATOMIC mode requires atom_sites")
+            if self.storage_mode == StorageMode.SYMMETRIC:
+                if self.wyckoff_sites is None or len(self.wyckoff_sites) == 0:
+                    raise ValidationError("Periodic SYMMETRIC mode requires non-empty wyckoff_sites")
+            elif self.storage_mode == StorageMode.FULL_ATOMIC:
+                if self.atom_sites is None or len(self.atom_sites) == 0:
+                    raise ValidationError("Periodic FULL_ATOMIC mode requires non-empty atom_sites")
     
     def is_periodic(self) -> bool:
         """Check if structure is periodic"""
