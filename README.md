@@ -42,10 +42,11 @@ from usif import USIFStructure
 pmg_struct = Structure.from_file("structure.cif")
 
 # Convert to USIF with automatic Wyckoff site extraction
+# Custom properties can be passed as keyword arguments
 usif_struct = USIFStructure.from_pymatgen(
     pmg_struct,
     energy=-10.5,
-    calculator="VASP"
+    calculator="VASP"  # Stored in structure_properties.custom
 )
 
 # Save directly to .usif file
@@ -76,7 +77,7 @@ wyckoff_sites = [
 structure_props = StructureProperties(
     energy=-10.5,
     volume=179.4,
-    custom={"calculator": "VASP"}
+    custom={"calculator": "VASP"}  # Custom properties dictionary
 )
 
 structure = USIFStructure(
@@ -175,7 +176,8 @@ The main structure class with convenient methods:
   - Automatically performs symmetry analysis
   - Extracts Wyckoff sites for crystals
   - Supports forces, stress, energy, charges, magmoms
-  - Additional properties via `**kwargs` stored in `custom`
+  - Additional properties via `**kwargs` are stored in `structure_properties.custom`
+  - Example: `calculator="VASP"` → `structure_properties.custom["calculator"] = "VASP"`
 
 - `load(filename)` - Load structure from file
   - Auto-detects format (.usif uses encoder, others use JSON)
@@ -268,8 +270,12 @@ props = StructureProperties(
     energy=-10.5,
     volume=179.4,
     stress=(1.0, 1.0, 1.0, 0.0, 0.0, 0.0),  # Voigt notation
-    custom={"calculator": "VASP", "kpoints": "4x4x4"}
+    custom={"calculator": "VASP", "kpoints": "4x4x4"}  # Custom properties
 )
+
+# Note: When using from_pymatgen(), you can pass custom properties as kwargs:
+# USIFStructure.from_pymatgen(pmg_struct, calculator="VASP", kpoints="4x4x4")
+# This is equivalent to custom={"calculator": "VASP", "kpoints": "4x4x4"}
 ```
 
 ### Atomic Properties
