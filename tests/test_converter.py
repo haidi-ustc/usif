@@ -71,7 +71,7 @@ class TestStructureConverter(unittest.TestCase):
         wyckoff_sites = [WyckoffSite(14, 2, (0.0, 0.0, 0.0))]
         
         usif_structure = USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=lattice_matrix,
             spacegroup=227,
@@ -94,7 +94,7 @@ class TestStructureConverter(unittest.TestCase):
         ]
         
         usif_structure = USIFStructure(
-            structure_type=StructureType.MOLECULAR,
+            structure_type=StructureType.MOLECULE,
             storage_mode=StorageMode.FULL_ATOMIC,
             atom_sites=atom_sites,
             formula="H2O"

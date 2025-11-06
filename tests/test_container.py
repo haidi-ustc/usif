@@ -27,7 +27,7 @@ class TestStructureContainer(unittest.TestCase):
         self.temp_file.close()
         
         self.structure = USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=np.eye(3) * 5.0,
             spacegroup=227,

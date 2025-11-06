@@ -80,7 +80,7 @@ structure_props = StructureProperties(
 )
 
 structure = USIFStructure(
-    structure_type=StructureType.PERIODIC,
+    structure_type=StructureType.CRYSTAL,
     storage_mode=StorageMode.SYMMETRIC,
     lattice_matrix=lattice_matrix,
     spacegroup=225,
@@ -246,11 +246,11 @@ USIF supports different structure types and storage modes:
 ┌─────────────┬──────────────┬─────────────────┐
 │             │ SYMMETRIC    │ FULL_ATOMIC     │
 ├─────────────┼──────────────┼─────────────────┤
-│ PERIODIC    │ Wyckoff      │ All atoms       │
-│ (Crystal)   │ + lattice    │ + lattice       │
+│ CRYSTAL     │ Wyckoff      │ All atoms       │
+│ (Periodic)  │ + lattice    │ + lattice       │
 ├─────────────┼──────────────┼─────────────────┤
-│ MOLECULAR   │ Point group  │ All atoms       │
-│ (Molecule)  │ (no lattice) │ (no lattice)    │
+│ MOLECULE    │ Point group  │ All atoms       │
+│ (Molecular) │ (no lattice) │ (no lattice)    │
 └─────────────┴──────────────┴─────────────────┘
 ```
 

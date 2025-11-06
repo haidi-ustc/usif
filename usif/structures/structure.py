@@ -23,11 +23,11 @@ class USIFStructure(MSONable):
     ┌─────────────┬──────────────┬─────────────────┐
     │             │ SYMMETRIC    │ FULL_ATOMIC     │
     ├─────────────┼──────────────┼─────────────────┤
-    │ PERIODIC    │ Wyckoff      │ All atoms       │
-    │ (Crystal)   │ + lattice    │ + lattice       │
+    │ CRYSTAL     │ Wyckoff      │ All atoms       │
+    │ (Periodic)  │ + lattice    │ + lattice       │
     ├─────────────┼──────────────┼─────────────────┤
-    │ MOLECULAR   │ Point group  │ All atoms       │
-    │ (Molecule)  │ (no lattice) │ (no lattice)    │
+    │ MOLECULE    │ Point group  │ All atoms       │
+    │ (Molecular) │ (no lattice) │ (no lattice)    │
     └─────────────┴──────────────┴─────────────────┘
     """
     
@@ -36,7 +36,7 @@ class USIFStructure(MSONable):
                 'structure_properties', 'formula']
     
     def __init__(self, 
-                 structure_type: StructureType = StructureType.PERIODIC,
+                 structure_type: StructureType = StructureType.CRYSTAL,
                  storage_mode: StorageMode = StorageMode.SYMMETRIC,
                  lattice_matrix: Optional[np.ndarray] = None,
                  spacegroup: int = 1,
@@ -63,7 +63,7 @@ class USIFStructure(MSONable):
     
     def _validate_structure(self) -> None:
         """Validate structure configuration"""
-        if self.structure_type == StructureType.MOLECULAR:
+        if self.structure_type == StructureType.MOLECULE:
             if self.lattice_matrix is not None:
                 raise ValidationError("Molecular structures should not have lattice")
             if self.storage_mode == StorageMode.SYMMETRIC:
@@ -74,21 +74,21 @@ class USIFStructure(MSONable):
                     raise ValidationError("Molecular FULL_ATOMIC mode requires non-empty atom_sites")
         else:
             if self.lattice_matrix is None:
-                raise ValidationError("Periodic structures require lattice")
+                raise ValidationError("Crystal structures require lattice")
             if self.storage_mode == StorageMode.SYMMETRIC:
                 if self.wyckoff_sites is None or len(self.wyckoff_sites) == 0:
-                    raise ValidationError("Periodic SYMMETRIC mode requires non-empty wyckoff_sites")
+                    raise ValidationError("Crystal SYMMETRIC mode requires non-empty wyckoff_sites")
             elif self.storage_mode == StorageMode.FULL_ATOMIC:
                 if self.atom_sites is None or len(self.atom_sites) == 0:
-                    raise ValidationError("Periodic FULL_ATOMIC mode requires non-empty atom_sites")
+                    raise ValidationError("Crystal FULL_ATOMIC mode requires non-empty atom_sites")
     
     def is_periodic(self) -> bool:
-        """Check if structure is periodic"""
-        return self.structure_type == StructureType.PERIODIC
+        """Check if structure is periodic (crystal)"""
+        return self.structure_type == StructureType.CRYSTAL
     
     def is_molecular(self) -> bool:
         """Check if structure is molecular"""
-        return self.structure_type == StructureType.MOLECULAR
+        return self.structure_type == StructureType.MOLECULE
     
     def is_symmetric(self) -> bool:
         """Check if using symmetric storage"""

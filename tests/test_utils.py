@@ -21,7 +21,7 @@ class TestUSIFOptimizer(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures"""
         self.periodic_structure = USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             storage_mode=StorageMode.FULL_ATOMIC,
             lattice_matrix=np.eye(3) * 5.0,
             spacegroup=1,
@@ -33,7 +33,7 @@ class TestUSIFOptimizer(unittest.TestCase):
         )
         
         self.molecular_structure = USIFStructure(
-            structure_type=StructureType.MOLECULAR,
+            structure_type=StructureType.MOLECULE,
             storage_mode=StorageMode.FULL_ATOMIC,
             atom_sites=[
                 AtomSite(8, (0.0, 0.0, 0.0)),
@@ -88,7 +88,7 @@ class TestUSIFBenchmark(unittest.TestCase):
         """Set up test fixtures"""
         self.structures = [
             USIFStructure(
-                structure_type=StructureType.PERIODIC,
+                structure_type=StructureType.CRYSTAL,
                 storage_mode=StorageMode.SYMMETRIC,
                 lattice_matrix=np.eye(3) * 5.0,
                 spacegroup=227,
@@ -97,7 +97,7 @@ class TestUSIFBenchmark(unittest.TestCase):
                 formula="Si"
             ),
             USIFStructure(
-                structure_type=StructureType.PERIODIC,
+                structure_type=StructureType.CRYSTAL,
                 storage_mode=StorageMode.SYMMETRIC,
                 lattice_matrix=np.eye(3) * 5.0,
                 spacegroup=227,

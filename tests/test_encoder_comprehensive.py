@@ -30,7 +30,7 @@ class TestEncoderComprehensive(unittest.TestCase):
         
         # Create test structures
         self.periodic_symmetric = USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=np.eye(3) * 5.0,
             spacegroup=227,
@@ -40,7 +40,7 @@ class TestEncoderComprehensive(unittest.TestCase):
         )
         
         self.periodic_atomic = USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             storage_mode=StorageMode.FULL_ATOMIC,
             lattice_matrix=np.eye(3) * 5.0,
             spacegroup=1,
@@ -53,7 +53,7 @@ class TestEncoderComprehensive(unittest.TestCase):
         )
         
         self.molecular_symmetric = USIFStructure(
-            structure_type=StructureType.MOLECULAR,
+            structure_type=StructureType.MOLECULE,
             storage_mode=StorageMode.SYMMETRIC,
             point_group="C2v",
             point_group_sites=[
@@ -65,7 +65,7 @@ class TestEncoderComprehensive(unittest.TestCase):
         )
         
         self.molecular_atomic = USIFStructure(
-            structure_type=StructureType.MOLECULAR,
+            structure_type=StructureType.MOLECULE,
             storage_mode=StorageMode.FULL_ATOMIC,
             atom_sites=[
                 AtomSite(8, (0.0, 0.0, 0.0), AtomicProperties(charge=-0.8)),
@@ -173,7 +173,7 @@ class TestEncoderComprehensive(unittest.TestCase):
             stress=(1.0, 1.0, 1.0, 0.0, 0.0, 0.0)  # Voigt notation
         )
         structure = USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=np.eye(3) * 5.0,
             spacegroup=227,
@@ -199,7 +199,7 @@ class TestEncoderComprehensive(unittest.TestCase):
                     AtomicProperties(charge=-0.5, force=np.array([-0.1, -0.2, -0.3])))
         ]
         structure = USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             storage_mode=StorageMode.FULL_ATOMIC,
             lattice_matrix=np.eye(3) * 5.0,
             spacegroup=1,
@@ -234,7 +234,7 @@ class TestEncoderComprehensive(unittest.TestCase):
     def test_empty_formula(self):
         """Test encoding with empty formula"""
         structure = USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=np.eye(3) * 5.0,
             spacegroup=227,
@@ -249,7 +249,7 @@ class TestEncoderComprehensive(unittest.TestCase):
         """Test encoding large structure"""
         wyckoff_sites = [WyckoffSite(1, 1000, (0.0, 0.0, 0.0))]
         structure = USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=np.eye(3) * 10.0,
             spacegroup=1,
@@ -265,7 +265,7 @@ class TestEncoderComprehensive(unittest.TestCase):
         # Empty wyckoff_sites should fail validation
         with self.assertRaises(ValidationError):
             USIFStructure(
-                structure_type=StructureType.PERIODIC,
+                structure_type=StructureType.CRYSTAL,
                 storage_mode=StorageMode.SYMMETRIC,
                 lattice_matrix=np.eye(3) * 5.0,
                 spacegroup=227,
@@ -276,7 +276,7 @@ class TestEncoderComprehensive(unittest.TestCase):
         # Empty atom_sites should fail validation
         with self.assertRaises(ValidationError):
             USIFStructure(
-                structure_type=StructureType.PERIODIC,
+                structure_type=StructureType.CRYSTAL,
                 storage_mode=StorageMode.FULL_ATOMIC,
                 lattice_matrix=np.eye(3) * 5.0,
                 spacegroup=1,

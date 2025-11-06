@@ -294,7 +294,7 @@ class USIF:
             data.extend(struct.pack(BinaryFormat.UINT8, structure.structure_type.value))
             data.extend(struct.pack(BinaryFormat.UINT8, structure.storage_mode.value))
             
-            if structure.structure_type == StructureType.MOLECULAR:
+            if structure.structure_type == StructureType.MOLECULE:
                 if structure.storage_mode == StorageMode.SYMMETRIC:
                     point_group = structure.point_group or "C1"
                     pg_bytes = point_group.encode('utf-8')
@@ -413,7 +413,7 @@ class USIF:
             point_group_sites = None
             atom_sites = None
             
-            if structure_type == StructureType.MOLECULAR:
+            if structure_type == StructureType.MOLECULE:
                 if storage_mode == StorageMode.SYMMETRIC:
                     pg_len = struct.unpack(BinaryFormat.UINT8, data[offset:offset+1])[0]
                     offset += 1
@@ -490,7 +490,7 @@ class USIF:
             offset += 2
             formula = data[offset:offset+formula_len].decode('utf-8')
             
-            if structure_type == StructureType.MOLECULAR:
+            if structure_type == StructureType.MOLECULE:
                 structure = USIFStructure(
                     structure_type=structure_type,
                     storage_mode=storage_mode,
@@ -541,9 +541,4 @@ class USIF:
             return structure
         except (IOError, FileNotFoundError) as e:
             raise StorageError(f"Failed to load structure from {filename}: {e}") from e
-
-
-# ============================================================================
-# Pymatgen Converter
-# ============================================================================
 

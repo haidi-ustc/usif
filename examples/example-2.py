@@ -35,7 +35,7 @@ def example_basic_structure_creation():
     ]
     
     silicon_crystal = USIFStructure(
-        structure_type=StructureType.PERIODIC,
+        structure_type=StructureType.CRYSTAL,
         storage_mode=StorageMode.SYMMETRIC,
         lattice_matrix=lattice,
         spacegroup=227,  # Fd-3m space group for diamond
@@ -61,7 +61,7 @@ def example_molecular_structure():
     ]
     
     methane = USIFStructure(
-        structure_type=StructureType.MOLECULAR,
+        structure_type=StructureType.MOLECULE,
         storage_mode=StorageMode.SYMMETRIC,
         point_group="Td",
         point_group_sites=point_group_sites,
@@ -105,7 +105,7 @@ def example_with_properties():
     )
     
     water_molecule = USIFStructure(
-        structure_type=StructureType.MOLECULAR,
+        structure_type=StructureType.MOLECULE,
         storage_mode=StorageMode.FULL_ATOMIC,
         atom_sites=atom_sites,
         structure_properties=structure_props,
@@ -136,7 +136,7 @@ def example_encoding_decoding():
     ]
     
     nacl_crystal = USIFStructure(
-        structure_type=StructureType.PERIODIC,
+        structure_type=StructureType.CRYSTAL,
         storage_mode=StorageMode.SYMMETRIC,
         lattice_matrix=lattice,
         spacegroup=225,  # Fm-3m
@@ -198,7 +198,7 @@ def example_structure_container():
                     ]
                     
                     structure = USIFStructure(
-                        structure_type=StructureType.PERIODIC,
+                        structure_type=StructureType.CRYSTAL,
                         storage_mode=StorageMode.SYMMETRIC,
                         lattice_matrix=lattice,
                         spacegroup=227,
@@ -260,7 +260,7 @@ def example_custom_properties():
     wyckoff_sites = [WyckoffSite(14, 2, (0.00, 0.00, 0.00))]
     
     silicon = USIFStructure(
-        structure_type=StructureType.PERIODIC,
+        structure_type=StructureType.CRYSTAL,
         storage_mode=StorageMode.SYMMETRIC,
         lattice_matrix=lattice,
         spacegroup=227,
@@ -449,7 +449,7 @@ def example_optimization():
     ]
     
     disordered_structure = USIFStructure(
-        structure_type=StructureType.PERIODIC,
+        structure_type=StructureType.CRYSTAL,
         storage_mode=StorageMode.FULL_ATOMIC,
         lattice_matrix=lattice,
         spacegroup=1,  # P1 - no symmetry
@@ -505,7 +505,7 @@ def example_benchmarking():
             formula = "SiO2"
         
         structure = USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=lattice,
             spacegroup=227,

@@ -34,7 +34,7 @@ class TestModularStructure(unittest.TestCase):
         ]
         
         structure = USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=lattice,
             spacegroup=227,
@@ -57,7 +57,7 @@ class TestModularStructure(unittest.TestCase):
         ]
         
         structure = USIFStructure(
-            structure_type=StructureType.MOLECULAR,
+            structure_type=StructureType.MOLECULE,
             storage_mode=StorageMode.FULL_ATOMIC,
             atom_sites=atom_sites,
             structure_properties=StructureProperties(energy=-76.4),
@@ -74,7 +74,7 @@ class TestModularStructure(unittest.TestCase):
         wyckoff_sites = [WyckoffSite(14, 2, (0.0, 0.0, 0.0))]
         
         structure = USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=lattice,
             spacegroup=227,

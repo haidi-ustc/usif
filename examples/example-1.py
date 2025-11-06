@@ -28,7 +28,7 @@ def test_examples():
     ]
 
     silicon_crystal = USIFStructure(
-        structure_type=StructureType.PERIODIC,
+        structure_type=StructureType.CRYSTAL,
         storage_mode=StorageMode.SYMMETRIC,
         lattice_matrix=lattice,
         spacegroup=227,  # Fd-3m (diamond structure)
@@ -67,7 +67,7 @@ def test_examples():
     ]
 
     nacl_crystal = USIFStructure(
-        structure_type=StructureType.PERIODIC,
+        structure_type=StructureType.CRYSTAL,
         storage_mode=StorageMode.FULL_ATOMIC,
         lattice_matrix=lattice_nacl,
         spacegroup=225,  # Fm-3m
@@ -105,7 +105,7 @@ def test_examples():
     # Test 3: Molecular Structure (Symmetric)
     print("\n3. Testing Molecular Structure (Symmetric)")
     water_molecule = USIFStructure(
-        structure_type=StructureType.MOLECULAR,
+        structure_type=StructureType.MOLECULE,
         storage_mode=StorageMode.SYMMETRIC,
         point_group="C2v",
         point_group_sites=[
@@ -152,7 +152,7 @@ def test_examples():
     ]
 
     benzene = USIFStructure(
-        structure_type=StructureType.MOLECULAR,
+        structure_type=StructureType.MOLECULE,
         storage_mode=StorageMode.FULL_ATOMIC,
         atom_sites=benzene_atoms,
         structure_properties=StructureProperties(
@@ -258,7 +258,7 @@ def test_edge_cases():
     print("\n1. Testing Error Conditions")
     try:
         empty_structure = USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=np.eye(3),
             spacegroup=1,
@@ -272,7 +272,7 @@ def test_edge_cases():
     # Test 2: Invalid molecular structure with lattice
     try:
         invalid_mol = USIFStructure(
-            structure_type=StructureType.MOLECULAR,
+            structure_type=StructureType.MOLECULE,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=np.eye(3),  # Should not have lattice
             point_group="C1",
@@ -287,7 +287,7 @@ def test_edge_cases():
     print("\n2. Testing Large Structure")
     large_wyckoff = [WyckoffSite(1, 1000, (0,0,0))]  # 1000 hydrogen atoms
     large_structure = USIFStructure(
-        structure_type=StructureType.PERIODIC,
+        structure_type=StructureType.CRYSTAL,
         storage_mode=StorageMode.SYMMETRIC,
         lattice_matrix=np.eye(3) * 10,
         spacegroup=1,
@@ -313,7 +313,7 @@ def test_edge_cases():
     ]
     
     simple_structure = USIFStructure(
-        structure_type=StructureType.PERIODIC,
+        structure_type=StructureType.CRYSTAL,
         storage_mode=StorageMode.FULL_ATOMIC,
         lattice_matrix=np.eye(3),
         spacegroup=1,
@@ -339,7 +339,7 @@ def test_edge_cases():
     print("\n4. Testing Very Large Multiplicity")
     huge_wyckoff = [WyckoffSite(1, 65535, (0,0,0))]  # Maximum for 2 bytes
     huge_structure = USIFStructure(
-        structure_type=StructureType.PERIODIC,
+        structure_type=StructureType.CRYSTAL,
         storage_mode=StorageMode.SYMMETRIC,
         lattice_matrix=np.eye(3) * 20,
         spacegroup=1,
@@ -410,7 +410,7 @@ def test_property_system():
     PropertyRegistry.register(band_gap_prop)
     
     structure_with_custom = USIFStructure(
-        structure_type=StructureType.PERIODIC,
+        structure_type=StructureType.CRYSTAL,
         storage_mode=StorageMode.SYMMETRIC,
         lattice_matrix=np.eye(3),
         spacegroup=1,

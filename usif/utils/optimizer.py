@@ -63,7 +63,7 @@ class USIFOptimizer:
                 )
             
             return USIFStructure(
-                structure_type=StructureType.PERIODIC,
+                structure_type=StructureType.CRYSTAL,
                 storage_mode=StorageMode.SYMMETRIC,
                 lattice_matrix=structure.lattice_matrix,
                 spacegroup=sga.get_space_group_number(),
@@ -126,7 +126,7 @@ class USIFOptimizer:
             if total_multiplicity == len(pmg_molecule) and \
                len(point_group_sites) < len(pmg_molecule):
                 return USIFStructure(
-                    structure_type=StructureType.MOLECULAR,
+                    structure_type=StructureType.MOLECULE,
                     storage_mode=StorageMode.SYMMETRIC,
                     point_group=point_group,
                     point_group_sites=point_group_sites,

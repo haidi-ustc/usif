@@ -9,8 +9,8 @@ from enum import IntEnum
 
 class StructureType(IntEnum):
     """Structure type enumeration"""
-    PERIODIC = 0  # Crystal with lattice
-    MOLECULAR = 1  # Molecule without lattice
+    CRYSTAL = 0  # Crystal with lattice
+    MOLECULE = 1  # Molecule without lattice
 
 
 class StorageMode(IntEnum):

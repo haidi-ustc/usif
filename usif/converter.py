@@ -130,7 +130,7 @@ class StructureConverter:
                     formula = pmg_molecule.composition.reduced_formula
                     
                     return USIFStructure(
-                        structure_type=StructureType.MOLECULAR,
+                        structure_type=StructureType.MOLECULE,
                         storage_mode=StorageMode.SYMMETRIC,
                         point_group=point_group,
                         point_group_sites=point_group_sites,
@@ -162,7 +162,7 @@ class StructureConverter:
         formula = pmg_molecule.composition.reduced_formula
         
         return USIFStructure(
-            structure_type=StructureType.MOLECULAR,
+            structure_type=StructureType.MOLECULE,
             storage_mode=StorageMode.FULL_ATOMIC,
             atom_sites=atom_sites,
             structure_properties=struct_props,
@@ -259,7 +259,7 @@ class StructureConverter:
         formula = pmg_structure.composition.reduced_formula
         
         return USIFStructure(
-            structure_type=StructureType.PERIODIC,
+            structure_type=StructureType.CRYSTAL,
             lattice_matrix=lattice_matrix,
             spacegroup=spacegroup_number,
             storage_mode=storage_mode,
