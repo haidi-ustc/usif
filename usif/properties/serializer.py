@@ -74,78 +74,40 @@ class PropertySerializer:
     @staticmethod
     def serialize_value(value: Any, prop_def: PropertyDefinition,
                        num_atoms: Optional[int] = None) -> bytes:
-        """Serialize property value to bytes"""
+        """Serialize property value to bytes - unified handling for scalars and arrays"""
         if value is None:
             return b''
         
         try:
-            if prop_def.is_scalar():
-                return PropertySerializer._serialize_scalar(value, prop_def)
+            # Unified approach: check if it's per-atom or structure-level
+            if prop_def.is_per_atom:
+                # Per-atom property: can be scalar or array, needs count encoding
+                return PropertySerializer._serialize_per_atom_property(value, prop_def, num_atoms)
             else:
-                return PropertySerializer._serialize_array(value, prop_def, num_atoms)
+                # Structure-level property: can be scalar or array, no count needed
+                return PropertySerializer._serialize_structure_property(value, prop_def)
         except (struct.error, UnicodeEncodeError, ValueError) as e:
             raise EncodingError(f"Failed to serialize property '{prop_def.name}': {e}") from e
     
     @staticmethod
-    def _serialize_scalar(value: Any, prop_def: PropertyDefinition) -> bytes:
-        """Serialize scalar value"""
-        handler = PropertySerializer.TYPE_HANDLERS.get(prop_def.data_type)
-        if not handler:
-            raise EncodingError(f"Unsupported scalar type: {prop_def.data_type}")
-        
-        if prop_def.data_type == str:
-            return PropertySerializer._serialize_string(value)
-        
-        fmt = handler['scalar_format']
-        if fmt:
-            return struct.pack(fmt, value)
-        raise EncodingError(f"Scalar format not defined for {prop_def.data_type}")
-    
-    @staticmethod
-    def _serialize_array(value: Any, prop_def: PropertyDefinition,
-                        num_atoms: Optional[int] = None) -> bytes:
-        """Serialize array value - handles both structure arrays and per-atom arrays"""
+    def _serialize_per_atom_property(value: Any, prop_def: PropertyDefinition,
+                                    num_atoms: Optional[int] = None) -> bytes:
+        """Serialize per-atom property - unified handling for scalars and arrays"""
         data = bytearray()
         
-        if prop_def.is_per_atom:
-            # PER-ATOM PROPERTY: Store multiple values (one per atom)
-            PropertySerializer._serialize_per_atom_array(data, value, prop_def, num_atoms)
-        else:
-            # STRUCTURE PROPERTY: Store single array value  
-            PropertySerializer._serialize_structure_array(data, value, prop_def)
-        
-        return bytes(data)
-    
-    @staticmethod
-    def _serialize_per_atom_array(data: bytearray, value: Any, 
-                                 prop_def: PropertyDefinition, num_atoms: Optional[int]) -> None:
-        """Serialize per-atom property (multiple values, one per atom)"""
         # Check if this is a single multi-dimensional element (like one force vector)
-        if PropertySerializer._is_multi_dimensional_element(value) and prop_def.dimensions:
-            # Single multi-dimensional element for one atom
-            actual_count = 1
-        else:
-            actual_count = PropertySerializer._get_atom_count(value, num_atoms)
+        is_multi_dim = PropertySerializer._is_multi_dimensional_element(value) and prop_def.dimensions
+        is_sequence = PropertySerializer._is_sequence(value) and not is_multi_dim
         
-        # Validate count consistency
-        if num_atoms is not None and actual_count != 1 and actual_count != num_atoms:
-            raise EncodingError(
-                f"Per-atom property count mismatch: expected 1 or {num_atoms}, got {actual_count}"
-            )
-        
-        # Encode count information
-        if actual_count == 1 and not PropertySerializer._is_sequence(value):
-            # Single scalar value repeated for all atoms - use special flag
-            data.extend(struct.pack(BinaryFormat.UINT8, PropertySerializer.SINGLE_VALUE_FLAG))
-            element_data = PropertySerializer._serialize_array_element(value, prop_def)
-            data.extend(element_data)
-        elif actual_count == 1 and PropertySerializer._is_multi_dimensional_element(value):
-            # Single multi-dimensional element (like force vector) for one atom
-            data.extend(struct.pack(BinaryFormat.UINT8, PropertySerializer.SINGLE_VALUE_FLAG))
-            element_data = PropertySerializer._serialize_array_element(value, prop_def)
-            data.extend(element_data)
-        else:
-            # Multiple values - encode actual count
+        if is_sequence:
+            # Multiple values (list/array of values)
+            actual_count = len(value)
+            if num_atoms is not None and actual_count != 1 and actual_count != num_atoms:
+                raise EncodingError(
+                    f"Per-atom property count mismatch: expected 1 or {num_atoms}, got {actual_count}"
+                )
+            
+            # Encode count
             if actual_count <= PropertySerializer.LONG_COUNT_FLAG - 1:
                 data.extend(struct.pack(BinaryFormat.UINT8, actual_count))
             else:
@@ -153,30 +115,32 @@ class PropertySerializer:
                 data.extend(struct.pack(BinaryFormat.UINT32, actual_count))
             
             # Serialize each value
-            if PropertySerializer._is_sequence(value) and not PropertySerializer._is_multi_dimensional_element(value):
-                for atom_value in value:
-                    element_data = PropertySerializer._serialize_array_element(atom_value, prop_def)
-                    data.extend(element_data)
-            else:
-                # Should not happen due to count check above
-                raise EncodingError("Invalid per-atom value structure")
+            for atom_value in value:
+                element_data = PropertySerializer._serialize_element(atom_value, prop_def)
+                data.extend(element_data)
+        else:
+            # Single value (scalar or multi-dimensional element) - use special flag
+            data.extend(struct.pack(BinaryFormat.UINT8, PropertySerializer.SINGLE_VALUE_FLAG))
+            element_data = PropertySerializer._serialize_element(value, prop_def)
+            data.extend(element_data)
+        
+        return bytes(data)
     
     @staticmethod
-    def _serialize_structure_array(data: bytearray, value: Any,
-                                  prop_def: PropertyDefinition) -> None:
-        """Serialize structure-level array property (single array value)"""
-        element_data = PropertySerializer._serialize_array_element(value, prop_def)
-        data.extend(element_data)
+    def _serialize_structure_property(value: Any, prop_def: PropertyDefinition) -> bytes:
+        """Serialize structure-level property - unified handling for scalars and arrays"""
+        # Structure properties don't need count encoding, just serialize the value directly
+        return PropertySerializer._serialize_element(value, prop_def)
     
     @staticmethod
-    def _serialize_array_element(value: Any, prop_def: PropertyDefinition) -> bytes:
-        """Serialize a single array element (could be scalar or multi-dimensional)"""
+    def _serialize_element(value: Any, prop_def: PropertyDefinition) -> bytes:
+        """Serialize a single element - unified handling for scalars and multi-dimensional values"""
         if prop_def.dimensions:
-            # Multi-dimensional array element
+            # Multi-dimensional element (e.g., force vector, stress tensor)
             return PropertySerializer._serialize_multi_dimensional(value, prop_def)
         else:
-            # Scalar array element
-            return PropertySerializer._serialize_scalar_element(value, prop_def)
+            # Scalar element
+            return PropertySerializer._serialize_scalar_value(value, prop_def)
     
     @staticmethod
     def _serialize_multi_dimensional(value: Any, prop_def: PropertyDefinition) -> bytes:
@@ -202,19 +166,20 @@ class PropertySerializer:
             raise EncodingError(f"Unsupported multi-dimensional type: {prop_def.data_type}")
     
     @staticmethod
-    def _serialize_scalar_element(value: Any, prop_def: PropertyDefinition) -> bytes:
-        """Serialize scalar array element"""
+    def _serialize_scalar_value(value: Any, prop_def: PropertyDefinition) -> bytes:
+        """Serialize scalar value (used for both structure and per-atom properties)"""
         handler = PropertySerializer.TYPE_HANDLERS.get(prop_def.data_type)
         if not handler:
-            raise EncodingError(f"Unsupported array element type: {prop_def.data_type}")
+            raise EncodingError(f"Unsupported scalar type: {prop_def.data_type}")
         
         if prop_def.data_type == str:
             return PropertySerializer._serialize_string(value)
         
-        fmt = handler['array_format']
+        # Use array_format for efficiency (smaller size) when available, fallback to scalar_format
+        fmt = handler.get('array_format') or handler.get('scalar_format')
         if fmt:
             return struct.pack(fmt, value)
-        raise EncodingError(f"Array format not defined for {prop_def.data_type}")
+        raise EncodingError(f"Format not defined for {prop_def.data_type}")
     
     @staticmethod
     def _serialize_string(value: str) -> bytes:
@@ -231,59 +196,37 @@ class PropertySerializer:
     @staticmethod
     def deserialize_value(prop_def: PropertyDefinition, data: bytes,
                          offset: int, num_atoms: Optional[int] = None) -> Tuple[Any, int]:
-        """Deserialize property value from bytes"""
+        """Deserialize property value from bytes - unified handling for scalars and arrays"""
         if len(data) <= offset:
             return None, offset
         
         try:
-            if prop_def.is_scalar():
-                return PropertySerializer._deserialize_scalar(data, offset, prop_def)
+            # Unified approach: check if it's per-atom or structure-level
+            if prop_def.is_per_atom:
+                # Per-atom property: needs count decoding
+                return PropertySerializer._deserialize_per_atom_property(data, offset, prop_def, num_atoms)
             else:
-                return PropertySerializer._deserialize_array(data, offset, prop_def, num_atoms)
+                # Structure-level property: no count, just deserialize the value
+                return PropertySerializer._deserialize_structure_property(data, offset, prop_def)
         except (struct.error, UnicodeDecodeError, ValueError) as e:
             raise DecodingError(f"Failed to deserialize property '{prop_def.name}' at offset {offset}: {e}") from e
 
     @staticmethod
-    def _deserialize_scalar(data: bytes, offset: int, prop_def: PropertyDefinition) -> Tuple[Any, int]:
-        """Deserialize scalar value"""
-        handler = PropertySerializer.TYPE_HANDLERS.get(prop_def.data_type)
-        if not handler:
-            raise DecodingError(f"Unsupported scalar data type: {prop_def.data_type}")
-        
-        if prop_def.data_type == str:
-            return PropertySerializer._deserialize_string(data, offset)
-        
-        fmt = handler['scalar_format']
-        if fmt:
-            size = struct.calcsize(fmt)
-            value = struct.unpack(fmt, data[offset:offset+size])[0]
-            return value, offset + size
-        raise DecodingError(f"Scalar format not defined for {prop_def.data_type}")
-    
-    @staticmethod
-    def _deserialize_array(data: bytes, offset: int, prop_def: PropertyDefinition,
-                          num_atoms: Optional[int] = None) -> Tuple[Any, int]:
-        """Deserialize array value"""
-        if prop_def.is_per_atom:
-            return PropertySerializer._deserialize_per_atom_array(data, offset, prop_def, num_atoms)
-        else:
-            return PropertySerializer._deserialize_structure_array(data, offset, prop_def)
-    
-    @staticmethod
-    def _deserialize_per_atom_array(data: bytes, offset: int, prop_def: PropertyDefinition,
-                                   num_atoms: Optional[int]) -> Tuple[Any, int]:
-        """Deserialize per-atom property"""
+    def _deserialize_per_atom_property(data: bytes, offset: int, prop_def: PropertyDefinition,
+                                      num_atoms: Optional[int] = None) -> Tuple[Any, int]:
+        """Deserialize per-atom property - unified handling for scalars and arrays"""
         # Read count flag/byte
         count_flag = struct.unpack(BinaryFormat.UINT8, data[offset:offset+1])[0]
         offset += 1
         
         if count_flag == PropertySerializer.SINGLE_VALUE_FLAG:
-            # Single value repeated for all atoms
-            value, offset = PropertySerializer._deserialize_array_element(data, offset, prop_def)
+            # Single value (scalar or multi-dimensional element)
+            value, offset = PropertySerializer._deserialize_element(data, offset, prop_def)
             if num_atoms and num_atoms > 1:
+                # Repeat for all atoms
                 return [value] * num_atoms, offset
             else:
-                # For single atom, return just the value (not a list)
+                # For single atom, return just the value
                 return value, offset
         else:
             # Multiple values
@@ -301,25 +244,18 @@ class PropertySerializer:
             
             values = []
             for _ in range(count):
-                atom_value, offset = PropertySerializer._deserialize_array_element(data, offset, prop_def)
+                atom_value, offset = PropertySerializer._deserialize_element(data, offset, prop_def)
                 values.append(atom_value)
             
             return values, offset
-
-    @staticmethod
-    def _deserialize_structure_array(data: bytes, offset: int,
-                                    prop_def: PropertyDefinition) -> Tuple[Any, int]:
-        """Deserialize structure-level array property"""
-        return PropertySerializer._deserialize_array_element(data, offset, prop_def)
     
     @staticmethod
-    def _deserialize_array_element(data: bytes, offset: int,
-                                  prop_def: PropertyDefinition) -> Tuple[Any, int]:
-        """Deserialize single array element"""
-        if prop_def.dimensions:
-            return PropertySerializer._deserialize_multi_dimensional(data, offset, prop_def)
-        else:
-            return PropertySerializer._deserialize_scalar_element(data, offset, prop_def)
+    def _deserialize_structure_property(data: bytes, offset: int,
+                                       prop_def: PropertyDefinition) -> Tuple[Any, int]:
+        """Deserialize structure-level property - unified handling for scalars and arrays"""
+        # Structure properties don't have count encoding, just deserialize the value
+        return PropertySerializer._deserialize_element(data, offset, prop_def)
+    
     
     @staticmethod
     def _deserialize_multi_dimensional(data: bytes, offset: int,
@@ -345,22 +281,34 @@ class PropertySerializer:
             raise DecodingError(f"Unsupported multi-dimensional type: {prop_def.data_type}")
     
     @staticmethod
-    def _deserialize_scalar_element(data: bytes, offset: int,
-                                   prop_def: PropertyDefinition) -> Tuple[Any, int]:
-        """Deserialize scalar array element"""
+    def _deserialize_element(data: bytes, offset: int,
+                            prop_def: PropertyDefinition) -> Tuple[Any, int]:
+        """Deserialize a single element - unified handling for scalars and multi-dimensional values"""
+        if prop_def.dimensions:
+            # Multi-dimensional element
+            return PropertySerializer._deserialize_multi_dimensional(data, offset, prop_def)
+        else:
+            # Scalar element
+            return PropertySerializer._deserialize_scalar_value(data, offset, prop_def)
+    
+    @staticmethod
+    def _deserialize_scalar_value(data: bytes, offset: int,
+                                 prop_def: PropertyDefinition) -> Tuple[Any, int]:
+        """Deserialize scalar value (used for both structure and per-atom properties)"""
         handler = PropertySerializer.TYPE_HANDLERS.get(prop_def.data_type)
         if not handler:
-            raise DecodingError(f"Unsupported array element type: {prop_def.data_type}")
+            raise DecodingError(f"Unsupported scalar data type: {prop_def.data_type}")
         
         if prop_def.data_type == str:
             return PropertySerializer._deserialize_string(data, offset)
         
-        fmt = handler['array_format']
+        # Use array_format for efficiency, fallback to scalar_format
+        fmt = handler.get('array_format') or handler.get('scalar_format')
         if fmt:
             size = struct.calcsize(fmt)
             value = struct.unpack(fmt, data[offset:offset+size])[0]
             return value, offset + size
-        raise DecodingError(f"Array format not defined for {prop_def.data_type}")
+        raise DecodingError(f"Format not defined for {prop_def.data_type}")
     
     @staticmethod
     def _deserialize_string(data: bytes, offset: int) -> Tuple[str, int]:

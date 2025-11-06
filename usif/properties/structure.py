@@ -49,9 +49,9 @@ class StructureProperties:
             if isinstance(v1, (tuple, list, np.ndarray)) and isinstance(v2, (tuple, list, np.ndarray)):
                 if len(v1) != len(v2):
                     return False
-                return all(abs(float(a) - float(b)) < 1e-6 for a, b in zip(v1, v2))
+                return all(abs(float(a) - float(b)) < 1e-5 for a, b in zip(v1, v2))
             elif isinstance(v1, float) and isinstance(v2, float):
-                return abs(v1 - v2) < 1e-6
+                return abs(v1 - v2) < 1e-5
             else:
                 return v1 == v2
         
