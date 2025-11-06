@@ -43,7 +43,7 @@ wyckoff_sites = [
 structure_props = StructureProperties(
     energy=-10.5,
     volume=179.4,
-    calculator="VASP"
+    custom={"calculator": "VASP"}
 )
 
 structure = USIFStructure(

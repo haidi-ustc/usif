@@ -123,6 +123,9 @@ class StructureConverter:
                     struct_props = StructureProperties()
                     if energy is not None:
                         struct_props.energy = energy
+                    # Add any custom properties from kwargs
+                    if kwargs:
+                        struct_props.custom.update(kwargs)
                     
                     formula = pmg_molecule.composition.reduced_formula
                     
@@ -152,6 +155,9 @@ class StructureConverter:
         struct_props = StructureProperties()
         if energy is not None:
             struct_props.energy = energy
+        # Add any custom properties from kwargs
+        if kwargs:
+            struct_props.custom.update(kwargs)
         
         formula = pmg_molecule.composition.reduced_formula
         
@@ -245,6 +251,10 @@ class StructureConverter:
                 struct_props.stress = tuple(stress[:6])
         
         struct_props.volume = pmg_structure.volume
+        
+        # Add any custom properties from kwargs
+        if kwargs:
+            struct_props.custom.update(kwargs)
         
         formula = pmg_structure.composition.reduced_formula
         
@@ -354,9 +364,4 @@ class StructureConverter:
             lattice, species, coords, coords_are_cartesian=False,
             site_properties=site_properties if site_properties else None
         )
-
-
-# ============================================================================
-# Container System with Thread Safety
-# ============================================================================
 

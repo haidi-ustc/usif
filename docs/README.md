@@ -6,40 +6,40 @@
 
 USIF is a next-generation file format designed for storing and exchanging atomic structure data with unprecedented efficiency and flexibility. It provides a unified interface for both periodic (crystals) and non-periodic (molecules) structures with intelligent compression capabilities.
 
-## í ½íº€ Key Features
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Key Features
 
-### í ¼í¾¯ Unified Structure Support
+### ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Unified Structure Support
 - **Crystals**: Full periodic boundary condition support with space group symmetry
 - **Molecules**: Point group symmetry for molecular systems
 - **Seamless conversion** between periodic and molecular representations
 
-### í ½í²¾ Intelligent Compression
+### ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Intelligent Compression
 - **4-6x compression** vs traditional formats (CIF, POSCAR, XYZ)
 - **Symmetric storage**: Wyckoff positions (crystals) and point group operations (molecules)
 - **Atomic storage**: Full atomic coordinates when symmetry is broken
 - **GZIP compression** for additional size reduction
 
-### í ¼í¿—ï¸ Modular Property System
+### ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¸ Modular Property System
 - **Type-safe properties** with units and validation
 - **Built-in properties**: Energy, forces, stress, charges, magnetic moments, etc.
 - **Custom properties**: Extensible system for user-defined properties
 - **Atomic vs Structure-level**: Clear separation of per-atom and global properties
 
-### í ½í³Š Advanced Container Features
+### ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Advanced Container Features
 - **HDF5-like organization** with hierarchical groups
 - **Secondary indexing** for fast queries by formula, properties, energy ranges
 - **Memory mapping** for efficient large dataset handling
 - **Parallel I/O** with background prefetching
 - **Chunked storage** optimized for large collections
 
-## í ½í³‹ Structure Type Matrix
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Structure Type Matrix
 
 |                          | **SYMMETRIC**               | **FULL_ATOMIC**         |
 |--------------------------|------------------------------|-------------------------|
 | **PERIODIC** (Crystal)   | Wyckoff + lattice           | All atoms + lattice     |
 | **MOLECULAR** (Molecule) | Point group (no lattice)    | All atoms (no lattice)  |
 
-## í ½í» ï¸ Installation
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¸ Installation
 
 ### Prerequisites
 - Python 3.8+
@@ -63,7 +63,7 @@ cd usif
 pip install -e .
 ```
 
-## í ½íº€ Quick Start
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Quick Start
 
 ### Basic Usage
 ```python
@@ -86,7 +86,7 @@ wyckoff_sites = [
 structure_props = StructureProperties(
     energy=-10.5,
     volume=179.4,
-    calculator="VASP"
+    custom={"calculator": "VASP"}
 )
 
 structure = USIFStructure(
@@ -218,7 +218,7 @@ structure_props = StructureProperties(
 )
 ```
 
-## í ½í³ File Format Details
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ File Format Details
 
 ### Binary Format Structure
 ```
@@ -260,7 +260,7 @@ structure_props = StructureProperties(
 - **functional**: DFT functional
 - **converged**: Convergence status
 
-## í ½í´§ API Reference
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ API Reference
 
 ### Core Classes
 
@@ -299,7 +299,7 @@ Advanced container for multiple structures:
 - `create_group(path)`: Create hierarchical groups
 - `stats()`: Get container statistics
 
-## í ½í³Š Performance
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Performance
 
 ### Compression Ratios
 
@@ -315,7 +315,7 @@ Advanced container for multiple structures:
 - Container overhead: ~1KB + 50 bytes per structure
 - Index memory: ~100 bytes per structure for secondary indexes
 
-## í ½í´ Examples
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Examples
 
 ### Complete Working Example
 ```python
@@ -366,7 +366,7 @@ if __name__ == "__main__":
     run_example()
 ```
 
-## í ½í°› Troubleshooting
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Troubleshooting
 
 ### Common Issues
 
@@ -393,7 +393,7 @@ export USIF_DEBUG=1
 python your_script.py
 ```
 
-## í ¾í´ Contributing
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Contributing
 We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
 1. Fork the repository
@@ -402,16 +402,16 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## í ½í³„ License
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ License
 This project is licensed under the [USIF Non-Commercial License](LICENSE) â€” academic use only.  
 For commercial licensing, please contact: haidi@hfut.edu.cn
 
-## í ½í¹ Acknowledgments
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Acknowledgments
 - Built upon concepts from pymatgen for structure analysis
 - Inspired by HDF5 for container organization
 - Compression techniques adapted from modern binary formats
 
-## í ½í³ Support
+## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Support
 - **Issues**: [GitHub Issues](https://github.com/your-org/usif/issues)
 - **Email**: haidi@hfut.edu.cn
 - **Documentation**: [Full Documentation](https://usif-docs.readthedocs.io)
