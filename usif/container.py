@@ -218,6 +218,12 @@ class StructureContainer:
             
             magic = data[0:7]
             if magic != self.CONTAINER_MAGIC:
+                # Check if it's a single structure file instead
+                if magic == b'USIF\x00\x00\x00':
+                    raise StorageError(
+                        f"File {self.filename} is a USIF structure file, not a container. "
+                        f"Use USIFStructure.load() to open it."
+                    )
                 raise CorruptedDataError("Invalid enhanced USIF container")
             
             version = struct.unpack(BinaryFormat.UINT8, data[7:8])[0]

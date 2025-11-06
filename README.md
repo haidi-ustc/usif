@@ -132,8 +132,8 @@ Store multiple structures with hierarchical organization:
 ```python
 from usif import StructureContainer
 
-# Create container
-with StructureContainer("structures.usifc", mode='w') as container:
+# Create container (can use .usif or .usifc suffix)
+with StructureContainer("structures.usif", mode='w') as container:
     # Add structures with names and groups
     container.add_structure(
         structure1, 
@@ -159,7 +159,7 @@ with StructureContainer("structures.usifc", mode='w') as container:
         print(f"Group: {path}, Structures: {len(group.list_structures())}")
 
 # Read from container
-with StructureContainer("structures.usifc", mode='r') as container:
+with StructureContainer("structures.usif", mode='r') as container:
     structure = container.get("NaCl_001")
     attrs = container.get_structure_attributes("NaCl_001")
 ```
@@ -214,7 +214,13 @@ pmg_structure = StructureConverter.to_pymatgen(usif_struct)
 
 ### StructureContainer
 
-HDF5-like container for multiple structures:
+HDF5-like container for multiple structures.
+
+**File Extension**: Both `USIFStructure` and `StructureContainer` can use the `.usif` file extension. The format is automatically detected by magic bytes:
+- Structure files: magic bytes `b'USIF\x00\x00\x00'`
+- Container files: magic bytes `b'USIFC\x00\x00'`
+
+If you try to open a container file with `USIFStructure.load()` or vice versa, you'll get a helpful error message directing you to use the correct class.
 
 #### Key Methods
 

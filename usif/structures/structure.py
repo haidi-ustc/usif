@@ -359,6 +359,18 @@ class USIFStructure(MSONable):
         filename = Path(filename)
         
         if filename.suffix.lower() == '.usif':
+            # Check if it's a container file by reading magic bytes
+            try:
+                with open(filename, 'rb') as f:
+                    magic = f.read(7)
+                    if magic == b'USIFC\x00\x00':
+                        raise StorageError(
+                            f"File {filename} is a StructureContainer, not a USIF structure. "
+                            f"Use StructureContainer() to open it."
+                        )
+            except (IOError, FileNotFoundError):
+                pass  # Will be caught below
+            
             # Use USIF decoder for .usif files
             from usif.encoder import USIF
             encoder = USIF()
