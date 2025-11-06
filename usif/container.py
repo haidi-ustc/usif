@@ -18,7 +18,7 @@ import logging
 
 from usif.constants import BinaryFormat
 from usif.enums import CompressionType
-from usif.exceptions import StorageError, DecodingError
+from usif.exceptions import StorageError, DecodingError, CorruptedDataError
 from usif.structures.structure import USIFStructure
 from usif.encoder import USIF
 
@@ -26,17 +26,30 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class USIFGroup:
-    """Group for organizing structures"""
+    """
+    Group for organizing structures (HDF5-like hierarchical organization)
+    
+    Groups can contain structures and subgroups, similar to HDF5 groups.
+    Supports attributes for metadata storage.
+    """
     name: str
     structures: Dict[str, str] = field(default_factory=dict)
     subgroups: Dict[str, 'USIFGroup'] = field(default_factory=dict)
+    attributes: Dict[str, Any] = field(default_factory=dict)
     
     def add_structure(self, name: str, struct_hash: str) -> None:
         """Add structure to group"""
         self.structures[name] = struct_hash
     
+    def remove_structure(self, name: str) -> bool:
+        """Remove structure from group"""
+        if name in self.structures:
+            del self.structures[name]
+            return True
+        return False
+    
     def get_subgroup(self, path: str) -> Optional['USIFGroup']:
-        """Get subgroup by path"""
+        """Get subgroup by path (HDF5-like path navigation)"""
         if not path or path == "/":
             return self
         
@@ -50,6 +63,26 @@ class USIFGroup:
                 return None
         
         return current
+    
+    def list_structures(self) -> List[str]:
+        """List all structure names in this group"""
+        return list(self.structures.keys())
+    
+    def list_subgroups(self) -> List[str]:
+        """List all subgroup names"""
+        return list(self.subgroups.keys())
+    
+    def set_attribute(self, name: str, value: Any) -> None:
+        """Set group attribute (HDF5-like attributes)"""
+        self.attributes[name] = value
+    
+    def get_attribute(self, name: str, default: Any = None) -> Any:
+        """Get group attribute"""
+        return self.attributes.get(name, default)
+    
+    def has_attribute(self, name: str) -> bool:
+        """Check if group has attribute"""
+        return name in self.attributes
 
 
 
@@ -103,6 +136,7 @@ class StructureContainer:
             lambda: defaultdict(list)
         )
         self._group_index: Dict[str, USIFGroup] = {}
+        self._structure_attributes: Dict[str, Dict[str, Any]] = {}  # HDF5-like attributes
         
         # File and mmap
         self._file = None
@@ -280,14 +314,15 @@ class StructureContainer:
         self._prefetch_thread.start()
     
     def add(self, structure: USIFStructure, name: Optional[str] = None, 
-            group: str = "/") -> str:
+            group: str = "/", attributes: Optional[Dict[str, Any]] = None) -> str:
         """
-        Add structure with optional naming and grouping
+        Add structure with optional naming and grouping (HDF5-like interface)
         
         Args:
             structure: USIF structure to add
             name: Optional name for the structure
-            group: Group path (default is root)
+            group: Group path (default is root, HDF5-like path)
+            attributes: Optional attributes/metadata for the structure
             
         Returns:
             Structure hash
@@ -317,6 +352,9 @@ class StructureContainer:
             
             if name:
                 self._name_index[name] = struct_hash
+                # Store attributes if provided (HDF5-like attributes)
+                if attributes:
+                    self._structure_attributes[name] = attributes
             
             target_group = self._get_or_create_group(group)
             display_name = name or struct_hash[:16]
@@ -331,6 +369,25 @@ class StructureContainer:
         except Exception as e:
             logger.error(f"Failed to add structure: {e}")
             raise StorageError(f"Failed to add structure: {e}") from e
+    
+    def add_structure(self, structure: USIFStructure, name: Optional[str] = None,
+                     group: str = "/", attributes: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Add structure to container (alias for add, more explicit name)
+        
+        This method provides a more intuitive name for adding structures,
+        similar to HDF5 dataset creation.
+        
+        Args:
+            structure: USIF structure to add
+            name: Optional name for the structure
+            group: Group path (default is root)
+            attributes: Optional attributes/metadata for the structure
+            
+        Returns:
+            Structure hash
+        """
+        return self.add(structure, name=name, group=group, attributes=attributes)
     
     def _allocate_space(self, size: int) -> Tuple[int, int]:
         """Allocate space in chunked storage"""
@@ -527,12 +584,38 @@ class StructureContainer:
         return results
     
     def get_group(self, path: str) -> Optional[USIFGroup]:
-        """Get group by path"""
+        """Get group by path (HDF5-like group access)"""
         return self.root_group.get_subgroup(path)
     
     def create_group(self, path: str) -> USIFGroup:
-        """Create group hierarchy"""
+        """Create group hierarchy (HDF5-like group creation)"""
+        if self.mode == 'r':
+            raise ValueError("Cannot create groups in read-only container")
         return self._get_or_create_group(path)
+    
+    def set_structure_attributes(self, name: str, attributes: Dict[str, Any]) -> None:
+        """Set attributes for a named structure (HDF5-like attributes)"""
+        if name not in self._name_index:
+            raise ValueError(f"Structure '{name}' not found")
+        self._structure_attributes[name] = attributes
+    
+    def get_structure_attributes(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get attributes for a named structure (HDF5-like attributes)"""
+        return self._structure_attributes.get(name)
+    
+    def set_group_attribute(self, group_path: str, name: str, value: Any) -> None:
+        """Set attribute on a group (HDF5-like group attributes)"""
+        if self.mode == 'r':
+            raise ValueError("Cannot set attributes in read-only container")
+        group = self._get_or_create_group(group_path)
+        group.set_attribute(name, value)
+    
+    def get_group_attribute(self, group_path: str, name: str, default: Any = None) -> Any:
+        """Get attribute from a group (HDF5-like group attributes)"""
+        group = self.get_group(group_path)
+        if group:
+            return group.get_attribute(name, default)
+        return default
     
     def prefetch(self, identifiers: List[str]) -> None:
         """Prefetch structures for faster access"""
@@ -575,13 +658,110 @@ class StructureContainer:
         return results
     
     def _write_enhanced_index(self) -> None:
-        """Write enhanced index to file"""
-        if self.mode == 'r':
+        """Write enhanced index to file (persist indexes for HDF5-like functionality)"""
+        if self.mode == 'r' or not self._file:
             return
+        
+        try:
+            # Write index at the end of file
+            index_data = self._serialize_indexes()
+            index_offset = self._file.tell()
+            self._file.write(index_data)
+            self._file.flush()
+            
+            # Update header with index offset
+            self._file.seek(20)  # Index offset position in header
+            self._file.write(struct.pack(BinaryFormat.UINT64, index_offset))
+            self._file.flush()
+        except Exception as e:
+            logger.warning(f"Failed to write enhanced index: {e}")
+    
+    def _serialize_indexes(self) -> bytes:
+        """Serialize all indexes to bytes for persistence"""
+        data = bytearray()
+        
+        # Serialize hash index
+        data.extend(struct.pack(BinaryFormat.UINT32, len(self._hash_index)))
+        for struct_hash, (chunk_id, offset, size) in self._hash_index.items():
+            hash_bytes = struct_hash.encode('utf-8')
+            data.extend(struct.pack(BinaryFormat.UINT16, len(hash_bytes)))
+            data.extend(hash_bytes)
+            data.extend(struct.pack(BinaryFormat.UINT32, chunk_id))
+            data.extend(struct.pack(BinaryFormat.UINT64, offset))
+            data.extend(struct.pack(BinaryFormat.UINT32, size))
+        
+        # Serialize name index
+        data.extend(struct.pack(BinaryFormat.UINT32, len(self._name_index)))
+        for name, struct_hash in self._name_index.items():
+            name_bytes = name.encode('utf-8')
+            data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
+            data.extend(name_bytes)
+            hash_bytes = struct_hash.encode('utf-8')
+            data.extend(struct.pack(BinaryFormat.UINT16, len(hash_bytes)))
+            data.extend(hash_bytes)
+        
+        # Serialize structure attributes
+        data.extend(struct.pack(BinaryFormat.UINT32, len(self._structure_attributes)))
+        for name, attrs in self._structure_attributes.items():
+            name_bytes = name.encode('utf-8')
+            data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
+            data.extend(name_bytes)
+            data.extend(struct.pack(BinaryFormat.UINT16, len(attrs)))
+            for attr_name, attr_value in attrs.items():
+                attr_name_bytes = attr_name.encode('utf-8')
+                data.extend(struct.pack(BinaryFormat.UINT16, len(attr_name_bytes)))
+                data.extend(attr_name_bytes)
+                value_str = str(attr_value)
+                value_bytes = value_str.encode('utf-8')
+                data.extend(struct.pack(BinaryFormat.UINT32, len(value_bytes)))
+                data.extend(value_bytes)
+        
+        # Serialize group hierarchy
+        group_data = self._serialize_group_hierarchy()
+        data.extend(struct.pack(BinaryFormat.UINT32, len(group_data)))
+        data.extend(group_data)
+        
+        return bytes(data)
     
     def _serialize_group_hierarchy(self) -> bytes:
-        """Serialize group hierarchy to bytes"""
-        return b''
+        """Serialize group hierarchy to bytes (HDF5-like group structure)"""
+        def serialize_group(group: USIFGroup) -> bytes:
+            data = bytearray()
+            
+            # Group name
+            name_bytes = group.name.encode('utf-8')
+            data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
+            data.extend(name_bytes)
+            
+            # Structures in group
+            data.extend(struct.pack(BinaryFormat.UINT32, len(group.structures)))
+            for struct_name, struct_hash in group.structures.items():
+                name_bytes = struct_name.encode('utf-8')
+                data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
+                data.extend(name_bytes)
+                hash_bytes = struct_hash.encode('utf-8')
+                data.extend(struct.pack(BinaryFormat.UINT16, len(hash_bytes)))
+                data.extend(hash_bytes)
+            
+            # Attributes
+            data.extend(struct.pack(BinaryFormat.UINT16, len(group.attributes)))
+            for attr_name, attr_value in group.attributes.items():
+                name_bytes = attr_name.encode('utf-8')
+                data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
+                data.extend(name_bytes)
+                value_str = str(attr_value)
+                value_bytes = value_str.encode('utf-8')
+                data.extend(struct.pack(BinaryFormat.UINT32, len(value_bytes)))
+                data.extend(value_bytes)
+            
+            # Subgroups
+            data.extend(struct.pack(BinaryFormat.UINT32, len(group.subgroups)))
+            for subgroup in group.subgroups.values():
+                data.extend(serialize_group(subgroup))
+            
+            return bytes(data)
+        
+        return serialize_group(self.root_group)
     
     def stats(self) -> Dict[str, Any]:
         """Get detailed container statistics"""
@@ -617,7 +797,14 @@ class StructureContainer:
         }
     
     def close(self) -> None:
-        """Close container and cleanup"""
+        """Close container and cleanup (write indexes if in write mode)"""
+        # Write indexes before closing if in write mode
+        if self.mode in ('w', 'a') and self._file:
+            try:
+                self._write_enhanced_index()
+            except Exception as e:
+                logger.warning(f"Failed to write index on close: {e}")
+        
         if hasattr(self, '_prefetch_thread') and self._prefetch_thread and \
            self._prefetch_thread.is_alive():
             self._prefetch_queue.put(None)
@@ -649,6 +836,29 @@ class StructureContainer:
             if structure:
                 yield struct_hash, structure
     
+    def walk_groups(self, group_path: str = "/") -> Iterator[Tuple[str, USIFGroup]]:
+        """
+        Walk through group hierarchy (HDF5-like walk functionality)
+        
+        Args:
+            group_path: Starting group path
+            
+        Yields:
+            Tuple of (path, group) for each group in hierarchy
+        """
+        group = self.get_group(group_path) if group_path != "/" else self.root_group
+        if not group:
+            return
+        
+        yield group_path, group
+        
+        for subgroup_name, subgroup in group.subgroups.items():
+            if group_path == "/":
+                new_path = f"/{subgroup_name}"
+            else:
+                new_path = f"{group_path}/{subgroup_name}"
+            yield from self.walk_groups(new_path)
+    
     def list_groups(self) -> List[str]:
         """List all groups in container"""
         return list(self._group_index.keys())
@@ -667,8 +877,4 @@ class StructureContainer:
         
         return results
 
-
-# ============================================================================
-# Performance Optimizations and Utilities
-# ============================================================================
 

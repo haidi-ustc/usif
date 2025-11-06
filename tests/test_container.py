@@ -126,6 +126,55 @@ class TestStructureContainer(unittest.TestCase):
             struct_hash = container.add(self.structure, name="test_structure")
             self.assertIn(struct_hash, container)
             self.assertIn("test_structure", container)
+    
+    def test_add_structure_method(self):
+        """Test add_structure method (alias for add)"""
+        with StructureContainer(self.temp_path, mode='w') as container:
+            struct_hash = container.add_structure(self.structure, name="test_structure")
+            self.assertIsNotNone(struct_hash)
+            retrieved = container.get("test_structure")
+            self.assertIsNotNone(retrieved)
+    
+    def test_structure_attributes(self):
+        """Test structure attributes (HDF5-like)"""
+        with StructureContainer(self.temp_path, mode='w') as container:
+            attrs = {"author": "test", "date": "2024-01-01"}
+            container.add_structure(self.structure, name="test_structure", attributes=attrs)
+            retrieved_attrs = container.get_structure_attributes("test_structure")
+            self.assertEqual(retrieved_attrs, attrs)
+    
+    def test_group_attributes(self):
+        """Test group attributes (HDF5-like)"""
+        with StructureContainer(self.temp_path, mode='w') as container:
+            container.create_group("/materials")
+            container.set_group_attribute("/materials", "description", "Material structures")
+            attr = container.get_group_attribute("/materials", "description")
+            self.assertEqual(attr, "Material structures")
+    
+    def test_walk_groups(self):
+        """Test walking through group hierarchy (HDF5-like)"""
+        with StructureContainer(self.temp_path, mode='w') as container:
+            container.create_group("/materials")
+            container.create_group("/materials/crystals")
+            container.create_group("/materials/molecules")
+            
+            groups = list(container.walk_groups())
+            self.assertGreater(len(groups), 0)
+            paths = [path for path, _ in groups]
+            self.assertIn("/", paths)
+            self.assertIn("/materials", paths)
+    
+    def test_group_list_methods(self):
+        """Test group list methods"""
+        with StructureContainer(self.temp_path, mode='w') as container:
+            group = container.create_group("/materials")
+            container.add_structure(self.structure, name="test", group="/materials")
+            
+            structures = group.list_structures()
+            self.assertIn("test", structures)
+            
+            subgroups = group.list_subgroups()
+            self.assertIsInstance(subgroups, list)
 
 
 if __name__ == '__main__':
