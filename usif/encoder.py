@@ -13,7 +13,7 @@ from pathlib import Path
 
 from usif.constants import BinaryFormat
 from usif.enums import CompressionType, StructureType, StorageMode
-from usif.exceptions import EncodingError, DecodingError, CorruptedDataError
+from usif.exceptions import EncodingError, DecodingError, CorruptedDataError, ValidationError
 from usif.structures.structure import USIFStructure
 from usif.structures.sites import WyckoffSite, PointGroupSite, AtomSite
 from usif.properties.serializer import PropertySerializer

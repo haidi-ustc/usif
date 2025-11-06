@@ -24,6 +24,7 @@ from usif.encoder import USIF
 
 logger = logging.getLogger(__name__)
 
+@dataclass
 class USIFGroup:
     """Group for organizing structures"""
     name: str

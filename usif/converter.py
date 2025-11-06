@@ -7,6 +7,8 @@ Convert between USIF and pymatgen formats
 import numpy as np
 from typing import Optional, Dict, Any, Union
 from pathlib import Path
+from collections import defaultdict
+import logging
 
 try:
     from pymatgen.core import Structure as PMGStructure, Lattice, Element
@@ -24,6 +26,8 @@ from usif.structures.structure import USIFStructure
 from usif.structures.sites import WyckoffSite, PointGroupSite, AtomSite
 from usif.properties.structure import StructureProperties
 from usif.properties.atomic import AtomicProperties
+
+logger = logging.getLogger(__name__)
 
 class StructureConverter:
     """Conversion between USIF and pymatgen"""
