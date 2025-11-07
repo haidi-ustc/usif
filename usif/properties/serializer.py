@@ -13,7 +13,7 @@ from usif.exceptions import EncodingError, DecodingError
 from usif.properties.definitions import PropertyDefinition
 
 class PropertySerializer:
-    """Serialize and deserialize property values with clear structure vs per-atom distinction"""
+    """Serialize and deserialize property values with clear structure vs atomic distinction"""
     
     # Constants for efficient count encoding
     SINGLE_VALUE_FLAG = 0  # Indicates single value repeated for all atoms
@@ -80,10 +80,10 @@ class PropertySerializer:
             return b''
         
         try:
-            # Unified approach: check if it's per-atom or structure-level
+            # Unified approach: check if it's atomic or structure-level
             if prop_def.is_per_atom:
-                # Per-atom property: can be scalar or array, needs count encoding
-                return PropertySerializer._serialize_per_atom_property(value, prop_def, num_atoms)
+                # Atomic property: can be scalar or array, needs count encoding
+                return PropertySerializer._serialize_atom_property(value, prop_def, num_atoms)
             else:
                 # Structure-level property: can be scalar or array, no count needed
                 return PropertySerializer._serialize_structure_property(value, prop_def)
@@ -93,9 +93,9 @@ class PropertySerializer:
             raise EncodingError(f"Unexpected error serializing property '{prop_def.name}': {e}") from e
     
     @staticmethod
-    def _serialize_per_atom_property(value: Any, prop_def: PropertyDefinition,
-                                    num_atoms: Optional[int] = None) -> bytes:
-        """Serialize per-atom property - unified handling for scalars and arrays"""
+    def _serialize_atom_property(value: Any, prop_def: PropertyDefinition,
+                                 num_atoms: Optional[int] = None) -> bytes:
+        """Serialize atomic property - unified handling for scalars and arrays"""
         data = bytearray()
         
         # Check if this is a single multi-dimensional element (like one force vector)
@@ -106,12 +106,12 @@ class PropertySerializer:
             # Multiple values (list/array of values)
             actual_count = len(value)
             if actual_count == 0:
-                raise EncodingError("Cannot serialize empty sequence for per-atom property")
+                raise EncodingError("Cannot serialize empty sequence for atomic property")
             
             # Validate count: must be 1 (single value repeated) or num_atoms (one per atom)
             if num_atoms is not None and actual_count != 1 and actual_count != num_atoms:
                 raise EncodingError(
-                    f"Per-atom property count mismatch: expected 1 or {num_atoms}, got {actual_count}"
+                    f"Atomic property count mismatch: expected 1 or {num_atoms}, got {actual_count}"
                 )
             
             # Encode count
@@ -184,7 +184,7 @@ class PropertySerializer:
     
     @staticmethod
     def _serialize_scalar_value(value: Any, prop_def: PropertyDefinition) -> bytes:
-        """Serialize scalar value (used for both structure and per-atom properties)"""
+        """Serialize scalar value (used for both structure and atomic properties)"""
         handler = PropertySerializer.TYPE_HANDLERS.get(prop_def.data_type)
         if not handler:
             raise EncodingError(f"Unsupported scalar type: {prop_def.data_type}")
@@ -223,10 +223,10 @@ class PropertySerializer:
             return None, offset
         
         try:
-            # Unified approach: check if it's per-atom or structure-level
+            # Unified approach: check if it's atomic or structure-level
             if prop_def.is_per_atom:
-                # Per-atom property: needs count decoding
-                return PropertySerializer._deserialize_per_atom_property(data, offset, prop_def, num_atoms)
+                # Atomic property: needs count decoding
+                return PropertySerializer._deserialize_atom_property(data, offset, prop_def, num_atoms)
             else:
                 # Structure-level property: no count, just deserialize the value
                 return PropertySerializer._deserialize_structure_property(data, offset, prop_def)
@@ -240,9 +240,9 @@ class PropertySerializer:
             ) from e
 
     @staticmethod
-    def _deserialize_per_atom_property(data: bytes, offset: int, prop_def: PropertyDefinition,
-                                      num_atoms: Optional[int] = None) -> Tuple[Any, int]:
-        """Deserialize per-atom property - unified handling for scalars and arrays"""
+    def _deserialize_atom_property(data: bytes, offset: int, prop_def: PropertyDefinition,
+                                   num_atoms: Optional[int] = None) -> Tuple[Any, int]:
+        """Deserialize atomic property - unified handling for scalars and arrays"""
         # Check bounds
         if offset >= len(data):
             raise DecodingError(f"Insufficient data: offset {offset} >= data length {len(data)}")
@@ -276,7 +276,7 @@ class PropertySerializer:
             # Validate count: must be 1 (single value repeated) or num_atoms (one per atom)
             if num_atoms is not None and count != 1 and count != num_atoms:
                 raise DecodingError(
-                    f"Per-atom property count mismatch: expected 1 or {num_atoms}, got {count}"
+                    f"Atomic property count mismatch: expected 1 or {num_atoms}, got {count}"
                 )
             
             # Validate count is reasonable
@@ -347,7 +347,7 @@ class PropertySerializer:
     @staticmethod
     def _deserialize_scalar_value(data: bytes, offset: int,
                                  prop_def: PropertyDefinition) -> Tuple[Any, int]:
-        """Deserialize scalar value (used for both structure and per-atom properties)"""
+        """Deserialize scalar value (used for both structure and atomic properties)"""
         handler = PropertySerializer.TYPE_HANDLERS.get(prop_def.data_type)
         if not handler:
             raise DecodingError(f"Unsupported scalar data type: {prop_def.data_type}")
@@ -441,7 +441,7 @@ class PropertySerializer:
                 # Also allow numpy arrays for numerical data
                 if isinstance(value, np.ndarray) and expected_type in (float, int, tuple):
                     pass
-                # Allow lists/tuples of expected type for per-atom properties
+                # Allow lists/tuples of expected type for atomic properties
                 elif (prop_def.is_per_atom and 
                       isinstance(value, (list, tuple)) and 
                       len(value) > 0 and
@@ -452,7 +452,7 @@ class PropertySerializer:
                 else:
                     return False
         
-        # For per-atom properties, validate structure
+        # For atomic properties, validate structure
         if prop_def.is_per_atom and prop_def.dimensions:
             if num_atoms is None:
                 # If num_atoms is not specified, just validate the element structure
@@ -524,7 +524,7 @@ class PropertySerializer:
                 return handler['scalar_size'](value)
             return handler['scalar_size']
         else:
-            if prop_def.is_per_atom:
+            if prop_def.is_per_atom:  # Atomic property
                 # Check if this is a single multi-dimensional element
                 if PropertySerializer._is_multi_dimensional_element(value) and prop_def.dimensions:
                     actual_count = 1
