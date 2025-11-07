@@ -250,10 +250,75 @@ class USIFStructure(MSONable):
                 self.formula == other.formula)
     
     def __repr__(self) -> str:
-        return (f"USIFStructure(structure_type={self.structure_type.name}, "
-                f"storage_mode={self.storage_mode.name}, "
-                f"formula='{self.formula}', "
-                f"atoms={self.num_atoms()})")
+        """Unambiguous string representation for debugging"""
+        parts = [
+            f"structure_type={self.structure_type.name}",
+            f"storage_mode={self.storage_mode.name}",
+            f"formula='{self.formula}'",
+            f"atoms={self.num_atoms()}"
+        ]
+        
+        if self.is_crystal():
+            parts.append(f"spacegroup={self.spacegroup}")
+            if self.lattice_matrix is not None:
+                # Show lattice parameters (a, b, c lengths)
+                lengths = np.linalg.norm(self.lattice_matrix, axis=1)
+                parts.append(f"lattice=({lengths[0]:.3f}, {lengths[1]:.3f}, {lengths[2]:.3f})")
+        else:
+            if self.point_group:
+                parts.append(f"point_group='{self.point_group}'")
+        
+        if self.structure_properties.energy is not None:
+            parts.append(f"energy={self.structure_properties.energy:.6f}")
+        
+        return f"USIFStructure({', '.join(parts)})"
+    
+    def __str__(self) -> str:
+        """Human-readable string representation"""
+        lines = []
+        
+        # Header with type and formula
+        struct_type_str = "Crystal" if self.is_crystal() else "Molecule"
+        lines.append(f"{struct_type_str}: {self.formula or 'Unknown'}")
+        
+        # Basic info
+        lines.append(f"  Atoms: {self.num_atoms()}")
+        lines.append(f"  Storage: {self.storage_mode.name}")
+        
+        # Structure-specific info
+        if self.is_crystal():
+            if self.lattice_matrix is not None:
+                lengths = np.linalg.norm(self.lattice_matrix, axis=1)
+                angles = []
+                for i in range(3):
+                    j, k = (i + 1) % 3, (i + 2) % 3
+                    v1 = self.lattice_matrix[j] / lengths[j]
+                    v2 = self.lattice_matrix[k] / lengths[k]
+                    angle = np.arccos(np.clip(np.dot(v1, v2), -1.0, 1.0)) * 180 / np.pi
+                    angles.append(angle)
+                lines.append(f"  Lattice: a={lengths[0]:.3f} Å, b={lengths[1]:.3f} Å, c={lengths[2]:.3f} Å")
+                lines.append(f"  Angles: α={angles[0]:.1f}°, β={angles[1]:.1f}°, γ={angles[2]:.1f}°")
+            lines.append(f"  Spacegroup: {self.spacegroup}")
+            if self.storage_mode == StorageMode.SYMMETRIC and self.wyckoff_sites:
+                lines.append(f"  Wyckoff sites: {len(self.wyckoff_sites)}")
+        else:
+            if self.point_group:
+                lines.append(f"  Point group: {self.point_group}")
+            if self.storage_mode == StorageMode.SYMMETRIC and self.point_group_sites:
+                lines.append(f"  Symmetry sites: {len(self.point_group_sites)}")
+        
+        # Properties
+        props = []
+        if self.structure_properties.energy is not None:
+            props.append(f"E={self.structure_properties.energy:.6f} eV")
+        if self.structure_properties.volume is not None:
+            props.append(f"V={self.structure_properties.volume:.3f} Å³")
+        if self.structure_properties.pressure is not None:
+            props.append(f"P={self.structure_properties.pressure:.3f} GPa")
+        if props:
+            lines.append(f"  Properties: {', '.join(props)}")
+        
+        return "\n".join(lines)
     
     @classmethod
     def from_pymatgen(cls, pmg_obj, 
