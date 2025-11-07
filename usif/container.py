@@ -363,20 +363,35 @@ class StructureContainer:
     def add(self, structure: USIFStructure, name: Optional[str] = None, 
             group: str = "/", attributes: Optional[Dict[str, Any]] = None) -> str:
         """
-        Add structure with optional naming and grouping (HDF5-like interface)
+        Add structure to container with optional naming and grouping
+        
+        Adds a USIFStructure to the container with HDF5-like hierarchical organization.
+        Structures can be organized in groups and have associated attributes/metadata.
+        Duplicate structures (same hash) are automatically detected and not stored twice.
         
         Args:
-            structure: USIF structure to add
-            name: Optional name for the structure
-            group: Group path (default is root, HDF5-like path)
-            attributes: Optional attributes/metadata for the structure
+            structure: USIFStructure instance to add
+            name: Optional name for the structure (for retrieval by name)
+            group: Group path for hierarchical organization (default: "/" for root)
+            attributes: Optional dictionary of attributes/metadata (HDF5-like)
             
         Returns:
-            Structure hash
+            str: Structure hash (unique identifier)
             
         Raises:
-            ValueError: If container is read-only
-            ValidationError: If input is invalid
+            ValueError: If container is opened in read-only mode
+            ValidationError: If structure is invalid
+            StorageError: If storage operation fails
+            
+        Example:
+            >>> container = StructureContainer("structures.usifc", mode="w")
+            >>> structure = USIFStructure(...)
+            >>> hash_id = container.add(
+            ...     structure,
+            ...     name="NaCl_001",
+            ...     group="/crystals/NaCl",
+            ...     attributes={"temperature": 300, "pressure": 0.0}
+            ... )
         """
         if self.mode == 'r':
             raise ValueError("Cannot add to read-only container")
@@ -523,11 +538,21 @@ class StructureContainer:
         """
         Get structure by hash or name (thread-safe)
         
+        Retrieves a structure from the container using either its hash (unique ID)
+        or its assigned name. Uses thread-safe caching for performance.
+        
         Args:
-            identifier: Structure hash or name
+            identifier: Structure hash (hex string) or assigned name
             
         Returns:
-            USIF structure or None if not found
+            USIFStructure if found, None otherwise
+            
+        Example:
+            >>> container = StructureContainer("structures.usifc", mode="r")
+            >>> # Get by name
+            >>> structure = container.get("NaCl_001")
+            >>> # Get by hash
+            >>> structure = container.get("a1b2c3d4e5f6...")
         """
         with self._cache_lock:
             if identifier in self._cache:
@@ -578,16 +603,35 @@ class StructureContainer:
               energy_range: Optional[Tuple[float, float]] = None,
               group: Optional[str] = None) -> List[Tuple[str, USIFStructure]]:
         """
-        Enhanced query with multiple criteria
+        Query structures with multiple criteria
+        
+        Searches the container for structures matching the specified criteria.
+        All criteria are combined with AND logic (structures must match all).
+        Uses efficient secondary indexes for fast querying.
         
         Args:
-            formula: Chemical formula
-            properties: Property filters
-            energy_range: Energy range (min, max)
-            group: Group path
+            formula: Chemical formula to match (e.g., "NaCl", "H2O")
+            properties: Dictionary of property filters (e.g., {"pressure": 0.0})
+            energy_range: Tuple of (min_energy, max_energy) in eV
+            group: Group path to search within (e.g., "/crystals/NaCl")
             
         Returns:
-            List of (hash, structure) tuples
+            List[Tuple[str, USIFStructure]]: List of (hash, structure) tuples matching criteria
+            
+        Example:
+            >>> # Find all NaCl structures
+            >>> results = container.query(formula="NaCl")
+            >>> 
+            >>> # Find structures with specific energy range
+            >>> results = container.query(energy_range=(-10.0, -5.0))
+            >>> 
+            >>> # Complex query
+            >>> results = container.query(
+            ...     formula="NaCl",
+            ...     energy_range=(-10.0, -5.0),
+            ...     properties={"pressure": 0.0},
+            ...     group="/crystals"
+            ... )
         """
         results = []
         

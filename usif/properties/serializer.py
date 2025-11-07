@@ -119,7 +119,29 @@ class PropertySerializer:
     @staticmethod
     def serialize_value(value: Any, prop_def: PropertyDefinition,
                        num_atoms: Optional[int] = None) -> bytes:
-        """Serialize property value to bytes - unified handling for scalars and arrays"""
+        """
+        Serialize property value to binary format
+        
+        Converts a property value to its binary representation according to the
+        property definition. Handles both scalar and multi-dimensional values,
+        and both atomic and structure-level properties.
+        
+        Args:
+            value: Property value to serialize (scalar, tuple, list, etc.)
+            prop_def: PropertyDefinition describing the property type
+            num_atoms: Number of atoms (required for atomic properties)
+            
+        Returns:
+            bytes: Serialized binary data
+            
+        Raises:
+            EncodingError: If serialization fails or value is invalid
+            
+        Example:
+            >>> from usif import PropertyDefinition, PropertySerializer, Units
+            >>> prop_def = PropertyDefinition("energy", float, units=Units.EV)
+            >>> data = PropertySerializer.serialize_value(-10.5, prop_def)
+        """
         if value is None:
             return b''
         
@@ -263,7 +285,32 @@ class PropertySerializer:
     @staticmethod
     def deserialize_value(prop_def: PropertyDefinition, data: bytes,
                          offset: int, num_atoms: Optional[int] = None) -> Tuple[Any, int]:
-        """Deserialize property value from bytes - unified handling for scalars and arrays"""
+        """
+        Deserialize property value from binary data
+        
+        Converts binary data back into a property value according to the property
+        definition. Handles both scalar and multi-dimensional values, and both
+        atomic and structure-level properties.
+        
+        Args:
+            prop_def: PropertyDefinition describing the property type
+            data: Binary data to deserialize from
+            offset: Starting byte offset in data
+            num_atoms: Number of atoms (required for atomic properties)
+            
+        Returns:
+            Tuple[Any, int]: Deserialized value and new offset after reading
+            
+        Raises:
+            DecodingError: If deserialization fails or data is invalid
+            
+        Example:
+            >>> from usif import PropertyDefinition, PropertySerializer, Units
+            >>> prop_def = PropertyDefinition("energy", float, units=Units.EV)
+            >>> data = PropertySerializer.serialize_value(-10.5, prop_def)
+            >>> value, offset = PropertySerializer.deserialize_value(prop_def, data, 0)
+            >>> print(value)  # -10.5
+        """
         if len(data) <= offset:
             return None, offset
         
@@ -475,7 +522,27 @@ class PropertySerializer:
     @staticmethod
     def validate_value(value: Any, prop_def: PropertyDefinition, 
                       num_atoms: Optional[int] = None) -> bool:
-        """Validate that a value matches the property definition"""
+        """
+        Validate that a value matches the property definition
+        
+        Checks if a value is compatible with the property definition's type,
+        dimensions, and constraints. For atomic properties, also validates
+        the count matches the number of atoms.
+        
+        Args:
+            value: Value to validate
+            prop_def: PropertyDefinition to validate against
+            num_atoms: Number of atoms (required for atomic properties)
+            
+        Returns:
+            bool: True if value is valid, False otherwise
+            
+        Example:
+            >>> from usif import PropertyDefinition, PropertySerializer, Units
+            >>> prop_def = PropertyDefinition("energy", float, units=Units.EV)
+            >>> PropertySerializer.validate_value(-10.5, prop_def)  # True
+            >>> PropertySerializer.validate_value("invalid", prop_def)  # False
+        """
         if value is None:
             return True
         
@@ -555,7 +622,26 @@ class PropertySerializer:
     @staticmethod
     def get_expected_size(prop_def: PropertyDefinition, value: Any = None, 
                          num_atoms: Optional[int] = None) -> int:
-        """Calculate expected size in bytes for serialized property value"""
+        """
+        Calculate expected size in bytes for serialized property value
+        
+        Estimates the size in bytes that a property value will occupy when
+        serialized. Useful for pre-allocating buffers or estimating storage needs.
+        
+        Args:
+            prop_def: PropertyDefinition describing the property type
+            value: Property value (optional, for more accurate size calculation)
+            num_atoms: Number of atoms (required for atomic properties)
+            
+        Returns:
+            int: Expected size in bytes (0 if value is None or type not supported)
+            
+        Example:
+            >>> from usif import PropertyDefinition, PropertySerializer, Units
+            >>> prop_def = PropertyDefinition("energy", float, units=Units.EV)
+            >>> size = PropertySerializer.get_expected_size(prop_def, -10.5)
+            >>> print(f"Size: {size} bytes")  # 8 bytes for FLOAT64
+        """
         if value is None:
             return 0
         

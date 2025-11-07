@@ -78,12 +78,30 @@ class USIFOptimizer:
         """
         Optimize structure for maximum compression
         
+        Analyzes structure symmetry and converts to symmetric storage mode if beneficial.
+        For crystals, extracts Wyckoff sites. For molecules, extracts point group sites.
+        This can significantly reduce file size for symmetric structures.
+        
         Args:
-            structure: Input USIF structure
-            tolerance: Symmetry tolerance for grouping
+            structure: Input USIFStructure to optimize
+            tolerance: Symmetry tolerance for grouping atoms (default: 1e-3)
             
         Returns:
-            Optimized USIF structure
+            USIFStructure: Optimized structure (may have different storage_mode)
+            
+        Note:
+            Requires pymatgen to be installed. If not available, returns structure unchanged.
+            
+        Example:
+            >>> optimizer = USIFOptimizer()
+            >>> # Optimize with default tolerance
+            >>> optimized = optimizer.optimize_structure(structure)
+            >>> # Optimize with stricter tolerance
+            >>> optimized = optimizer.optimize_structure(structure, tolerance=1e-4)
+            >>> 
+            >>> # Check if storage mode changed
+            >>> if optimized.storage_mode != structure.storage_mode:
+            ...     print("Converted to symmetric storage mode")
         """
         if structure.is_crystal():
             return USIFOptimizer._optimize_crystal(structure, tolerance)

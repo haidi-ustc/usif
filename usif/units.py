@@ -151,7 +151,23 @@ class Units:
     
     @classmethod
     def get_unit_category(cls, unit: str) -> Optional[str]:
-        """Get the category of a unit"""
+        """
+        Get the category of a unit
+        
+        Returns the physical category that a unit belongs to (e.g., "energy",
+        "length", "pressure"). Units in the same category are compatible.
+        
+        Args:
+            unit: Unit string (e.g., "eV", "Å", "GPa")
+            
+        Returns:
+            str: Category name if unit is recognized, None otherwise
+            
+        Example:
+            >>> Units.get_unit_category("eV")  # "energy"
+            >>> Units.get_unit_category("Å")  # "length"
+            >>> Units.get_unit_category("invalid")  # None
+        """
         if unit in cls.ENERGY_UNITS:
             return "energy"
         elif unit in cls.LENGTH_UNITS:
@@ -176,7 +192,23 @@ class Units:
     
     @classmethod
     def are_compatible(cls, unit1: str, unit2: str) -> bool:
-        """Check if two units are compatible (same category)"""
+        """
+        Check if two units are compatible (same category)
+        
+        Determines whether two units belong to the same physical category and
+        can be converted between each other.
+        
+        Args:
+            unit1: First unit string
+            unit2: Second unit string
+            
+        Returns:
+            bool: True if units are compatible, False otherwise
+            
+        Example:
+            >>> Units.are_compatible("eV", "J")  # True (both energy)
+            >>> Units.are_compatible("eV", "Å")  # False (different categories)
+        """
         cat1 = cls.get_unit_category(unit1)
         cat2 = cls.get_unit_category(unit2)
         return cat1 is not None and cat1 == cat2

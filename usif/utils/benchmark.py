@@ -55,13 +55,29 @@ class USIFBenchmark:
     @staticmethod
     def benchmark_compression(structures: List[USIFStructure]) -> Dict[str, Any]:
         """
-        Benchmark compression performance
+        Benchmark compression performance for structures
+        
+        Measures compression ratios, encoding/decoding speeds, and file sizes
+        for a list of structures. Useful for evaluating storage efficiency.
         
         Args:
-            structures: List of structures to benchmark
+            structures: List of USIFStructure instances to benchmark
             
         Returns:
-            Dictionary with benchmark results
+            Dict[str, Any]: Dictionary containing:
+                - compression_ratio: Average compression ratio
+                - total_original_size: Total uncompressed size (bytes)
+                - total_compressed_size: Total compressed size (bytes)
+                - avg_compression_time: Average encoding time (seconds)
+                - avg_decompression_time: Average decoding time (seconds)
+                - num_structures: Number of structures benchmarked
+                
+        Example:
+            >>> benchmark = USIFBenchmark()
+            >>> structures = [structure1, structure2, structure3]
+            >>> results = benchmark.benchmark_compression(structures)
+            >>> print(f"Compression ratio: {results['compression_ratio']:.2f}x")
+            >>> print(f"Avg encode time: {results['avg_compression_time']:.4f}s")
         """
         encoder = USIF()
         

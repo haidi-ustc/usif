@@ -61,6 +61,16 @@ class USIF:
     HEADER_SIZE = 64
     
     def __init__(self, compression: CompressionType = CompressionType.GZIP):
+        """
+        Initialize USIF encoder/decoder
+        
+        Args:
+            compression: Compression algorithm to use (default: GZIP)
+            
+        Example:
+            >>> encoder = USIF(compression=CompressionType.GZIP)
+            >>> encoder = USIF(compression=CompressionType.NONE)  # No compression
+        """
         self.compression = compression
     
     def _calculate_hash(self, structure: USIFStructure) -> bytes:
@@ -307,16 +317,26 @@ class USIF:
     
     def encode(self, structure: USIFStructure) -> bytes:
         """
-        Encode USIFStructure to bytes
+        Encode USIFStructure to binary format
+        
+        Converts a USIFStructure object into a binary byte string that can be
+        saved to disk or transmitted. The encoding includes the structure data,
+        properties, and metadata with optional compression.
         
         Args:
-            structure: USIF structure to encode
+            structure: USIFStructure instance to encode
             
         Returns:
-            Encoded bytes
+            bytes: Encoded binary data (compressed if compression is enabled)
             
         Raises:
-            EncodingError: If encoding fails
+            EncodingError: If encoding fails due to invalid data or serialization errors
+            
+        Example:
+            >>> encoder = USIF()
+            >>> structure = USIFStructure(...)
+            >>> binary_data = encoder.encode(structure)
+            >>> len(binary_data)  # Size of encoded data
         """
         try:
             data = bytearray()
@@ -400,17 +420,28 @@ class USIF:
     
     def decode(self, data: bytes) -> Tuple[USIFStructure, bytes]:
         """
-        Decode bytes to USIFStructure
+        Decode binary data to USIFStructure
+        
+        Converts binary encoded data back into a USIFStructure object.
+        Handles decompression, validation, and reconstruction of the structure
+        with all its properties.
         
         Args:
-            data: Encoded bytes
+            data: Encoded binary data (must include header)
             
         Returns:
-            Tuple of (USIFStructure, hash)
+            Tuple[USIFStructure, bytes]: Decoded structure and its hash value
             
         Raises:
-            DecodingError: If decoding fails
-            CorruptedDataError: If data is corrupted
+            DecodingError: If decoding fails due to invalid format or data
+            CorruptedDataError: If data is corrupted or incomplete
+            ValidationError: If decoded structure fails validation
+            
+        Example:
+            >>> encoder = USIF()
+            >>> binary_data = encoder.encode(structure)
+            >>> decoded_structure, hash_value = encoder.decode(binary_data)
+            >>> print(f"Structure hash: {hash_value.hex()}")
         """
         try:
             if len(data) < self.HEADER_SIZE:
@@ -556,11 +587,43 @@ class USIF:
             raise DecodingError(f"Unexpected error during decoding: {e}") from e
     
     def get_structure_hash(self, structure: USIFStructure) -> str:
-        """Get hexadecimal hash of structure"""
+        """
+        Calculate and return hexadecimal hash of structure
+        
+        Computes a SHA-256 hash of the structure's essential data (type, mode,
+        lattice, sites) for identification and deduplication purposes.
+        
+        Args:
+            structure: USIFStructure to hash
+            
+        Returns:
+            str: Hexadecimal representation of the structure hash (64 characters)
+            
+        Example:
+            >>> encoder = USIF()
+            >>> hash_str = encoder.get_structure_hash(structure)
+            >>> print(f"Structure ID: {hash_str[:16]}...")
+        """
         return self._calculate_hash(structure).hex()
     
     def save(self, structure: USIFStructure, filename: Union[str, Path]) -> None:
-        """Save structure to file"""
+        """
+        Save structure to file
+        
+        Encodes a USIFStructure and writes it to a file. The file format includes
+        header, compressed data, and metadata.
+        
+        Args:
+            structure: USIFStructure to save
+            filename: Output file path (typically with .usif extension)
+            
+        Raises:
+            StorageError: If file I/O fails
+            
+        Example:
+            >>> encoder = USIF()
+            >>> encoder.save(structure, "my_structure.usif")
+        """
         try:
             with open(filename, 'wb') as f:
                 f.write(self.encode(structure))
@@ -568,7 +631,26 @@ class USIF:
             raise StorageError(f"Failed to save structure to {filename}: {e}") from e
     
     def load(self, filename: Union[str, Path]) -> USIFStructure:
-        """Load structure from file"""
+        """
+        Load structure from file
+        
+        Reads and decodes a USIFStructure from a file. The file must be in
+        USIF binary format.
+        
+        Args:
+            filename: Input file path (typically with .usif extension)
+            
+        Returns:
+            USIFStructure: Decoded structure from file
+            
+        Raises:
+            StorageError: If file I/O fails or file not found
+            DecodingError: If file format is invalid
+            
+        Example:
+            >>> encoder = USIF()
+            >>> structure = encoder.load("my_structure.usif")
+        """
         try:
             with open(filename, 'rb') as f:
                 structure, _ = self.decode(f.read())
