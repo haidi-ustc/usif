@@ -19,35 +19,41 @@ class PropertySerializer:
     SINGLE_VALUE_FLAG = 0  # Indicates single value repeated for all atoms
     LONG_COUNT_FLAG = 255  # Indicates 4-byte count follows
     
+    # Type handlers for serialization
+    # Both atomic and structure-level properties can be scalar (no dimensions) or multi-dimensional (with dimensions)
+    # - single_value_format: Format for serializing a single scalar value (higher precision, e.g., FLOAT64)
+    # - element_format: Format for serializing each element in a multi-dimensional value (space-efficient, e.g., FLOAT32)
+    # - single_value_size: Size in bytes for a single scalar value
+    # - element_size: Size in bytes for each element in a multi-dimensional value
     TYPE_HANDLERS = {
         float: {
-            'scalar_format': BinaryFormat.FLOAT64,
-            'array_format': BinaryFormat.FLOAT32,
-            'scalar_size': 8,
+            'single_value_format': BinaryFormat.FLOAT64,  # Higher precision for single values
+            'element_format': BinaryFormat.FLOAT32,       # Space-efficient for array elements
+            'single_value_size': 8,
             'element_size': 4
         },
         int: {
-            'scalar_format': BinaryFormat.INT64, 
-            'array_format': BinaryFormat.INT32,
-            'scalar_size': 8,
+            'single_value_format': BinaryFormat.INT64,    # Higher precision for single values
+            'element_format': BinaryFormat.INT32,         # Space-efficient for array elements
+            'single_value_size': 8,
             'element_size': 4
         },
         bool: {
-            'scalar_format': BinaryFormat.BOOL,
-            'array_format': BinaryFormat.BOOL,
-            'scalar_size': 1,
+            'single_value_format': BinaryFormat.BOOL,
+            'element_format': BinaryFormat.BOOL,
+            'single_value_size': 1,
             'element_size': 1
         },
         str: {
-            'scalar_format': None,
-            'array_format': None,
-            'scalar_size': lambda x: PropertySerializer._get_string_size(x),
+            'single_value_format': None,  # Strings use custom encoding
+            'element_format': None,       # Strings use custom encoding
+            'single_value_size': lambda x: PropertySerializer._get_string_size(x),
             'element_size': lambda x: PropertySerializer._get_string_size(x)
         },
         tuple: {
-            'scalar_format': None,
-            'array_format': BinaryFormat.FLOAT32,
-            'scalar_size': lambda dim: dim * 4,
+            'single_value_format': None,  # Tuples are always multi-dimensional
+            'element_format': BinaryFormat.FLOAT32,  # Format for each element in tuple
+            'single_value_size': lambda dim: dim * 4,
             'element_size': lambda dim: dim * 4
         }
     }
@@ -194,8 +200,9 @@ class PropertySerializer:
                 raise EncodingError(f"Expected string, got {type(value).__name__}")
             return PropertySerializer._serialize_string(value)
         
-        # Use array_format for efficiency (smaller size) when available, fallback to scalar_format
-        fmt = handler.get('array_format') or handler.get('scalar_format')
+        # For scalar values, prefer element_format (space-efficient) when available,
+        # fallback to single_value_format (higher precision)
+        fmt = handler.get('element_format') or handler.get('single_value_format')
         if fmt:
             try:
                 return struct.pack(fmt, value)
@@ -355,8 +362,9 @@ class PropertySerializer:
         if prop_def.data_type == str:
             return PropertySerializer._deserialize_string(data, offset)
         
-        # Use array_format for efficiency, fallback to scalar_format
-        fmt = handler.get('array_format') or handler.get('scalar_format')
+        # For scalar values, prefer element_format (space-efficient) when available,
+        # fallback to single_value_format (higher precision)
+        fmt = handler.get('element_format') or handler.get('single_value_format')
         if fmt:
             size = struct.calcsize(fmt)
             if offset + size > len(data):
@@ -517,12 +525,12 @@ class PropertySerializer:
         if not handler:
             return 0
         
-        if not prop_def.dimensions:  # Scalar property
+        if not prop_def.dimensions:  # Scalar property (no dimensions)
             if prop_def.data_type == str:
                 if not isinstance(value, str):
                     return 0
-                return handler['scalar_size'](value)
-            return handler['scalar_size']
+                return handler['single_value_size'](value)
+            return handler['single_value_size']
         else:
             if prop_def.is_per_atom:  # Atomic property
                 # Check if this is a single multi-dimensional element
