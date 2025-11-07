@@ -376,7 +376,7 @@ class PropertySerializer:
                     return False
         
         # For per-atom properties, validate structure
-        if prop_def.is_per_atom and not prop_def.is_scalar():
+        if prop_def.is_per_atom and prop_def.dimensions:
             if num_atoms is None:
                 # If num_atoms is not specified, just validate the element structure
                 return PropertySerializer._validate_element(value, prop_def)
@@ -437,7 +437,7 @@ class PropertySerializer:
         if not handler:
             return 0
         
-        if prop_def.is_scalar():
+        if not prop_def.dimensions:  # Scalar property
             if prop_def.data_type == str:
                 return handler['scalar_size'](value)
             return handler['scalar_size']
