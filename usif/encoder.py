@@ -74,12 +74,19 @@ class USIF:
         self.compression = compression
     
     def _calculate_hash(self, structure: USIFStructure) -> bytes:
-        """Calculate SHA-256 hash of structure"""
+        """
+        Calculate SHA-256 hash of structure
+        
+        IMPORTANT: This method must use EXACTLY the same encoding logic as encode()
+        to ensure hash matches the encoded data. Any changes here must be reflected
+        in encode() and vice versa.
+        """
         data = bytearray()
         data.extend(struct.pack(BinaryFormat.UINT8, structure.structure_type.value))
         data.extend(struct.pack(BinaryFormat.UINT8, structure.storage_mode.value))
         
         if structure.is_crystal():
+            # Use same precision as encoding: np.float32
             lattice_data = structure.lattice_matrix.astype(np.float32).tobytes()
             data.extend(lattice_data)
             data.extend(struct.pack(BinaryFormat.UINT16, structure.spacegroup))
@@ -93,20 +100,28 @@ class USIF:
                 data.extend(struct.pack(BinaryFormat.UINT8, len(structure.wyckoff_sites)))
                 for site in structure.wyckoff_sites:
                     data.extend(struct.pack(BinaryFormat.UINT8, site.atomic_number))
-                    coords = tuple(round(c, 5) for c in site.coords)
-                    data.extend(struct.pack(BinaryFormat.array(BinaryFormat.FLOAT32, 3), *coords))
+                    # Include multiplicity and occupancy to match encode() exactly
+                    data.extend(struct.pack(BinaryFormat.UINT16, site.multiplicity))
+                    # Use same encoding as encode(): pack coordinates directly without rounding
+                    # FLOAT32 precision is sufficient and matches encoding exactly
+                    data.extend(struct.pack(BinaryFormat.array(BinaryFormat.FLOAT32, 3), *site.coords))
+                    data.extend(struct.pack(BinaryFormat.FLOAT32, site.occupancy))
             else:
                 data.extend(struct.pack(BinaryFormat.UINT8, len(structure.point_group_sites)))
                 for site in structure.point_group_sites:
                     data.extend(struct.pack(BinaryFormat.UINT8, site.atomic_number))
-                    coords = tuple(round(c, 5) for c in site.coords)
-                    data.extend(struct.pack(BinaryFormat.array(BinaryFormat.FLOAT32, 3), *coords))
+                    # Include multiplicity and occupancy to match encode() exactly
+                    data.extend(struct.pack(BinaryFormat.UINT16, site.multiplicity))
+                    # Use same encoding as encode(): pack coordinates directly without rounding
+                    data.extend(struct.pack(BinaryFormat.array(BinaryFormat.FLOAT32, 3), *site.coords))
+                    data.extend(struct.pack(BinaryFormat.FLOAT32, site.occupancy))
         else:
             data.extend(struct.pack(BinaryFormat.UINT32, len(structure.atom_sites)))
             for site in structure.atom_sites:
                 data.extend(struct.pack(BinaryFormat.UINT8, site.atomic_number))
-                coords = tuple(round(c, 5) for c in site.coords)
-                data.extend(struct.pack(BinaryFormat.array(BinaryFormat.FLOAT32, 3), *coords))
+                # Use same encoding as encode(): pack coordinates directly without rounding
+                data.extend(struct.pack(BinaryFormat.array(BinaryFormat.FLOAT32, 3), *site.coords))
+                # Note: Atomic properties are not included in hash (they're encoded separately)
         
         return hashlib.sha256(bytes(data)).digest()
     
