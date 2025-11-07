@@ -17,8 +17,7 @@ Features:
     - Tolerance control for symmetry detection
 
 Requirements:
-    - pymatgen: Required for symmetry analysis
-    - Install with: pip install pymatgen
+    - pymatgen: Required dependency for symmetry analysis
 
 Usage:
     >>> from usif import USIFOptimizer, USIFStructure
@@ -40,8 +39,7 @@ Usage:
     ...     print("Storage mode changed during optimization")
 
 Note:
-    This module requires pymatgen to be installed. If pymatgen is not available,
-    optimization will return the structure unchanged.
+    This module requires pymatgen to be installed as a core dependency.
 
 See Also:
     - USIFStructure: Structure to optimize
@@ -55,11 +53,7 @@ from typing import Optional
 from collections import defaultdict
 from usif.converter import StructureConverter
 
-try:
-    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer, PointGroupAnalyzer
-    PYMATGEN_AVAILABLE = True
-except ImportError:
-    PYMATGEN_AVAILABLE = False
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer, PointGroupAnalyzer
 
 from usif.enums import StorageMode, StructureType
 from usif.exceptions import SymmetryAnalysisError, ValidationError
@@ -90,7 +84,7 @@ class USIFOptimizer:
             USIFStructure: Optimized structure (may have different storage_mode)
             
         Note:
-            Requires pymatgen to be installed. If not available, returns structure unchanged.
+            Requires pymatgen (core dependency).
             
         Example:
             >>> optimizer = USIFOptimizer()
@@ -112,10 +106,6 @@ class USIFOptimizer:
     def _optimize_crystal(structure: USIFStructure, tolerance: float) -> USIFStructure:
         """Optimize crystal structure"""
         if structure.storage_mode == StorageMode.SYMMETRIC:
-            return structure
-        
-        if not PYMATGEN_AVAILABLE:
-            logger.warning("Pymatgen not available, cannot optimize crystal structure")
             return structure
         
         try:
@@ -155,10 +145,6 @@ class USIFOptimizer:
     def _optimize_molecule(structure: USIFStructure, tolerance: float) -> USIFStructure:
         """Optimize molecular structure"""
         if structure.storage_mode == StorageMode.SYMMETRIC:
-            return structure
-        
-        if not PYMATGEN_AVAILABLE:
-            logger.warning("Pymatgen not available, cannot optimize molecular structure")
             return structure
         
         try:

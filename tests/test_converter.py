@@ -14,14 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from usif import StructureConverter, USIFStructure, StructureType, StorageMode
 from usif.exceptions import SymmetryAnalysisError
 
-try:
-    from pymatgen.core import Structure, Lattice, Molecule
-    PYMATGEN_AVAILABLE = True
-except ImportError:
-    PYMATGEN_AVAILABLE = False
-
-
-@unittest.skipIf(not PYMATGEN_AVAILABLE, "pymatgen not available")
+from pymatgen.core import Structure, Lattice, Molecule
 class TestStructureConverter(unittest.TestCase):
     """Test StructureConverter class"""
     

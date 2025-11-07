@@ -38,8 +38,7 @@ Usage:
     >>> usif_struct = USIFStructure.from_pymatgen(pmg_struct, energy=-10.5)
 
 Note:
-    This module requires pymatgen to be installed. If pymatgen is not available,
-    conversion methods will raise ImportError or return None.
+    This module requires pymatgen as a core dependency.
 
 See Also:
     - USIFStructure.from_pymatgen(): Convenience method for conversion
@@ -52,15 +51,11 @@ from pathlib import Path
 from collections import defaultdict
 import logging
 
-try:
-    from pymatgen.core import Structure as PMGStructure, Lattice, Element
-    from pymatgen.core import Molecule as PMGMolecule
-    from pymatgen.io.cif import CifParser
-    from pymatgen.io.vasp import Poscar, Vasprun
-    from pymatgen.symmetry.analyzer import SpacegroupAnalyzer, PointGroupAnalyzer
-    PYMATGEN_AVAILABLE = True
-except ImportError:
-    PYMATGEN_AVAILABLE = False
+from pymatgen.core import Structure as PMGStructure, Lattice, Element
+from pymatgen.core import Molecule as PMGMolecule
+from pymatgen.io.cif import CifParser
+from pymatgen.io.vasp import Poscar, Vasprun
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer, PointGroupAnalyzer
 
 from usif.enums import StructureType, StorageMode
 from usif.exceptions import SymmetryAnalysisError, ValidationError

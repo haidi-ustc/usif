@@ -47,17 +47,14 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "numpy>=1.19.0",
+        "pymatgen>=2022.0.0",
     ],
     extras_require={
-        "pymatgen": [
-            "pymatgen>=2022.0.0",
-        ],
         "dev": [
             "pytest>=6.0",
             "pytest-cov>=2.0",
         ],
         "all": [
-            "pymatgen>=2022.0.0",
             "pytest>=6.0",
             "pytest-cov>=2.0",
         ],
