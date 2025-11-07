@@ -678,41 +678,152 @@ class StructureContainer:
         return results
     
     def get_group(self, path: str) -> Optional[USIFGroup]:
-        """Get group by path (HDF5-like group access)"""
+        """
+        Get group by path (HDF5-like group access)
+        
+        Retrieves a group from the container's hierarchical organization.
+        Groups can contain structures and subgroups, similar to HDF5 groups.
+        
+        Args:
+            path: Group path (e.g., "/crystals/NaCl" or "/molecules")
+            
+        Returns:
+            USIFGroup if found, None otherwise
+            
+        Example:
+            >>> group = container.get_group("/crystals/NaCl")
+            >>> if group:
+            ...     structures = group.list_structures()
+        """
         return self.root_group.get_subgroup(path)
     
     def create_group(self, path: str) -> USIFGroup:
-        """Create group hierarchy (HDF5-like group creation)"""
+        """
+        Create group hierarchy (HDF5-like group creation)
+        
+        Creates a new group or returns existing group at the specified path.
+        Parent groups are created automatically if they don't exist.
+        
+        Args:
+            path: Group path (e.g., "/crystals/NaCl")
+            
+        Returns:
+            USIFGroup: Created or existing group
+            
+        Raises:
+            ValueError: If container is read-only
+            
+        Example:
+            >>> container.create_group("/crystals/NaCl")
+            >>> container.create_group("/molecules/H2O")
+        """
         if self.mode == 'r':
             raise ValueError("Cannot create groups in read-only container")
         return self._get_or_create_group(path)
     
     def set_structure_attributes(self, name: str, attributes: Dict[str, Any]) -> None:
-        """Set attributes for a named structure (HDF5-like attributes)"""
+        """
+        Set attributes for a named structure (HDF5-like attributes)
+        
+        Attaches metadata attributes to a named structure, similar to HDF5
+        dataset attributes. Useful for storing additional information like
+        calculation parameters, timestamps, etc.
+        
+        Args:
+            name: Structure name (must exist in container)
+            attributes: Dictionary of attribute name-value pairs
+            
+        Raises:
+            ValueError: If structure name not found
+            
+        Example:
+            >>> container.set_structure_attributes("NaCl_001", {
+            ...     "temperature": 300,
+            ...     "pressure": 0.0,
+            ...     "calculator": "VASP"
+            ... })
+        """
         if name not in self._name_index:
             raise ValueError(f"Structure '{name}' not found")
         self._structure_attributes[name] = attributes
     
     def get_structure_attributes(self, name: str) -> Optional[Dict[str, Any]]:
-        """Get attributes for a named structure (HDF5-like attributes)"""
+        """
+        Get attributes for a named structure (HDF5-like attributes)
+        
+        Retrieves metadata attributes associated with a named structure.
+        
+        Args:
+            name: Structure name
+            
+        Returns:
+            Dict of attributes if found, None otherwise
+            
+        Example:
+            >>> attrs = container.get_structure_attributes("NaCl_001")
+            >>> if attrs:
+            ...     print(f"Temperature: {attrs.get('temperature')}")
+        """
         return self._structure_attributes.get(name)
     
     def set_group_attribute(self, group_path: str, name: str, value: Any) -> None:
-        """Set attribute on a group (HDF5-like group attributes)"""
+        """
+        Set attribute on a group (HDF5-like group attributes)
+        
+        Attaches metadata attributes to a group, similar to HDF5 group attributes.
+        
+        Args:
+            group_path: Path to group
+            name: Attribute name
+            value: Attribute value
+            
+        Raises:
+            ValueError: If container is read-only
+            
+        Example:
+            >>> container.set_group_attribute("/crystals", "description", "Crystal structures")
+        """
         if self.mode == 'r':
             raise ValueError("Cannot set attributes in read-only container")
         group = self._get_or_create_group(group_path)
         group.set_attribute(name, value)
     
     def get_group_attribute(self, group_path: str, name: str, default: Any = None) -> Any:
-        """Get attribute from a group (HDF5-like group attributes)"""
+        """
+        Get attribute from a group (HDF5-like group attributes)
+        
+        Retrieves a metadata attribute from a group.
+        
+        Args:
+            group_path: Path to group
+            name: Attribute name
+            default: Default value if attribute not found
+            
+        Returns:
+            Attribute value or default
+            
+        Example:
+            >>> desc = container.get_group_attribute("/crystals", "description", "N/A")
+        """
         group = self.get_group(group_path)
         if group:
             return group.get_attribute(name, default)
         return default
     
     def prefetch(self, identifiers: List[str]) -> None:
-        """Prefetch structures for faster access"""
+        """
+        Prefetch structures for faster access
+        
+        Queues structures for background loading to improve subsequent access
+        performance. Useful when you know which structures will be accessed next.
+        
+        Args:
+            identifiers: List of structure identifiers (hashes or names) to prefetch
+            
+        Example:
+            >>> container.prefetch(["NaCl_001", "NaCl_002", "NaCl_003"])
+            >>> # Structures will be loaded in background
+        """
         if self._prefetch_queue:
             self._prefetch_queue.put(identifiers)
     
@@ -720,11 +831,22 @@ class StructureContainer:
         """
         Batch read using multiple threads (optimized)
         
+        Retrieves multiple structures in parallel using thread pool execution.
+        Much faster than sequential get() calls for large batches.
+        
         Args:
-            identifiers: List of structure identifiers
+            identifiers: List of structure identifiers (hashes or names)
             
         Returns:
-            List of structures in same order as identifiers
+            List[Optional[USIFStructure]]: List of structures in same order as identifiers
+            (None for structures that couldn't be loaded)
+            
+        Example:
+            >>> identifiers = ["NaCl_001", "NaCl_002", "NaCl_003"]
+            >>> structures = container.get_batch_parallel(identifiers)
+            >>> for ident, struct in zip(identifiers, structures):
+            ...     if struct:
+            ...         print(f"{ident}: {struct.formula}")
         """
         from concurrent.futures import ThreadPoolExecutor, as_completed
         
@@ -858,7 +980,31 @@ class StructureContainer:
         return serialize_group(self.root_group)
     
     def stats(self) -> Dict[str, Any]:
-        """Get detailed container statistics"""
+        """
+        Get detailed container statistics
+        
+        Returns comprehensive statistics about the container including structure
+        counts, sizes, index sizes, cache information, and configuration.
+        
+        Returns:
+            Dict[str, Any]: Dictionary containing:
+                - total_structures: Number of structures in container
+                - total_groups: Number of groups
+                - total_size_bytes: Total size of all structures
+                - average_structure_size: Average structure size in bytes
+                - hash_index_size: Size of hash index
+                - secondary_index_size: Size of secondary indexes
+                - cache_size: Number of structures in cache
+                - cache_hit_ratio: Cache hit ratio (currently 0.0)
+                - compression_enabled: Whether compression is enabled
+                - mmap_enabled: Whether memory mapping is enabled
+                - chunk_size: Chunk size in bytes
+                
+        Example:
+            >>> stats = container.stats()
+            >>> print(f"Total structures: {stats['total_structures']}")
+            >>> print(f"Total size: {stats['total_size_bytes'] / 1024 / 1024:.2f} MB")
+        """
         total_structures = len(self._hash_index)
         total_groups = len(self._group_index)
         
@@ -891,7 +1037,26 @@ class StructureContainer:
         }
     
     def close(self) -> None:
-        """Close container and cleanup (write indexes if in write mode)"""
+        """
+        Close container and cleanup resources
+        
+        Closes the container, writes indexes if in write mode, stops background
+        threads, and releases file handles and memory mappings. Should be called
+        when done with the container to ensure data is persisted and resources
+        are freed.
+        
+        The container can also be used as a context manager (with statement),
+        which automatically calls close().
+        
+        Example:
+            >>> container = StructureContainer("structures.usifc", mode="w")
+            >>> # ... use container ...
+            >>> container.close()
+            >>> 
+            >>> # Or use as context manager
+            >>> with StructureContainer("structures.usifc", mode="r") as container:
+            ...     structure = container.get("NaCl_001")
+        """
         # Write indexes before closing if in write mode
         if self.mode in ('w', 'a') and self._file:
             try:

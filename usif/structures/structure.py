@@ -100,7 +100,46 @@ class USIFStructure(MSONable):
                  atom_sites: Optional[List[AtomSite]] = None,
                  structure_properties: Optional[StructureProperties] = None,
                  formula: str = ""):
+        """
+        Initialize USIFStructure
         
+        Creates a new USIFStructure instance representing either a crystal (periodic)
+        or molecule (non-periodic) structure. The structure can use symmetric storage
+        (compact, for symmetric structures) or full atomic storage (explicit atoms,
+        supports per-atom properties).
+        
+        Args:
+            structure_type: CRYSTAL for periodic structures, MOLECULE for non-periodic
+            storage_mode: SYMMETRIC for compact storage, FULL_ATOMIC for explicit atoms
+            lattice_matrix: 3x3 lattice matrix (required for crystals, None for molecules)
+            spacegroup: Space group number (for crystals, default: 1)
+            point_group: Point group symbol (for molecules, e.g., "C2v")
+            wyckoff_sites: List of Wyckoff sites (for CRYSTAL + SYMMETRIC mode)
+            point_group_sites: List of point group sites (for MOLECULE + SYMMETRIC mode)
+            atom_sites: List of atom sites (for FULL_ATOMIC mode)
+            structure_properties: Structure-level properties (energy, stress, etc.)
+            formula: Chemical formula string
+            
+        Raises:
+            ValidationError: If structure configuration is invalid
+            
+        Example:
+            >>> from usif import USIFStructure, StructureType, StorageMode
+            >>> from usif.structures.sites import WyckoffSite
+            >>> import numpy as np
+            >>> 
+            >>> # Create crystal structure
+            >>> lattice = np.array([[5.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 5.0]])
+            >>> sites = [WyckoffSite(atomic_number=14, multiplicity=8, coords=(0.0, 0.0, 0.0))]
+            >>> structure = USIFStructure(
+            ...     structure_type=StructureType.CRYSTAL,
+            ...     storage_mode=StorageMode.SYMMETRIC,
+            ...     lattice_matrix=lattice,
+            ...     spacegroup=227,
+            ...     wyckoff_sites=sites,
+            ...     formula='Si'
+            ... )
+        """
         self.structure_type = structure_type
         self.storage_mode = storage_mode
         self.lattice_matrix = lattice_matrix
@@ -137,19 +176,55 @@ class USIFStructure(MSONable):
                     raise ValidationError("Crystal FULL_ATOMIC mode requires non-empty atom_sites")
     
     def is_crystal(self) -> bool:
-        """Check if structure is crystal"""
+        """
+        Check if structure is a crystal (periodic)
+        
+        Returns:
+            bool: True if structure is periodic (has lattice), False otherwise
+            
+        Example:
+            >>> structure.is_crystal()  # True for crystals
+        """
         return self.structure_type == StructureType.CRYSTAL
     
     def is_molecular(self) -> bool:
-        """Check if structure is molecular"""
+        """
+        Check if structure is a molecule (non-periodic)
+        
+        Returns:
+            bool: True if structure is non-periodic (no lattice), False otherwise
+            
+        Example:
+            >>> structure.is_molecular()  # True for molecules
+        """
         return self.structure_type == StructureType.MOLECULE
     
     def is_symmetric(self) -> bool:
-        """Check if using symmetric storage"""
+        """
+        Check if structure uses symmetric storage mode
+        
+        Returns:
+            bool: True if using SYMMETRIC storage (compact), False if FULL_ATOMIC
+            
+        Example:
+            >>> structure.is_symmetric()  # True for symmetric storage
+        """
         return self.storage_mode == StorageMode.SYMMETRIC
     
     def num_atoms(self) -> int:
-        """Get total number of atoms"""
+        """
+        Get total number of atoms in the structure
+        
+        For symmetric storage, calculates from site multiplicities.
+        For full atomic storage, returns the count of atom sites.
+        
+        Returns:
+            int: Total number of atoms
+            
+        Example:
+            >>> n_atoms = structure.num_atoms()
+            >>> print(f"Structure has {n_atoms} atoms")
+        """
         if self.storage_mode == StorageMode.SYMMETRIC:
             if self.is_crystal():
                 if self.wyckoff_sites is None:
@@ -168,8 +243,17 @@ class USIFStructure(MSONable):
         """
         Convert USIFStructure to MSONable dictionary
         
+        Converts the structure to a dictionary format compatible with the
+        Materials Science Object Notation (MSON) standard, allowing for
+        JSON serialization and deserialization.
+        
         Returns:
-            Dictionary representation suitable for JSON serialization
+            dict: Dictionary representation with all structure data
+            
+        Example:
+            >>> structure_dict = structure.as_dict()
+            >>> import json
+            >>> json_str = json.dumps(structure_dict)
         """
         d = {
             "@module": self.__class__.__module__,
@@ -221,11 +305,18 @@ class USIFStructure(MSONable):
         """
         Create USIFStructure from MSONable dictionary
         
+        Reconstructs a USIFStructure from a dictionary created by as_dict().
+        This is the inverse operation of as_dict().
+        
         Args:
             d: Dictionary representation from as_dict()
             
         Returns:
-            USIFStructure instance
+            USIFStructure: Reconstructed structure instance
+            
+        Example:
+            >>> structure_dict = structure.as_dict()
+            >>> reconstructed = USIFStructure.from_dict(structure_dict)
         """
         lattice_matrix = None
         if "lattice_matrix" in d and d["lattice_matrix"] is not None:

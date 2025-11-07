@@ -85,19 +85,38 @@ class StructureConverter:
                      force_symmetric: bool = False,
                      **kwargs) -> USIFStructure:
         """
-        Universal converter from pymatgen to USIF
+        Convert pymatgen Structure or Molecule to USIF format
+        
+        Automatically performs symmetry analysis and extracts Wyckoff sites
+        for crystals or point group sites for molecules. Handles both
+        symmetric and full atomic storage modes based on properties.
         
         Args:
-            pmg_obj: Pymatgen Structure or Molecule
-            forces: Optional forces array
-            stress: Optional stress tensor
-            energy: Optional energy
-            charges: Optional charges
-            magmoms: Optional magnetic moments
-            force_symmetric: Force symmetric storage
+            pmg_obj: Pymatgen Structure or Molecule object
+            forces: Optional forces array (Nx3 for N atoms, in eV/Å)
+            stress: Optional stress tensor (3x3 or 6-element Voigt notation, in GPa)
+            energy: Optional total energy (in eV)
+            charges: Optional atomic charges array (N elements, in e)
+            magmoms: Optional magnetic moments array (N elements, in μB)
+            force_symmetric: Force symmetric storage mode (default: auto-detect)
+            **kwargs: Additional properties to store in structure_properties.custom
             
         Returns:
-            USIFStructure instance
+            USIFStructure: Converted structure with properties
+            
+        Raises:
+            SymmetryAnalysisError: If symmetry analysis fails
+            ValidationError: If input data is invalid
+            
+        Example:
+            >>> from pymatgen.core import Structure
+            >>> pmg_struct = Structure.from_file("structure.cif")
+            >>> usif_struct = StructureConverter.from_pymatgen(
+            ...     pmg_struct,
+            ...     energy=-10.5,
+            ...     forces=forces_array,
+            ...     stress=stress_tensor
+            ... )
         """
         is_molecule = isinstance(pmg_obj, PMGMolecule)
         
@@ -317,13 +336,26 @@ class StructureConverter:
     @staticmethod
     def to_pymatgen(usif_structure: USIFStructure) -> Union[PMGStructure, PMGMolecule]:
         """
-        Convert USIF structure to pymatgen
+        Convert USIFStructure to pymatgen format
+        
+        Converts a USIFStructure back to a pymatgen Structure or Molecule object.
+        Expands symmetric sites (Wyckoff or point group) to explicit atomic positions.
+        Preserves atomic properties (forces, charges, magmoms) if available.
         
         Args:
-            usif_structure: USIF structure
+            usif_structure: USIFStructure to convert
             
         Returns:
-            Pymatgen Structure or Molecule
+            Union[PMGStructure, PMGMolecule]: Pymatgen Structure or Molecule
+            
+        Raises:
+            ImportError: If pymatgen is not installed
+            ValidationError: If structure data is invalid
+            
+        Example:
+            >>> from usif import StructureConverter
+            >>> pmg_struct = StructureConverter.to_pymatgen(usif_structure)
+            >>> pmg_struct.to("cif", "output.cif")
         """
         if usif_structure.is_molecular():
             return StructureConverter._to_molecule(usif_structure)
