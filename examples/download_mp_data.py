@@ -85,7 +85,9 @@ class MaterialsProjectDownloader:
                            entries_per_group: int = 100,
                            e_above_hull_max: float = 0.1,
                            min_band_gap: Optional[float] = None,
-                           max_band_gap: Optional[float] = None) -> Dict[str, Any]:
+                           max_band_gap: Optional[float] = None,
+                           crystal_system: Optional[str] = None,
+                           spacegroup: Optional[int] = None) -> Dict[str, Any]:
         """
         Download high-quality structures from Materials Project
         
@@ -128,6 +130,14 @@ class MaterialsProjectDownloader:
                 else:
                     criteria["band_gap"] = {"$lte": max_band_gap}
             
+            # Filter by crystal system if specified
+            if crystal_system is not None:
+                criteria["crystal_system"] = crystal_system
+            
+            # Filter by spacegroup if specified
+            if spacegroup is not None:
+                criteria["spacegroup.number"] = spacegroup
+            
             # Get total count
             total_available = mpr.summary.count(
                 fields=["material_id"],
@@ -146,13 +156,24 @@ class MaterialsProjectDownloader:
                 logger.info(f"Downloading batch: offset={offset}, batch_size={batch_size}")
                 
                 # Get summary data with properties
-                summaries = mpr.summary.search(
-                    **criteria,
-                    fields=["material_id", "structure", "spacegroup"] + self.BASIC_PROPERTIES,
-                    num_chunks=1,
-                    chunk_size=batch_size,
-                    num_sites=[1, 200],  # Reasonable size
-                )
+                # Note: MP API search may need adjustment based on API version
+                try:
+                    summaries = mpr.summary.search(
+                        **criteria,
+                        fields=["material_id", "structure", "spacegroup"] + self.BASIC_PROPERTIES,
+                        num_chunks=1,
+                        chunk_size=batch_size,
+                        num_sites=[1, 200],  # Reasonable size
+                    )
+                except Exception as e:
+                    # Fallback: try without num_sites filter
+                    logger.warning(f"Search with num_sites failed, trying without: {e}")
+                    summaries = mpr.summary.search(
+                        **criteria,
+                        fields=["material_id", "structure", "spacegroup"] + self.BASIC_PROPERTIES,
+                        num_chunks=1,
+                        chunk_size=batch_size,
+                    )
                 
                 if not summaries:
                     logger.warning("No more structures found")
@@ -195,10 +216,10 @@ class MaterialsProjectDownloader:
                         stats["total_skipped"] += 1
                         continue
                 
-                offset += batch_size
+                skip += batch_size
                 
                 # Safety check
-                if offset > total_available:
+                if skip > total_available:
                     logger.warning("Reached end of available structures")
                     break
             
@@ -363,6 +384,22 @@ Examples:
         help="Maximum band gap filter (eV, optional)"
     )
     
+    parser.add_argument(
+        "--crystal_system",
+        type=str,
+        default=None,
+        choices=["cubic", "tetragonal", "orthorhombic", "hexagonal", 
+                 "rhombohedral", "monoclinic", "triclinic"],
+        help="Filter by crystal system (optional)"
+    )
+    
+    parser.add_argument(
+        "--spacegroup",
+        type=int,
+        default=None,
+        help="Filter by space group number (optional)"
+    )
+    
     args = parser.parse_args()
     
     # Create downloader
@@ -378,6 +415,8 @@ Examples:
         e_above_hull_max=args.e_above_hull_max,
         min_band_gap=args.min_band_gap,
         max_band_gap=args.max_band_gap,
+        crystal_system=args.crystal_system,
+        spacegroup=args.spacegroup,
     )
     
     # Print summary
