@@ -1,7 +1,37 @@
 #!/usr/bin/env python3
 """
-USIF Encoder/Decoder
-Main encoder and decoder for USIF format
+USIF Encoder/Decoder Module
+
+This module provides the core encoding and decoding functionality for the USIF format.
+The USIF class handles binary serialization of structures with compression support.
+
+Main Class:
+    USIF: Encoder/decoder for USIF binary format
+
+Features:
+    - Binary encoding/decoding of USIF structures
+    - Multiple compression algorithms (GZIP, LZMA, BZIP2)
+    - Hash-based integrity checking
+    - Efficient property serialization
+
+Usage:
+    >>> from usif import USIF, USIFStructure
+    >>> 
+    >>> # Encode a structure
+    >>> encoder = USIF()
+    >>> structure = USIFStructure(...)
+    >>> binary_data = encoder.encode(structure)
+    >>> 
+    >>> # Decode binary data
+    >>> decoded_structure = encoder.decode(binary_data)
+    >>> 
+    >>> # Save/load with compression
+    >>> structure.save('file.usif', compression=CompressionType.GZIP)
+    >>> loaded = USIFStructure.load('file.usif')
+
+See Also:
+    - USIFStructure: Structure representation
+    - PropertySerializer: Property serialization
 """
 
 import struct

@@ -1,7 +1,49 @@
 #!/usr/bin/env python3
 """
-USIF Structure Converter
-Convert between USIF and pymatgen formats
+USIF Structure Converter Module
+
+This module provides conversion utilities between USIF and pymatgen formats.
+It handles automatic symmetry analysis and Wyckoff site extraction.
+
+Main Class:
+    StructureConverter: Convert between USIF and pymatgen structures
+
+Features:
+    - Convert pymatgen Structure/Molecule to USIF
+    - Automatic symmetry analysis and Wyckoff site extraction
+    - Support for properties (forces, stress, energy, charges, magmoms)
+    - Automatic storage mode selection (symmetric vs full atomic)
+
+Requirements:
+    - pymatgen: Required for conversion functionality
+    - Install with: pip install pymatgen
+
+Usage:
+    >>> from pymatgen.core import Structure
+    >>> from usif import StructureConverter
+    >>> 
+    >>> # Load pymatgen structure
+    >>> pmg_struct = Structure.from_file('structure.cif')
+    >>> 
+    >>> # Convert to USIF with properties
+    >>> usif_struct = StructureConverter.from_pymatgen(
+    ...     pmg_struct,
+    ...     energy=-10.5,
+    ...     forces=forces_array,
+    ...     stress=stress_tensor
+    ... )
+    >>> 
+    >>> # Or use the convenience method
+    >>> from usif import USIFStructure
+    >>> usif_struct = USIFStructure.from_pymatgen(pmg_struct, energy=-10.5)
+
+Note:
+    This module requires pymatgen to be installed. If pymatgen is not available,
+    conversion methods will raise ImportError or return None.
+
+See Also:
+    - USIFStructure.from_pymatgen(): Convenience method for conversion
+    - pymatgen: https://pymatgen.org/
 """
 
 import numpy as np

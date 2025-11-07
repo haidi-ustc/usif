@@ -1,7 +1,48 @@
 #!/usr/bin/env python3
 """
-USIF Structure Container
-Container for storing multiple USIF structures with indexing
+USIF Structure Container Module
+
+This module provides a container system for storing and managing multiple USIF structures
+with HDF5-like hierarchical organization, indexing, and efficient storage.
+
+Main Classes:
+    StructureContainer: Container for multiple structures with indexing
+    USIFGroup: HDF5-like group for hierarchical organization
+
+Features:
+    - Store multiple structures in a single file
+    - HDF5-like hierarchical groups and attributes
+    - Indexing by formula, spacegroup, properties
+    - Thread-safe operations
+    - Efficient storage with deduplication
+    - Query and filter structures
+
+Usage:
+    >>> from usif import StructureContainer, USIFStructure
+    >>> 
+    >>> # Create container
+    >>> container = StructureContainer('structures.usifc')
+    >>> 
+    >>> # Add structures
+    >>> container.add('structure1', structure1)
+    >>> container.add('structure2', structure2)
+    >>> 
+    >>> # Organize in groups
+    >>> container.create_group('crystals')
+    >>> container.add('crystals/NaCl', nacl_structure)
+    >>> 
+    >>> # Query structures
+    >>> results = container.query(formula='NaCl', energy_max=-10.0)
+    >>> 
+    >>> # Get structure
+    >>> structure = container.get('structure1')
+    >>> 
+    >>> # Save and close
+    >>> container.close()
+
+See Also:
+    - USIFStructure: Individual structure representation
+    - USIFGroup: Group organization
 """
 
 import struct

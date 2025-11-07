@@ -1,11 +1,43 @@
 #!/usr/bin/env python3
 """
-USIF Physical Units
-Physical unit constants and utilities for materials science properties
+USIF Physical Units Module
 
-This module provides standardized unit definitions for USIF properties.
-Units are stored as strings for simplicity, but this module ensures consistency
-and provides a central location for unit management.
+This module provides standardized unit definitions and conversion utilities
+for materials science properties. Units are stored as strings for simplicity,
+but this module ensures consistency and provides a central location for unit management.
+
+Main Classes:
+    Units: Physical unit constants for materials science
+    UnitConversions: Unit conversion factors (foundation for future conversion)
+
+Features:
+    - Standardized unit strings (eV, Å, GPa, K, etc.)
+    - Unit validation and compatibility checking
+    - Conversion factors to standard USIF units
+    - Support for energy, length, volume, force, pressure, temperature, etc.
+
+Usage:
+    >>> from usif import Units, PropertyRegistry
+    >>> 
+    >>> # Use unit constants
+    >>> energy_unit = Units.EV
+    >>> length_unit = Units.ANGSTROM
+    >>> 
+    >>> # Validate units
+    >>> Units.is_valid_unit("eV")  # True
+    >>> Units.get_unit_category("eV")  # "energy"
+    >>> Units.are_compatible("eV", "J")  # True
+    >>> 
+    >>> # Use in property definitions
+    >>> prop_def = PropertyDefinition(
+    ...     name="energy",
+    ...     data_type=float,
+    ...     units=Units.EV
+    ... )
+
+See Also:
+    - PropertyRegistry: Uses Units constants
+    - PropertyDefinition: Stores unit strings
 """
 
 from typing import Dict, Set, Optional, Tuple

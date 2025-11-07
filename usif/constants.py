@@ -1,7 +1,28 @@
 #!/usr/bin/env python3
 """
-USIF Constants
-Binary format constants and utilities
+USIF Constants Module
+
+This module provides constants used throughout the USIF format, including
+binary format specifications and symmetry analysis parameters.
+
+Main Classes:
+    BinaryFormat: Binary format constants for struct pack/unpack
+    SymmetryConstants: Constants for symmetry analysis and structure optimization
+
+Usage:
+    >>> from usif import BinaryFormat, SymmetryConstants
+    >>> 
+    >>> # Use binary format constants
+    >>> import struct
+    >>> data = struct.pack(BinaryFormat.FLOAT32, 3.14)
+    >>> 
+    >>> # Use symmetry constants
+    >>> tolerance = SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE
+    >>> coord_tolerance = SymmetryConstants.COORDINATE_TOLERANCE
+
+See Also:
+    - PropertySerializer: Uses BinaryFormat for serialization
+    - StructureConverter: Uses SymmetryConstants for analysis
 """
 
 

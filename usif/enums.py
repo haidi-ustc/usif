@@ -1,7 +1,32 @@
 #!/usr/bin/env python3
 """
-USIF Enumerations
-Type enumerations for structure types, storage modes, and compression
+USIF Enumerations Module
+
+This module provides enumeration types for structure classification,
+storage modes, and compression algorithms.
+
+Main Enumerations:
+    StructureType: Type of structure (CRYSTAL or MOLECULE)
+    StorageMode: Storage mode (SYMMETRIC or FULL_ATOMIC)
+    CompressionType: Compression algorithm (NONE or GZIP)
+
+Usage:
+    >>> from usif import StructureType, StorageMode, CompressionType
+    >>> 
+    >>> # Use structure type
+    >>> if structure.structure_type == StructureType.CRYSTAL:
+    ...     print("This is a crystal")
+    >>> 
+    >>> # Use storage mode
+    >>> if structure.storage_mode == StorageMode.SYMMETRIC:
+    ...     print("Using symmetric storage")
+    >>> 
+    >>> # Use compression type
+    >>> structure.save('file.usif', compression=CompressionType.GZIP)
+
+See Also:
+    - USIFStructure: Uses StructureType and StorageMode
+    - USIF: Uses CompressionType
 """
 
 from enum import IntEnum

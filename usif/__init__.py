@@ -5,6 +5,38 @@ Unified format for crystals and molecules with intelligent compression
 
 This module provides a modular structure for the USIF format.
 All classes and functions are available at the top level for backward compatibility.
+
+Main Components:
+    - USIFStructure: Core structure representation for crystals and molecules
+    - USIF: Encoder/decoder for binary USIF format
+    - StructureConverter: Convert between USIF and pymatgen formats
+    - StructureContainer: HDF5-like container for multiple structures
+    - PropertySystem: Type-safe properties with units and validation
+
+Quick Start:
+    >>> from usif import USIFStructure, StructureType, StorageMode
+    >>> from usif.structures.sites import WyckoffSite
+    >>> import numpy as np
+    >>> 
+    >>> # Create a crystal structure
+    >>> lattice = np.array([[5.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 5.0]])
+    >>> sites = [WyckoffSite(atomic_number=14, multiplicity=8, coords=(0.0, 0.0, 0.0))]
+    >>> structure = USIFStructure(
+    ...     structure_type=StructureType.CRYSTAL,
+    ...     storage_mode=StorageMode.SYMMETRIC,
+    ...     lattice_matrix=lattice,
+    ...     spacegroup=227,
+    ...     wyckoff_sites=sites,
+    ...     formula='Si'
+    ... )
+    >>> 
+    >>> # Save to file
+    >>> structure.save('structure.usif')
+    >>> 
+    >>> # Load from file
+    >>> loaded = USIFStructure.load('structure.usif')
+
+For more examples, see the examples/ directory.
 """
 
 # Core constants and enums
