@@ -360,10 +360,11 @@ The main structure class with convenient methods:
   - Auto-detects format from filename extension if `fmt` is not provided
   - Returns object for "pymatgen" and "ase", saves to file for other formats
   - Defaults to "pymatgen" if both filename and fmt are None
-  - Example: `structure.to("output.usif")`  # Auto-detects USIF format
-  - Example: `structure.to("output.cif")`  # Auto-detects CIF format
-  - Example: `pmg_struct = structure.to(fmt="pymatgen")`  # Returns object
-  - Example: `structure.to("output.cif", "cif")`  # Explicit format
+  - Example: `usif_struct.to("output.usif")`  # Auto-detects USIF format
+  - Example: `usif_struct.to("output.cif")`  # Auto-detects CIF format
+  - Example: `pmg_struct = usif_struct.to(fmt="pymatgen")`  # Returns object
+  - Example: `usif_struct.to("output.cif", "cif")`  # Explicit format
+  - Example: `pmg_struct2 = usif_struct.to()`  # Defaults to pymatgen if no args
 
 - `save(filename, compression=CompressionType.GZIP)` - Save structure to file
   - `.usif` extension uses USIF encoder
@@ -380,8 +381,21 @@ Convert between USIF and various structure formats (pymatgen, ASE):
 
 ```python
 from usif import StructureConverter
+from pymatgen.core import Structure, Lattice
+from ase import Atoms
+import numpy as np
 
 # From pymatgen to USIF
+# Create a pymatgen structure
+lattice = Lattice.cubic(5.64)
+species = ["Na", "Cl"]
+coords = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
+pmg_structure = Structure(lattice, species, coords)
+
+# Define properties
+forces_array = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])  # Nx3 array for N atoms
+stress_tensor = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])  # 3x3 tensor
+
 usif_struct = StructureConverter.from_pymatgen(
     pmg_structure,
     energy=-10.5,
@@ -390,12 +404,12 @@ usif_struct = StructureConverter.from_pymatgen(
 )
 
 # From ASE to USIF
-from ase import Atoms
 ase_atoms = Atoms('H2O', positions=[[0, 0, 0], [0.95, 0, 0], [0.95, 0.95, 0]])
-usif_struct = StructureConverter.from_ase(
+forces_h2o = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])  # 3 atoms for H2O
+usif_struct2 = StructureConverter.from_ase(
     ase_atoms,
     energy=-10.5,
-    forces=forces_array
+    forces=forces_h2o
 )
 
 # From USIF to pymatgen
