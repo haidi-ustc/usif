@@ -123,8 +123,8 @@ dmypy.json
 .pyre/
 
 # USIF specific
-# Downloaded Materials Project data
-data/
+# Downloaded Materials Project data (moved to tests/data/)
+tests/data/
 *.usif
 *.usifc
 
