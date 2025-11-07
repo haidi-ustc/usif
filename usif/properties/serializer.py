@@ -55,12 +55,14 @@ class PropertySerializer:
     @staticmethod
     def _get_string_size(value: str) -> int:
         """Calculate encoded string size"""
+        if not isinstance(value, str):
+            raise ValueError(f"Expected string, got {type(value)}")
         encoded_len = len(value.encode('utf-8'))
         return 1 + encoded_len if encoded_len <= 255 else 5 + encoded_len
     
     @staticmethod
     def _is_sequence(value: Any) -> bool:
-        """Check if value is a sequence (but not string)"""
+        """Check if value is a sequence (but not string or bytes)"""
         return hasattr(value, '__len__') and not isinstance(value, (str, bytes))
 
     @staticmethod
@@ -69,7 +71,6 @@ class PropertySerializer:
         if PropertySerializer._is_sequence(value) and not PropertySerializer._is_multi_dimensional_element(value):
             return len(value)
         return 1
-    
     
     @staticmethod
     def serialize_value(value: Any, prop_def: PropertyDefinition,
@@ -86,8 +87,10 @@ class PropertySerializer:
             else:
                 # Structure-level property: can be scalar or array, no count needed
                 return PropertySerializer._serialize_structure_property(value, prop_def)
-        except (struct.error, UnicodeEncodeError, ValueError) as e:
+        except (struct.error, UnicodeEncodeError, ValueError, TypeError) as e:
             raise EncodingError(f"Failed to serialize property '{prop_def.name}': {e}") from e
+        except Exception as e:
+            raise EncodingError(f"Unexpected error serializing property '{prop_def.name}': {e}") from e
     
     @staticmethod
     def _serialize_per_atom_property(value: Any, prop_def: PropertyDefinition,
@@ -102,6 +105,10 @@ class PropertySerializer:
         if is_sequence:
             # Multiple values (list/array of values)
             actual_count = len(value)
+            if actual_count == 0:
+                raise EncodingError("Cannot serialize empty sequence for per-atom property")
+            
+            # Validate count: must be 1 (single value repeated) or num_atoms (one per atom)
             if num_atoms is not None and actual_count != 1 and actual_count != num_atoms:
                 raise EncodingError(
                     f"Per-atom property count mismatch: expected 1 or {num_atoms}, got {actual_count}"
@@ -147,14 +154,24 @@ class PropertySerializer:
         """Serialize multi-dimensional array element"""
         dim = prop_def.dimensions[0]
         
-        # Validate dimensions - allow single multi-dimensional elements
-        if not PropertySerializer._is_sequence(value) or len(value) != dim:
-            if PropertySerializer._is_multi_dimensional_element(value) and len(value) == dim:
-                # This is a valid multi-dimensional element
-                pass
-            else:
-                raise EncodingError(f"Dimension mismatch: expected {dim}, got {len(value) if PropertySerializer._is_sequence(value) else 'scalar'}")
+        # Validate that value is a sequence with correct length
+        if not PropertySerializer._is_sequence(value):
+            raise EncodingError(
+                f"Expected sequence for multi-dimensional property, got {type(value).__name__}"
+            )
         
+        if len(value) != dim:
+            raise EncodingError(
+                f"Dimension mismatch: expected {dim} elements, got {len(value)}"
+            )
+        
+        # Validate that all elements are numeric
+        if not all(isinstance(x, (int, float)) for x in value):
+            raise EncodingError(
+                f"All elements must be numeric (int or float), got mixed types"
+            )
+        
+        # Serialize based on data type
         if prop_def.data_type in (float, tuple):
             return struct.pack(BinaryFormat.array(BinaryFormat.FLOAT32, dim), *value)
         elif prop_def.data_type == int:
@@ -173,12 +190,17 @@ class PropertySerializer:
             raise EncodingError(f"Unsupported scalar type: {prop_def.data_type}")
         
         if prop_def.data_type == str:
+            if not isinstance(value, str):
+                raise EncodingError(f"Expected string, got {type(value).__name__}")
             return PropertySerializer._serialize_string(value)
         
         # Use array_format for efficiency (smaller size) when available, fallback to scalar_format
         fmt = handler.get('array_format') or handler.get('scalar_format')
         if fmt:
-            return struct.pack(fmt, value)
+            try:
+                return struct.pack(fmt, value)
+            except struct.error as e:
+                raise EncodingError(f"Failed to pack value {value} with format {fmt}: {e}") from e
         raise EncodingError(f"Format not defined for {prop_def.data_type}")
     
     @staticmethod
@@ -208,13 +230,23 @@ class PropertySerializer:
             else:
                 # Structure-level property: no count, just deserialize the value
                 return PropertySerializer._deserialize_structure_property(data, offset, prop_def)
-        except (struct.error, UnicodeDecodeError, ValueError) as e:
-            raise DecodingError(f"Failed to deserialize property '{prop_def.name}' at offset {offset}: {e}") from e
+        except (struct.error, UnicodeDecodeError, ValueError, IndexError) as e:
+            raise DecodingError(
+                f"Failed to deserialize property '{prop_def.name}' at offset {offset}: {e}"
+            ) from e
+        except Exception as e:
+            raise DecodingError(
+                f"Unexpected error deserializing property '{prop_def.name}' at offset {offset}: {e}"
+            ) from e
 
     @staticmethod
     def _deserialize_per_atom_property(data: bytes, offset: int, prop_def: PropertyDefinition,
                                       num_atoms: Optional[int] = None) -> Tuple[Any, int]:
         """Deserialize per-atom property - unified handling for scalars and arrays"""
+        # Check bounds
+        if offset >= len(data):
+            raise DecodingError(f"Insufficient data: offset {offset} >= data length {len(data)}")
+        
         # Read count flag/byte
         count_flag = struct.unpack(BinaryFormat.UINT8, data[offset:offset+1])[0]
         offset += 1
@@ -222,28 +254,37 @@ class PropertySerializer:
         if count_flag == PropertySerializer.SINGLE_VALUE_FLAG:
             # Single value (scalar or multi-dimensional element)
             value, offset = PropertySerializer._deserialize_element(data, offset, prop_def)
-            if num_atoms and num_atoms > 1:
+            if num_atoms is not None and num_atoms > 1:
                 # Repeat for all atoms
                 return [value] * num_atoms, offset
             else:
-                # For single atom, return just the value
+                # For single atom or None, return just the value
                 return value, offset
         else:
             # Multiple values
             if count_flag == PropertySerializer.LONG_COUNT_FLAG:
+                # Check bounds before reading 4-byte count
+                if offset + 4 > len(data):
+                    raise DecodingError(
+                        f"Insufficient data for long count: need 4 bytes at offset {offset}"
+                    )
                 count = struct.unpack(BinaryFormat.UINT32, data[offset:offset+4])[0]
                 offset += 4
             else:
                 count = count_flag
             
-            # Validate count consistency
-            if num_atoms is not None and count != num_atoms:
+            # Validate count: must be 1 (single value repeated) or num_atoms (one per atom)
+            if num_atoms is not None and count != 1 and count != num_atoms:
                 raise DecodingError(
-                    f"Per-atom property count mismatch: expected {num_atoms}, got {count}"
+                    f"Per-atom property count mismatch: expected 1 or {num_atoms}, got {count}"
                 )
             
+            # Validate count is reasonable
+            if count < 0 or count > 1000000:  # Reasonable upper bound
+                raise DecodingError(f"Invalid count value: {count}")
+            
             values = []
-            for _ in range(count):
+            for i in range(count):
                 atom_value, offset = PropertySerializer._deserialize_element(data, offset, prop_def)
                 values.append(atom_value)
             
@@ -256,24 +297,36 @@ class PropertySerializer:
         # Structure properties don't have count encoding, just deserialize the value
         return PropertySerializer._deserialize_element(data, offset, prop_def)
     
-    
     @staticmethod
     def _deserialize_multi_dimensional(data: bytes, offset: int,
                                       prop_def: PropertyDefinition) -> Tuple[Any, int]:
         """Deserialize multi-dimensional array element"""
         dim = prop_def.dimensions[0]
         
+        # Calculate required size and check bounds
         if prop_def.data_type in (float, tuple):
             size = dim * 4
+            if offset + size > len(data):
+                raise DecodingError(
+                    f"Insufficient data for multi-dimensional value: need {size} bytes at offset {offset}"
+                )
             values = struct.unpack(BinaryFormat.array(BinaryFormat.FLOAT32, dim),
                                  data[offset:offset+size])
             return tuple(values), offset + size
         elif prop_def.data_type == int:
             size = dim * 4
+            if offset + size > len(data):
+                raise DecodingError(
+                    f"Insufficient data for multi-dimensional value: need {size} bytes at offset {offset}"
+                )
             values = struct.unpack(BinaryFormat.array(BinaryFormat.INT32, dim),
                                  data[offset:offset+size])
             return tuple(values), offset + size
         elif prop_def.data_type == bool:
+            if offset + dim > len(data):
+                raise DecodingError(
+                    f"Insufficient data for multi-dimensional value: need {dim} bytes at offset {offset}"
+                )
             bool_values = struct.unpack(BinaryFormat.array(BinaryFormat.UINT8, dim),
                                       data[offset:offset+dim])
             return tuple(bool(x) for x in bool_values), offset + dim
@@ -306,6 +359,10 @@ class PropertySerializer:
         fmt = handler.get('array_format') or handler.get('scalar_format')
         if fmt:
             size = struct.calcsize(fmt)
+            if offset + size > len(data):
+                raise DecodingError(
+                    f"Insufficient data for scalar value: need {size} bytes at offset {offset}"
+                )
             value = struct.unpack(fmt, data[offset:offset+size])[0]
             return value, offset + size
         raise DecodingError(f"Format not defined for {prop_def.data_type}")
@@ -313,12 +370,28 @@ class PropertySerializer:
     @staticmethod
     def _deserialize_string(data: bytes, offset: int) -> Tuple[str, int]:
         """Deserialize string with efficient length encoding"""
+        if offset >= len(data):
+            raise DecodingError(f"Insufficient data for string length: offset {offset} >= data length {len(data)}")
+        
         encoded_len = struct.unpack(BinaryFormat.UINT8, data[offset:offset+1])[0]
         offset += 1
         
         if encoded_len == PropertySerializer.LONG_COUNT_FLAG:
+            if offset + 4 > len(data):
+                raise DecodingError(
+                    f"Insufficient data for long string length: need 4 bytes at offset {offset}"
+                )
             encoded_len = struct.unpack(BinaryFormat.UINT32, data[offset:offset+4])[0]
             offset += 4
+        
+        # Validate string length is reasonable
+        if encoded_len < 0 or encoded_len > 10000000:  # 10MB max string size
+            raise DecodingError(f"Invalid string length: {encoded_len}")
+        
+        if offset + encoded_len > len(data):
+            raise DecodingError(
+                f"Insufficient data for string content: need {encoded_len} bytes at offset {offset}"
+            )
         
         value = data[offset:offset+encoded_len].decode('utf-8')
         return value, offset + encoded_len
@@ -334,10 +407,11 @@ class PropertySerializer:
             return False
         
         # If all elements are numbers, it's a multi-dimensional element
-        if all(isinstance(x, (int, float)) for x in value):
-            return True
-        
-        return False
+        try:
+            return all(isinstance(x, (int, float)) for x in value)
+        except (TypeError, ValueError):
+            # If iteration fails or elements are not comparable, it's not a multi-dimensional element
+            return False
     
     @staticmethod
     def _is_list_of_multi_dimensional_elements(value: Any) -> bool:
@@ -346,8 +420,11 @@ class PropertySerializer:
             return False
         
         # Check if first element is a multi-dimensional element
-        first_elem = value[0]
-        return PropertySerializer._is_multi_dimensional_element(first_elem)
+        try:
+            first_elem = value[0]
+            return PropertySerializer._is_multi_dimensional_element(first_elem)
+        except (IndexError, TypeError):
+            return False
     
     @staticmethod
     def validate_value(value: Any, prop_def: PropertyDefinition, 
@@ -417,10 +494,13 @@ class PropertySerializer:
             # For multi-dimensional elements, check dimensions and content
             if not isinstance(value, (tuple, list, np.ndarray)):
                 return False
-            if len(value) != prop_def.dimensions[0]:
-                return False
-            # For multi-dimensional elements, check that all elements are numbers
-            if not all(isinstance(x, (int, float)) for x in value):
+            try:
+                if len(value) != prop_def.dimensions[0]:
+                    return False
+                # For multi-dimensional elements, check that all elements are numbers
+                if not all(isinstance(x, (int, float)) for x in value):
+                    return False
+            except (TypeError, ValueError):
                 return False
         
         # For scalar elements, we've already done type checking above
@@ -439,6 +519,8 @@ class PropertySerializer:
         
         if not prop_def.dimensions:  # Scalar property
             if prop_def.data_type == str:
+                if not isinstance(value, str):
+                    return 0
                 return handler['scalar_size'](value)
             return handler['scalar_size']
         else:
@@ -454,7 +536,7 @@ class PropertySerializer:
                 if actual_count > PropertySerializer.LONG_COUNT_FLAG - 1:
                     count_size = 5  # 1 byte flag + 4 bytes count
                 
-                if actual_count is None:
+                if actual_count is None or actual_count <= 0:
                     return count_size
                 
                 # Calculate element size
@@ -471,7 +553,13 @@ class PropertySerializer:
                 else:
                     if prop_def.data_type == str:
                         # Estimate average string size
-                        element_size = handler['element_size'](value[0]) if hasattr(value, '__getitem__') and value else 50
+                        if hasattr(value, '__getitem__') and value:
+                            try:
+                                element_size = handler['element_size'](value[0])
+                            except (IndexError, TypeError, ValueError):
+                                element_size = 50  # Default estimate
+                        else:
+                            element_size = 50  # Default estimate
                     else:
                         element_size = handler['element_size']
                 
@@ -487,6 +575,8 @@ class PropertySerializer:
                         return dim
                 else:
                     if prop_def.data_type == str:
+                        if not isinstance(value, str):
+                            return 0
                         return handler['element_size'](value)
                     return handler['element_size']
         
