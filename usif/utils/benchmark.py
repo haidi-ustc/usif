@@ -1,7 +1,41 @@
 #!/usr/bin/env python3
 """
-USIF Benchmark
-Performance benchmarking utilities
+USIF Benchmark Module
+
+This module provides benchmarking utilities for measuring compression ratios,
+encoding/decoding performance, and comparing different storage modes.
+
+Main Class:
+    USIFBenchmark: Benchmark compression and performance
+
+Features:
+    - Compression ratio benchmarking
+    - Encoding/decoding speed measurement
+    - Comparison of storage modes
+    - File size analysis
+    - Performance metrics
+
+Usage:
+    >>> from usif import USIFBenchmark, USIFStructure
+    >>> 
+    >>> # Create benchmark instance
+    >>> benchmark = USIFBenchmark()
+    >>> 
+    >>> # Benchmark compression
+    >>> results = benchmark.benchmark_compression(structure)
+    >>> print(f"Compression ratio: {results['compression_ratio']:.2f}x")
+    >>> print(f"Original size: {results['original_size']} bytes")
+    >>> print(f"Compressed size: {results['compressed_size']} bytes")
+    >>> 
+    >>> # Benchmark encoding/decoding speed
+    >>> speed_results = benchmark.benchmark_speed(structure)
+    >>> print(f"Encode time: {speed_results['encode_time']:.4f}s")
+    >>> print(f"Decode time: {speed_results['decode_time']:.4f}s")
+
+See Also:
+    - USIFStructure: Structure to benchmark
+    - USIF: Encoder/decoder
+    - CompressionType: Compression algorithms
 """
 
 import time
@@ -69,8 +103,4 @@ class USIFBenchmark:
             'compression_speedup': 1.0 / avg_compression_ratio if avg_compression_ratio > 0 else 0
         }
 
-
-# ============================================================================
-# Main Usage Examples
-# ============================================================================
 

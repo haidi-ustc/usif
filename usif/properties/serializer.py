@@ -1,7 +1,45 @@
 #!/usr/bin/env python3
 """
-USIF Property Serializer
-Serialize and deserialize property values
+USIF Property Serializer Module
+
+This module provides serialization and deserialization of property values to/from
+binary format. It handles both atomic (per-atom) and structure-level properties,
+supporting scalar and multi-dimensional values.
+
+Main Class:
+    PropertySerializer: Serialize and deserialize property values
+
+Features:
+    - Unified handling for scalar and multi-dimensional properties
+    - Efficient encoding for atomic properties (count encoding)
+    - Support for float, int, bool, str, tuple types
+    - Space-efficient formats (FLOAT32 for arrays, FLOAT64 for scalars)
+    - String encoding with variable-length support
+    - Validation of property values
+
+Usage:
+    >>> from usif import PropertySerializer, PropertyDefinition
+    >>> 
+    >>> # Define a property
+    >>> prop_def = PropertyDefinition('energy', float, units='eV')
+    >>> 
+    >>> # Serialize a value
+    >>> value = -10.5
+    >>> data = PropertySerializer.serialize_value(value, prop_def)
+    >>> 
+    >>> # Deserialize
+    >>> decoded, offset = PropertySerializer.deserialize_value(prop_def, data, 0)
+    >>> 
+    >>> # Validate a value
+    >>> is_valid = PropertySerializer.validate_value(value, prop_def)
+    >>> 
+    >>> # Get expected size
+    >>> size = PropertySerializer.get_expected_size(prop_def, value)
+
+See Also:
+    - PropertyDefinition: Property type definitions
+    - BinaryFormat: Binary format constants
+    - EncodingError, DecodingError: Exception types
 """
 
 import struct

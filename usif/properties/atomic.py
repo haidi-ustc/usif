@@ -1,7 +1,51 @@
 #!/usr/bin/env python3
 """
-USIF Atomic Properties
-Properties attached to individual atoms
+USIF Atomic Properties Module
+
+This module provides the AtomicProperties class for storing properties attached
+to individual atoms. These properties are per-atom and can include forces, charges,
+magnetic moments, velocities, and custom properties.
+
+Main Class:
+    AtomicProperties: Properties attached to individual atoms
+
+Built-in Properties:
+    - force: Force vector (3D tuple, eV/Å)
+    - charge: Atomic charge (float, e)
+    - magmom: Magnetic moment (float, μB)
+    - velocity: Atomic velocity (3D tuple, Å/fs)
+    - custom: Dictionary for custom properties
+
+Usage:
+    >>> from usif import AtomicProperties
+    >>> 
+    >>> # Create atomic properties
+    >>> atom_props = AtomicProperties(
+    ...     force=(0.1, 0.2, 0.3),
+    ...     charge=0.5,
+    ...     magmom=2.0,
+    ...     velocity=(0.0, 0.0, 0.0)
+    ... )
+    >>> 
+    >>> # Add custom properties
+    >>> atom_props.custom['tag'] = 'surface'
+    >>> atom_props.custom['label'] = 'Si1'
+    >>> 
+    >>> # Get all properties
+    >>> all_props = atom_props.get_all_properties()
+    >>> 
+    >>> # Use in AtomSite
+    >>> from usif.structures.sites import AtomSite
+    >>> site = AtomSite(
+    ...     atomic_number=14,
+    ...     coords=(0.0, 0.0, 0.0),
+    ...     properties=atom_props
+    ... )
+
+See Also:
+    - StructureProperties: Structure-level properties
+    - AtomSite: Atomic site with properties
+    - PropertyDefinition: Property type definitions
 """
 
 import numpy as np

@@ -1,7 +1,61 @@
 #!/usr/bin/env python3
 """
-USIF Structure
-Universal structure representation for crystals and molecules
+USIF Structure Module
+
+This module provides the USIFStructure class, the core structure representation
+for the USIF format. It supports both periodic (crystals) and non-periodic
+(molecules) structures with two storage modes: symmetric and full atomic.
+
+Main Class:
+    USIFStructure: Universal structure representation for crystals and molecules
+
+Structure Types:
+    - CRYSTAL: Periodic structures with lattice (uses Wyckoff sites or atom sites)
+    - MOLECULE: Non-periodic molecular structures (uses point group sites or atom sites)
+
+Storage Modes:
+    - SYMMETRIC: Store only unique sites with multiplicities (compact, for symmetric structures)
+    - FULL_ATOMIC: Store all atoms explicitly (supports per-atom properties)
+
+Features:
+    - Unified representation for crystals and molecules
+    - Automatic symmetry analysis support
+    - Property attachment (atomic and structure-level)
+    - File I/O with compression
+    - MSONable for JSON serialization
+    - Rich string representation
+
+Usage:
+    >>> from usif import USIFStructure, StructureType, StorageMode
+    >>> from usif.structures.sites import WyckoffSite
+    >>> import numpy as np
+    >>> 
+    >>> # Create crystal structure
+    >>> lattice = np.array([[5.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 5.0]])
+    >>> sites = [WyckoffSite(atomic_number=14, multiplicity=8, coords=(0.0, 0.0, 0.0))]
+    >>> structure = USIFStructure(
+    ...     structure_type=StructureType.CRYSTAL,
+    ...     storage_mode=StorageMode.SYMMETRIC,
+    ...     lattice_matrix=lattice,
+    ...     spacegroup=227,
+    ...     wyckoff_sites=sites,
+    ...     formula='Si'
+    ... )
+    >>> 
+    >>> # Save and load
+    >>> structure.save('structure.usif')
+    >>> loaded = USIFStructure.load('structure.usif')
+    >>> 
+    >>> # Check structure properties
+    >>> structure.is_crystal()  # True
+    >>> structure.is_symmetric()  # True
+    >>> structure.num_atoms()  # 8
+    >>> print(structure)  # Pretty-printed representation
+
+See Also:
+    - StructureConverter: Convert from pymatgen
+    - WyckoffSite, PointGroupSite, AtomSite: Site types
+    - StructureProperties, AtomicProperties: Property types
 """
 
 import numpy as np

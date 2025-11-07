@@ -1,7 +1,52 @@
 #!/usr/bin/env python3
 """
-USIF Optimizer
-Structure optimization utilities
+USIF Optimizer Module
+
+This module provides utilities for optimizing structures to achieve maximum
+compression by analyzing symmetry and converting to symmetric storage modes
+when beneficial.
+
+Main Class:
+    USIFOptimizer: Optimize structures for maximum compression
+
+Features:
+    - Automatic symmetry analysis using pymatgen
+    - Conversion to symmetric storage mode when beneficial
+    - Wyckoff site extraction for crystals
+    - Point group analysis for molecules
+    - Tolerance control for symmetry detection
+
+Requirements:
+    - pymatgen: Required for symmetry analysis
+    - Install with: pip install pymatgen
+
+Usage:
+    >>> from usif import USIFOptimizer, USIFStructure
+    >>> 
+    >>> # Create optimizer
+    >>> optimizer = USIFOptimizer()
+    >>> 
+    >>> # Optimize structure (may convert to symmetric mode)
+    >>> optimized = optimizer.optimize_structure(structure)
+    >>> 
+    >>> # With custom tolerance
+    >>> optimized = optimizer.optimize_structure(
+    ...     structure,
+    ...     tolerance=1e-4  # Stricter symmetry tolerance
+    ... )
+    >>> 
+    >>> # Check if optimization changed storage mode
+    >>> if optimized.storage_mode != structure.storage_mode:
+    ...     print("Storage mode changed during optimization")
+
+Note:
+    This module requires pymatgen to be installed. If pymatgen is not available,
+    optimization will return the structure unchanged.
+
+See Also:
+    - USIFStructure: Structure to optimize
+    - StructureConverter: Conversion utilities
+    - SymmetryConstants: Symmetry tolerance constants
 """
 
 import numpy as np

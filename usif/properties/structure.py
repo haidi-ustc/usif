@@ -1,7 +1,54 @@
 #!/usr/bin/env python3
 """
-USIF Structure Properties
-Properties attached to entire structures
+USIF Structure Properties Module
+
+This module provides the StructureProperties class for storing properties attached
+to entire structures. These are structure-level properties like energy, stress,
+volume, pressure, and temperature.
+
+Main Class:
+    StructureProperties: Properties attached to entire structures
+
+Built-in Properties:
+    - energy: Total energy (float, eV)
+    - stress: Stress tensor in Voigt notation (6-element tuple, GPa)
+    - volume: Cell volume (float, Å³)
+    - pressure: Pressure (float, GPa)
+    - temperature: Temperature (float, K)
+    - custom: Dictionary for custom properties
+
+Usage:
+    >>> from usif import StructureProperties
+    >>> 
+    >>> # Create structure properties
+    >>> struct_props = StructureProperties(
+    ...     energy=-10.5,
+    ...     volume=179.4,
+    ...     stress=(1.0, 1.0, 1.0, 0.0, 0.0, 0.0),
+    ...     pressure=0.0,
+    ...     temperature=300.0
+    ... )
+    >>> 
+    >>> # Add custom properties
+    >>> struct_props.custom['calculator'] = 'VASP'
+    >>> struct_props.custom['kpoints'] = '4x4x4'
+    >>> 
+    >>> # Get all properties
+    >>> all_props = struct_props.get_all_properties()
+    >>> 
+    >>> # Use in USIFStructure
+    >>> from usif import USIFStructure, StructureType, StorageMode
+    >>> structure = USIFStructure(
+    ...     structure_type=StructureType.CRYSTAL,
+    ...     storage_mode=StorageMode.SYMMETRIC,
+    ...     structure_properties=struct_props,
+    ...     ...
+    ... )
+
+See Also:
+    - AtomicProperties: Per-atom properties
+    - USIFStructure: Structure with properties
+    - PropertyDefinition: Property type definitions
 """
 
 import numpy as np

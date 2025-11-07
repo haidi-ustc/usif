@@ -1,7 +1,53 @@
 #!/usr/bin/env python3
 """
-USIF Property Definition
-Property definition with type safety and validation
+USIF Property Definition Module
+
+This module provides the PropertyDefinition class for defining type-safe properties
+with validation, units, and constraints. Properties can be atomic (per-atom) or
+structure-level, and can be scalar or multi-dimensional.
+
+Main Class:
+    PropertyDefinition: Define property types with validation and constraints
+
+Features:
+    - Type safety with generic type parameters
+    - Validation with range and value constraints
+    - Support for scalar and multi-dimensional properties
+    - Unit specification
+    - Required/optional properties
+    - Default values
+
+Usage:
+    >>> from usif import PropertyDefinition, Units
+    >>> 
+    >>> # Define a scalar property
+    >>> energy_prop = PropertyDefinition(
+    ...     name='energy',
+    ...     data_type=float,
+    ...     units=Units.EV,
+    ...     description='Total energy',
+    ...     min_value=-1000.0,
+    ...     max_value=1000.0
+    ... )
+    >>> 
+    >>> # Define a multi-dimensional property
+    >>> force_prop = PropertyDefinition(
+    ...     name='force',
+    ...     data_type=tuple,
+    ...     is_per_atom=True,
+    ...     dimensions=(3,),
+    ...     units=Units.EV_PER_ANGSTROM,
+    ...     description='Force vector on atom'
+    ... )
+    >>> 
+    >>> # Validate a value
+    >>> is_valid, message = energy_prop.validate_value(-10.5)
+    >>> print(f"Valid: {is_valid}, Message: {message}")
+
+See Also:
+    - PropertyRegistry: Registry of built-in properties
+    - PropertySerializer: Serialize property values
+    - Units: Physical unit constants
 """
 
 from typing import TypeVar, Generic, Dict, List, Tuple, Optional, Any

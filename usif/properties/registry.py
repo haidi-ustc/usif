@@ -1,7 +1,52 @@
 #!/usr/bin/env python3
 """
-USIF Property Registry
-Registry of built-in property definitions
+USIF Property Registry Module
+
+This module provides a registry of built-in property definitions for common
+materials science properties. It includes both atomic (per-atom) and structure-level properties.
+
+Main Class:
+    PropertyRegistry: Registry of built-in property definitions
+
+Built-in Properties:
+    Atomic (per-atom):
+        - force: Force vector (eV/Å)
+        - charge: Atomic charge (e)
+        - magmom: Magnetic moment (μB)
+        - velocity: Atomic velocity (Å/fs)
+    
+    Structure-level:
+        - energy: Total energy (eV)
+        - stress: Stress tensor in Voigt notation (GPa)
+        - volume: Cell volume (Å³)
+        - pressure: Pressure (GPa)
+        - temperature: Temperature (K)
+
+Usage:
+    >>> from usif import PropertyRegistry
+    >>> 
+    >>> # Get built-in property definition
+    >>> energy_def = PropertyRegistry.get('energy')
+    >>> force_def = PropertyRegistry.get('force')
+    >>> 
+    >>> # Check property type
+    >>> PropertyRegistry.is_atomic_property('force')  # True
+    >>> PropertyRegistry.is_structure_property('energy')  # True
+    >>> 
+    >>> # Register custom property
+    >>> from usif import PropertyDefinition, Units
+    >>> custom_prop = PropertyDefinition(
+    ...     name='band_gap',
+    ...     data_type=float,
+    ...     units=Units.EV,
+    ...     description='Electronic band gap'
+    ... )
+    >>> PropertyRegistry.register(custom_prop)
+
+See Also:
+    - PropertyDefinition: Define custom properties
+    - PropertySerializer: Serialize property values
+    - Units: Physical unit constants
 """
 
 import logging
