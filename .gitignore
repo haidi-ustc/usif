@@ -124,7 +124,9 @@ dmypy.json
 
 # USIF specific
 # Downloaded Materials Project data (moved to tests/data/)
-tests/data/
+# Note: tests/data/mp_structures.zip should be tracked for testing
+tests/data/mp_structures/
+tests/data/mp_test_extracted/
 *.usif
 *.usifc
 

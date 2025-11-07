@@ -370,6 +370,7 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
                 # Get original properties
                 orig_energy = original.structure_properties.energy
                 orig_volume = original.structure_properties.volume
+                orig_custom = original.structure_properties.custom.copy()
                 orig_formula = original.formula
                 orig_num_atoms = original.num_atoms()
                 
@@ -384,6 +385,48 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
                     self.assertAlmostEqual(orig_volume, decoded.structure_properties.volume, places=3)
                 self.assertEqual(orig_formula, decoded.formula)
                 self.assertEqual(orig_num_atoms, decoded.num_atoms())
+                
+                # Verify custom properties (MP-specific metadata)
+                # Note: Custom properties are stored as strings in the binary format
+                # So we need to convert them back for comparison
+                if orig_custom:
+                    decoded_custom = decoded.structure_properties.custom
+                    # Check key MP properties
+                    for key in ['material_id', 'band_gap', 'density', 'is_magnetic', 'is_metal', 'is_stable', 'formula_pretty']:
+                        if key in orig_custom:
+                            orig_value = orig_custom[key]
+                            decoded_value = decoded_custom.get(key)
+                            
+                            # Custom properties are stored as strings, so convert for comparison
+                            if isinstance(decoded_value, str):
+                                # Try to convert back to original type
+                                if isinstance(orig_value, float):
+                                    try:
+                                        decoded_value = float(decoded_value)
+                                        self.assertAlmostEqual(orig_value, decoded_value, places=6)
+                                    except (ValueError, TypeError):
+                                        self.fail(f"Could not convert {key} from string to float: {decoded_value}")
+                                elif isinstance(orig_value, bool):
+                                    # Handle boolean strings
+                                    if decoded_value.lower() in ('true', '1', 'yes'):
+                                        decoded_value = True
+                                    elif decoded_value.lower() in ('false', '0', 'no'):
+                                        decoded_value = False
+                                    else:
+                                        decoded_value = bool(decoded_value)
+                                    self.assertEqual(orig_value, decoded_value)
+                                elif isinstance(orig_value, int):
+                                    try:
+                                        decoded_value = int(decoded_value)
+                                        self.assertEqual(orig_value, decoded_value)
+                                    except (ValueError, TypeError):
+                                        self.fail(f"Could not convert {key} from string to int: {decoded_value}")
+                                else:
+                                    # String or other - direct comparison
+                                    self.assertEqual(str(orig_value), decoded_value)
+                            else:
+                                # Not a string - direct comparison
+                                self.assertEqual(orig_value, decoded_value)
                 
             except Exception as e:
                 self.fail(f"Property preservation test failed: {e}")

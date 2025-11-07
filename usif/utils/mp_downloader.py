@@ -332,12 +332,38 @@ def convert_mp_to_usif(doc: Union[Dict[str, Any], Any]) -> USIFStructure:
         
         # Extract properties from dict
         properties = {}
+        # Energy (formation energy per atom * nsites)
         formation_energy_per_atom = doc.get('formation_energy_per_atom')
         nsites = doc.get('nsites')
         if formation_energy_per_atom is not None and nsites is not None:
             properties['energy'] = formation_energy_per_atom * nsites
+        
+        # Volume
         if doc.get('volume') is not None:
             properties['volume'] = doc['volume']
+        
+        # Store additional MP properties in custom dict
+        # Note: Don't duplicate built-in properties (energy, volume) in custom
+        custom_props = {}
+        if doc.get('band_gap') is not None:
+            custom_props['band_gap'] = doc['band_gap']
+        if doc.get('density') is not None:
+            custom_props['density'] = doc['density']
+        if doc.get('total_magnetization') is not None:
+            custom_props['total_magnetization'] = doc['total_magnetization']
+        if doc.get('is_magnetic') is not None:
+            custom_props['is_magnetic'] = doc['is_magnetic']
+        if doc.get('is_metal') is not None:
+            custom_props['is_metal'] = doc['is_metal']
+        if doc.get('is_stable') is not None:
+            custom_props['is_stable'] = doc['is_stable']
+        if doc.get('material_id') is not None:
+            custom_props['material_id'] = doc['material_id']
+        if doc.get('formula_pretty') is not None:
+            custom_props['formula_pretty'] = doc['formula_pretty']
+        
+        if custom_props:
+            properties['custom'] = custom_props
     else:
         # MPDataDoc object - use attributes
         if not hasattr(doc, 'structure') or doc.structure is None:
@@ -346,18 +372,66 @@ def convert_mp_to_usif(doc: Union[Dict[str, Any], Any]) -> USIFStructure:
         
         # Extract properties from object
         properties = {}
+        # Energy (formation energy per atom * nsites)
         if hasattr(doc, 'formation_energy_per_atom') and doc.formation_energy_per_atom is not None:
             if hasattr(doc, 'nsites') and doc.nsites is not None:
                 properties['energy'] = doc.formation_energy_per_atom * doc.nsites
+        
+        # Volume
         if hasattr(doc, 'volume') and doc.volume is not None:
             properties['volume'] = doc.volume
+        
+        # Store additional MP properties in custom dict
+        # Note: Don't duplicate built-in properties (energy, volume) in custom
+        custom_props = {}
+        if hasattr(doc, 'band_gap') and doc.band_gap is not None:
+            custom_props['band_gap'] = doc.band_gap
+        if hasattr(doc, 'density') and doc.density is not None:
+            custom_props['density'] = doc.density
+        if hasattr(doc, 'total_magnetization') and doc.total_magnetization is not None:
+            custom_props['total_magnetization'] = doc.total_magnetization
+        if hasattr(doc, 'is_magnetic') and doc.is_magnetic is not None:
+            custom_props['is_magnetic'] = doc.is_magnetic
+        if hasattr(doc, 'is_metal') and doc.is_metal is not None:
+            custom_props['is_metal'] = doc.is_metal
+        if hasattr(doc, 'is_stable') and doc.is_stable is not None:
+            custom_props['is_stable'] = doc.is_stable
+        if hasattr(doc, 'material_id') and doc.material_id is not None:
+            custom_props['material_id'] = doc.material_id
+        if hasattr(doc, 'formula_pretty') and doc.formula_pretty is not None:
+            custom_props['formula_pretty'] = doc.formula_pretty
+        
+        if custom_props:
+            properties['custom'] = custom_props
     
     # Convert using USIFStructure.from_pymatgen
+    # Extract custom properties separately
+    custom_props = properties.pop('custom', {})
+    
+    # Built-in properties that should not be passed as kwargs
+    # (they're handled directly by from_pymatgen or set from structure)
+    built_in_props = {'energy', 'volume', 'stress', 'pressure', 'temperature'}
+    
+    # Separate built-in properties from kwargs
+    built_in_kwargs = {}
+    other_kwargs = {}
+    for k, v in properties.items():
+        if k in built_in_props:
+            built_in_kwargs[k] = v
+        else:
+            other_kwargs[k] = v
+    
+    # Convert - pass built-in properties explicitly, others as kwargs
     usif_struct = USIFStructure.from_pymatgen(
         structure,
-        energy=properties.get('energy'),
-        **{k: v for k, v in properties.items() if k != 'energy'}
+        energy=built_in_kwargs.get('energy'),
+        volume=built_in_kwargs.get('volume'),  # Will override pymatgen volume if provided
+        **other_kwargs
     )
+    
+    # Add custom properties (MP-specific metadata)
+    if custom_props:
+        usif_struct.structure_properties.custom.update(custom_props)
     
     return usif_struct
 

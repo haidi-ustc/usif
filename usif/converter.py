@@ -309,9 +309,14 @@ class StructureConverter:
             else:
                 struct_props.stress = tuple(stress[:6])
         
-        struct_props.volume = pmg_structure.volume
+        # Set volume - use provided volume if given, otherwise use pymatgen structure volume
+        if 'volume' in kwargs:
+            struct_props.volume = kwargs.pop('volume')
+        else:
+            struct_props.volume = pmg_structure.volume
         
-        # Add any custom properties from kwargs
+        # Add any remaining custom properties from kwargs
+        # (built-in properties like energy, stress, volume are handled above)
         if kwargs:
             struct_props.custom.update(kwargs)
         
