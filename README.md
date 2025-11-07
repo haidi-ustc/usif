@@ -51,8 +51,20 @@ usif_struct = USIFStructure.from_source(
 )
 
 # From pymatgen Structure or Molecule object
-from pymatgen.core import Structure
-pmg_struct = Structure.from_file("structure.cif")
+from pymatgen.core import Structure, Lattice
+import numpy as np
+
+# Create a pymatgen structure (or load from file)
+lattice = Lattice.cubic(5.64)
+species = ["Na", "Cl"]
+coords = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
+pmg_struct = Structure(lattice, species, coords)
+# Or: pmg_struct = Structure.from_file("structure.cif")
+
+# Define properties
+forces_array = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])  # Nx3 array for N atoms
+stress_tensor = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])  # 3x3 tensor
+
 usif_struct = USIFStructure.from_source(
     pmg_struct,
     energy=-10.5,           # Built-in property
@@ -149,27 +161,27 @@ USIF structures support convenient save/load and format conversion:
 
 ```python
 # Save to .usif format (uses encoder)
-structure.save("structure.usif")
+usif_struct.save("structure.usif")
 
 # Save to JSON format (human-readable)
-structure.save("structure.json")
+usif_struct.save("structure.json")
 
 # Load from file (auto-detects format)
 loaded = USIFStructure.load("structure.usif")
 
 # Convert to various formats using to() method (auto-detects from extension)
-structure.to("output.usif")  # Save to USIF (auto-detected)
-structure.to("output.cif")  # Export to CIF (auto-detected)
-structure.to("output.poscar")  # Export to POSCAR (auto-detected)
-structure.to("output.xyz")  # Export to XYZ (auto-detected)
+usif_struct.to("output.usif")  # Save to USIF (auto-detected)
+usif_struct.to("output.cif")  # Export to CIF (auto-detected)
+usif_struct.to("output.poscar")  # Export to POSCAR (auto-detected)
+usif_struct.to("output.xyz")  # Export to XYZ (auto-detected)
 
 # Explicit format specification
-structure.to("output.cif", "cif")  # Explicit format
+usif_struct.to("output.cif", "cif")  # Explicit format
 
 # Convert to objects (no filename needed)
-pmg_struct = structure.to(fmt="pymatgen")  # Get pymatgen Structure/Molecule
-ase_atoms = structure.to(fmt="ase")  # Get ASE Atoms object
-pmg_struct2 = structure.to()  # Defaults to pymatgen if no args
+pmg_struct = usif_struct.to(fmt="pymatgen")  # Get pymatgen Structure/Molecule
+ase_atoms = usif_struct.to(fmt="ase")  # Get ASE Atoms object
+pmg_struct2 = usif_struct.to()  # Defaults to pymatgen if no args
 ```
 
 ### Using the Encoder Directly
