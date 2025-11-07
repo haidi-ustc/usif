@@ -14,19 +14,23 @@ USIF is a next-generation file format designed for storing and exchanging atomic
 - **Modular Property System**: Type-safe properties with units and validation
 - **HDF5-like Container**: Hierarchical organization with groups and attributes
 - **Easy File I/O**: Simple save/load methods with automatic format detection
+- **Materials Project Integration**: Download and convert MP data for testing and benchmarking
 
 ## Installation
 
 ```bash
-# Basic installation
+# Basic installation (includes pymatgen as required dependency)
 pip install -e .
-
-# With pymatgen support (recommended)
-pip install -e ".[pymatgen]"
 
 # Development installation with all dependencies
 pip install -e ".[all]"
 ```
+
+**Requirements:**
+- Python 3.8+
+- pymatgen (required for symmetry analysis and structure conversion)
+- numpy
+- monty (for serialization)
 
 ## Quick Start
 
@@ -46,6 +50,7 @@ pmg_struct = Structure.from_file("structure.cif")
 usif_struct = USIFStructure.from_pymatgen(
     pmg_struct,
     energy=-10.5,
+    volume=179.4,
     calculator="VASP"  # Stored in structure_properties.custom
 )
 
@@ -133,16 +138,16 @@ Store multiple structures with hierarchical organization:
 from usif import StructureContainer
 
 # Create container (can use .usif or .usifc suffix)
-with StructureContainer("structures.usif", mode='w') as container:
+with StructureContainer("structures.usifc", mode='w') as container:
     # Add structures with names and groups
-    container.add_structure(
+    hash1 = container.add(
         structure1, 
         name="NaCl_001",
         group="/materials/crystals",
         attributes={"author": "John Doe", "date": "2024-01-01"}
     )
     
-    container.add_structure(
+    hash2 = container.add(
         structure2,
         name="H2O_001",
         group="/materials/molecules"
@@ -154,14 +159,94 @@ with StructureContainer("structures.usif", mode='w') as container:
     # Query structures
     results = container.query(formula="NaCl", group="/materials/crystals")
     
-    # Walk through groups
-    for path, group in container.walk_groups():
-        print(f"Group: {path}, Structures: {len(group.list_structures())}")
+    # Get statistics
+    stats = container.stats()
+    print(f"Total structures: {stats['total_structures']}")
 
 # Read from container
-with StructureContainer("structures.usif", mode='r') as container:
-    structure = container.get("NaCl_001")
-    attrs = container.get_structure_attributes("NaCl_001")
+with StructureContainer("structures.usifc", mode='r') as container:
+    # Get structure by hash or name
+    structure = container.get(hash1)  # or container.get("NaCl_001")
+    attrs = container.get_structure_attributes(hash1)
+```
+
+## Materials Project Data Integration
+
+USIF includes utilities for downloading and working with Materials Project data:
+
+### Downloading MP Data
+
+```python
+from usif.utils import download_mp_data
+
+# Download MP structures for testing
+stats = download_mp_data(
+    api_key="YOUR_MP_API_KEY",
+    output_dir="tests/data/mp_structures",
+    total_entries=1000,
+    entries_per_group=100,
+    e_above_hull_max=0.1,
+    create_zip=True  # Creates zip archive for easy sharing
+)
+
+print(f"Downloaded {stats['total_downloaded']} structures")
+print(f"Zip archive: {stats.get('zip_file')}")
+```
+
+Or use the command-line script:
+
+```bash
+# Set API key
+export MP_API_KEY=your_key_here
+
+# Download data
+python examples/download_mp_data.py --total_entries 1000
+
+# Or with custom options
+python examples/download_mp_data.py \
+    --total_entries 500 \
+    --entries_per_group 50 \
+    --e_above_hull_max 0.1 \
+    --min_band_gap 0.5 \
+    --max_band_gap 3.0
+```
+
+### Converting MP Data to USIF
+
+```python
+from usif.utils import load_mp_group, convert_mp_to_usif
+
+# Load MP data from downloaded files
+docs = load_mp_group("tests/data/mp_structures/group_01/materials.json")
+
+# Convert to USIF structures
+for doc in docs:
+    usif_struct = convert_mp_to_usif(doc)
+    
+    # Access properties
+    print(f"Material: {usif_struct.structure_properties.custom['material_id']}")
+    print(f"Formula: {usif_struct.formula}")
+    print(f"Energy: {usif_struct.structure_properties.energy} eV")
+    print(f"Volume: {usif_struct.structure_properties.volume} Å³")
+    print(f"Band gap: {usif_struct.structure_properties.custom.get('band_gap')} eV")
+    
+    # Save to USIF format
+    usif_struct.save(f"{doc['material_id']}.usif")
+```
+
+### Loading from Zip Archive
+
+```python
+from usif.utils import load_mp_data_from_archive
+
+# Extract and load from zip
+extracted_dir = load_mp_data_from_archive(
+    "tests/data/mp_structures.zip",
+    extract_to="tests/data/mp_extracted"
+)
+
+# Then load groups as usual
+docs = load_mp_group(f"{extracted_dir}/group_01/materials.json")
 ```
 
 ## API Reference
@@ -216,7 +301,7 @@ pmg_structure = StructureConverter.to_pymatgen(usif_struct)
 
 HDF5-like container for multiple structures.
 
-**File Extension**: Both `USIFStructure` and `StructureContainer` can use the `.usif` file extension. The format is automatically detected by magic bytes:
+**File Extension**: Both `USIFStructure` and `StructureContainer` can use the `.usif` or `.usifc` file extension. The format is automatically detected by magic bytes:
 - Structure files: magic bytes `b'USIF\x00\x00\x00'`
 - Container files: magic bytes `b'USIFC\x00\x00'`
 
@@ -224,13 +309,16 @@ If you try to open a container file with `USIFStructure.load()` or vice versa, y
 
 #### Key Methods
 
-- `add_structure(structure, name, group="/", attributes=None)` - Add structure
+- `add(structure, name=None, group="/", attributes=None)` - Add structure (returns hash)
+- `add_structure(structure, name=None, group="/", attributes=None)` - Alias for `add()`
 - `get(identifier)` - Get structure by hash or name
 - `query(formula, properties, energy_range, group)` - Query structures
-- `create_group(path)` - Create group hierarchy
-- `walk_groups(path="/")` - Walk through group hierarchy
-- `set_structure_attributes(name, attributes)` - Set structure metadata
+- `get_group(path)` - Get group by path
+- `set_structure_attributes(identifier, attributes)` - Set structure metadata
+- `get_structure_attributes(identifier)` - Get structure metadata
 - `set_group_attribute(path, name, value)` - Set group metadata
+- `get_group_attribute(path, name)` - Get group attribute
+- `stats()` - Get container statistics
 
 ### USIF Encoder/Decoder
 
@@ -244,6 +332,49 @@ data = encoder.encode(structure)
 structure, hash = encoder.decode(data)
 encoder.save(structure, "file.usif")
 structure = encoder.load("file.usif")
+```
+
+### Utilities
+
+#### MP Data Downloader
+
+```python
+from usif.utils import (
+    download_mp_data,
+    load_mp_group,
+    convert_mp_to_usif,
+    create_mp_data_archive,
+    load_mp_data_from_archive
+)
+
+# Download MP data
+stats = download_mp_data(api_key="YOUR_KEY", total_entries=100)
+
+# Load and convert
+docs = load_mp_group("path/to/group_01/materials.json")
+usif_struct = convert_mp_to_usif(docs[0])
+
+# Create/load archives
+create_mp_data_archive("data/mp_structures")
+load_mp_data_from_archive("data/mp_structures.zip")
+```
+
+#### Structure Optimizer
+
+```python
+from usif.utils import USIFOptimizer
+
+optimizer = USIFOptimizer()
+optimized = optimizer.optimize_structure(structure)
+```
+
+#### Benchmarking
+
+```python
+from usif.utils import USIFBenchmark
+
+benchmark = USIFBenchmark()
+results = benchmark.benchmark_compression(structure)
 ```
 
 ## Structure Types and Storage Modes
@@ -304,6 +435,7 @@ See the `examples/` directory for more examples:
 
 - `example-1.py` - Basic structure creation and encoding
 - `example-2.py` - Container usage with groups
+- `download_mp_data.py` - Download Materials Project data for testing
 
 ## Testing
 
@@ -318,7 +450,15 @@ pytest tests/ --cov=usif --cov-report=term-missing
 
 # Run specific test file
 pytest tests/test_structure.py -v
+
+# Test with Materials Project data (requires MP data in tests/data/)
+pytest tests/test_mp_data.py -v
 ```
+
+**Test Data:**
+- MP test data is stored in `tests/data/mp_structures.zip`
+- The zip file is tracked in git for reproducible testing
+- To download fresh data: `python examples/download_mp_data.py`
 
 ## Performance
 
@@ -328,6 +468,15 @@ USIF provides significant compression benefits:
 - **Automatic symmetry detection** reduces storage for symmetric structures
 - **Efficient binary format** with optional compression
 - **Fast random access** in containers with indexing
+
+## Documentation
+
+Additional documentation is available in the `docs/` directory:
+
+- `ARCHITECTURE.md` - High-level architecture overview
+- `BINARY_FORMAT.md` - Detailed binary format specification
+- `DEVELOPMENT_PLAN.md` - Development roadmap and suggestions
+- `IMPORT_STRUCTURE.md` - Import structure and dependency analysis
 
 ## License
 
