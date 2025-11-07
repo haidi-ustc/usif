@@ -31,12 +31,58 @@ pip install -e ".[all]"
 - pymatgen (required for symmetry analysis and structure conversion)
 - numpy
 - monty (for serialization)
+- ase (optional, for ASE Atoms support - install with: `pip install ase`)
 
 ## Quick Start
 
-### Creating Structures from Pymatgen (Recommended)
+### High-Level Interface (Recommended)
 
-The easiest way to create USIF structures is from pymatgen objects with automatic symmetry analysis:
+The easiest way to create USIF structures is using the high-level `from_source()` method, which supports multiple input types:
+
+```python
+from usif import USIFStructure
+
+# From file (auto-detects format: CIF, POSCAR, XYZ, etc.)
+usif_struct = USIFStructure.from_source(
+    "structure.cif",
+    energy=-10.5,
+    volume=179.4,
+    calculator="VASP"  # Stored in structure_properties.custom
+)
+
+# From pymatgen Structure or Molecule object
+from pymatgen.core import Structure
+pmg_struct = Structure.from_file("structure.cif")
+usif_struct = USIFStructure.from_source(
+    pmg_struct,
+    energy=-10.5,
+    forces=forces_array,
+    stress=stress_tensor
+)
+
+# From ASE Atoms object
+from ase import Atoms
+ase_atoms = Atoms('H2O', positions=[[0, 0, 0], [0.95, 0, 0], [0.95, 0.95, 0]])
+usif_struct = USIFStructure.from_source(
+    ase_atoms,
+    energy=-10.5,
+    calculator="VASP"
+)
+
+# Save directly to .usif file
+usif_struct.save("structure.usif")
+
+# Or use the to() method (similar to pymatgen)
+usif_struct.to("structure.usif")  # Auto-detects USIF format from extension
+usif_struct.to("structure.cif")  # Auto-detects CIF format from extension
+usif_struct.to("structure.cif", "cif")  # Explicit format specification
+pmg_struct = usif_struct.to(fmt="pymatgen")  # Convert to pymatgen (returns object)
+ase_atoms = usif_struct.to(fmt="ase")  # Convert to ASE (returns object)
+```
+
+### Creating Structures from Pymatgen (Alternative)
+
+For direct pymatgen conversion, you can also use the `from_pymatgen()` method:
 
 ```python
 from pymatgen.core import Structure
@@ -96,9 +142,9 @@ structure = USIFStructure(
 )
 ```
 
-### File I/O
+### File I/O and Format Conversion
 
-USIF structures support convenient save/load methods:
+USIF structures support convenient save/load and format conversion:
 
 ```python
 # Save to .usif format (uses encoder)
@@ -109,6 +155,20 @@ structure.save("structure.json")
 
 # Load from file (auto-detects format)
 loaded = USIFStructure.load("structure.usif")
+
+# Convert to various formats using to() method (auto-detects from extension)
+structure.to("output.usif")  # Save to USIF (auto-detected)
+structure.to("output.cif")  # Export to CIF (auto-detected)
+structure.to("output.poscar")  # Export to POSCAR (auto-detected)
+structure.to("output.xyz")  # Export to XYZ (auto-detected)
+
+# Explicit format specification
+structure.to("output.cif", "cif")  # Explicit format
+
+# Convert to objects (no filename needed)
+pmg_struct = structure.to(fmt="pymatgen")  # Get pymatgen Structure/Molecule
+ase_atoms = structure.to(fmt="ase")  # Get ASE Atoms object
+pmg_struct2 = structure.to()  # Defaults to pymatgen if no args
 ```
 
 ### Using the Encoder Directly
@@ -257,17 +317,40 @@ The main structure class with convenient methods:
 
 #### Class Methods
 
+- `from_source(source, **kwargs)` - **High-level interface (Recommended)**
+  - Create from file path, pymatgen object, or ASE Atoms object
+  - Automatically detects input type
+  - Supports all file formats readable by pymatgen (CIF, POSCAR, XYZ, etc.)
+  - Automatically performs symmetry analysis
+  - Extracts Wyckoff sites for crystals
+  - Supports forces, stress, energy, charges, magmoms
+  - Additional properties via `**kwargs` are stored in `structure_properties.custom`
+  - Example: `USIFStructure.from_source("structure.cif", energy=-10.5, calculator="VASP")`
+  - Note: Named `from_source()` because `from` is a reserved keyword in Python
+
 - `from_pymatgen(pmg_obj, **kwargs)` - Create from pymatgen Structure/Molecule
   - Automatically performs symmetry analysis
   - Extracts Wyckoff sites for crystals
   - Supports forces, stress, energy, charges, magmoms
   - Additional properties via `**kwargs` are stored in `structure_properties.custom`
   - Example: `calculator="VASP"` → `structure_properties.custom["calculator"] = "VASP"`
+  - Note: For more flexibility, use `from()` instead
 
 - `load(filename)` - Load structure from file
   - Auto-detects format (.usif uses encoder, others use JSON)
 
 #### Instance Methods
+
+- `to(filename=None, fmt=None, **kwargs)` - **Convert to various formats (Recommended)**
+  - Similar to pymatgen's `to()` method
+  - Supports: "usif", "pymatgen", "ase", and file formats (cif, poscar, xyz, etc.)
+  - Auto-detects format from filename extension if `fmt` is not provided
+  - Returns object for "pymatgen" and "ase", saves to file for other formats
+  - Defaults to "pymatgen" if both filename and fmt are None
+  - Example: `structure.to("output.usif")`  # Auto-detects USIF format
+  - Example: `structure.to("output.cif")`  # Auto-detects CIF format
+  - Example: `pmg_struct = structure.to(fmt="pymatgen")`  # Returns object
+  - Example: `structure.to("output.cif", "cif")`  # Explicit format
 
 - `save(filename, compression=CompressionType.GZIP)` - Save structure to file
   - `.usif` extension uses USIF encoder
@@ -280,7 +363,7 @@ The main structure class with convenient methods:
 
 ### StructureConverter
 
-Convert between USIF and pymatgen formats:
+Convert between USIF and various structure formats (pymatgen, ASE):
 
 ```python
 from usif import StructureConverter
@@ -293,9 +376,23 @@ usif_struct = StructureConverter.from_pymatgen(
     stress=stress_tensor
 )
 
+# From ASE to USIF
+from ase import Atoms
+ase_atoms = Atoms('H2O', positions=[[0, 0, 0], [0.95, 0, 0], [0.95, 0.95, 0]])
+usif_struct = StructureConverter.from_ase(
+    ase_atoms,
+    energy=-10.5,
+    forces=forces_array
+)
+
 # From USIF to pymatgen
 pmg_structure = StructureConverter.to_pymatgen(usif_struct)
+
+# From USIF to ASE
+ase_atoms = StructureConverter.to_ase(usif_struct)
 ```
+
+**Note:** For most use cases, the high-level `USIFStructure.from_source()` interface is recommended as it automatically handles file reading and format detection.
 
 ### StructureContainer
 

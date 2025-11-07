@@ -2,21 +2,22 @@
 """
 USIF Structure Converter Module
 
-This module provides conversion utilities between USIF and pymatgen formats.
-It handles automatic symmetry analysis and Wyckoff site extraction.
+This module provides conversion utilities between USIF and various structure formats
+(pymatgen, ASE). It handles automatic symmetry analysis and Wyckoff site extraction.
 
 Main Class:
-    StructureConverter: Convert between USIF and pymatgen structures
+    StructureConverter: Convert between USIF and other structure formats
 
 Features:
     - Convert pymatgen Structure/Molecule to USIF
+    - Convert ASE Atoms objects to USIF
     - Automatic symmetry analysis and Wyckoff site extraction
     - Support for properties (forces, stress, energy, charges, magmoms)
     - Automatic storage mode selection (symmetric vs full atomic)
 
 Requirements:
     - pymatgen: Required for conversion functionality
-    - Install with: pip install pymatgen
+    - ase: Optional, for ASE Atoms support (install with: pip install ase)
 
 Usage:
     >>> from pymatgen.core import Structure
@@ -33,16 +34,23 @@ Usage:
     ...     stress=stress_tensor
     ... )
     >>> 
-    >>> # Or use the convenience method
+    >>> # Or use the high-level interface
     >>> from usif import USIFStructure
-    >>> usif_struct = USIFStructure.from_pymatgen(pmg_struct, energy=-10.5)
+    >>> usif_struct = USIFStructure.from_source(pmg_struct, energy=-10.5)
+    >>> usif_struct = USIFStructure.from_source("structure.cif", energy=-10.5)
+    >>> from ase import Atoms
+    >>> ase_atoms = Atoms(...)
+    >>> usif_struct = USIFStructure.from_source(ase_atoms, energy=-10.5)
 
 Note:
     This module requires pymatgen as a core dependency.
+    ASE support is optional but recommended for broader compatibility.
 
 See Also:
-    - USIFStructure.from_pymatgen(): Convenience method for conversion
+    - USIFStructure.from_source(): High-level interface for all input types
+    - USIFStructure.from_pymatgen(): Convenience method for pymatgen
     - pymatgen: https://pymatgen.org/
+    - ASE: https://wiki.fysik.dtu.dk/ase/
 """
 
 import numpy as np
@@ -67,8 +75,16 @@ from usif.properties.atomic import AtomicProperties
 
 logger = logging.getLogger(__name__)
 
+# Try to import ASE (optional dependency)
+try:
+    from ase import Atoms as ASEAtoms
+    HAS_ASE = True
+except ImportError:
+    HAS_ASE = False
+    ASEAtoms = None
+
 class StructureConverter:
-    """Conversion between USIF and pymatgen"""
+    """Conversion between USIF and various structure formats (pymatgen, ASE)"""
     
     @staticmethod
     def from_pymatgen(pmg_obj: Union[PMGStructure, PMGMolecule],
@@ -441,4 +457,215 @@ class StructureConverter:
             lattice, species, coords, coords_are_cartesian=False,
             site_properties=site_properties if site_properties else None
         )
+    
+    @staticmethod
+    def from_ase(ase_atoms: 'ASEAtoms',
+                 forces: Optional[np.ndarray] = None,
+                 stress: Optional[np.ndarray] = None,
+                 energy: Optional[float] = None,
+                 charges: Optional[np.ndarray] = None,
+                 magmoms: Optional[np.ndarray] = None,
+                 force_symmetric: bool = False,
+                 **kwargs) -> USIFStructure:
+        """
+        Convert ASE Atoms object to USIF format
+        
+        Automatically converts ASE Atoms to pymatgen Structure/Molecule first,
+        then uses the pymatgen conversion path. This ensures consistent
+        symmetry analysis and property handling.
+        
+        Args:
+            ase_atoms: ASE Atoms object
+            forces: Optional forces array (Nx3 for N atoms, in eV/Å)
+                   If not provided, will try to extract from ase_atoms.get_forces()
+            stress: Optional stress tensor (3x3 or 6-element Voigt notation, in GPa)
+                   If not provided, will try to extract from ase_atoms.get_stress()
+            energy: Optional total energy (in eV)
+                   If not provided, will try to extract from ase_atoms.get_potential_energy()
+            charges: Optional atomic charges array (N elements, in e)
+                    If not provided, will try to extract from ase_atoms.get_charges()
+            magmoms: Optional magnetic moments array (N elements, in μB)
+                    If not provided, will try to extract from ase_atoms.get_magnetic_moments()
+            force_symmetric: Force symmetric storage mode (default: auto-detect)
+            **kwargs: Additional properties to store in structure_properties.custom
+            
+        Returns:
+            USIFStructure: Converted structure with properties
+            
+        Raises:
+            ImportError: If ASE is not installed
+            SymmetryAnalysisError: If symmetry analysis fails
+            ValidationError: If input data is invalid
+            
+        Example:
+            >>> from ase import Atoms
+            >>> from usif import StructureConverter
+            >>> 
+            >>> ase_atoms = Atoms('H2O', positions=[[0, 0, 0], [0.95, 0, 0], [0.95, 0.95, 0]])
+            >>> usif_struct = StructureConverter.from_ase(
+            ...     ase_atoms,
+            ...     energy=-10.5,
+            ...     forces=forces_array
+            ... )
+        """
+        if not HAS_ASE:
+            raise ImportError(
+                "ASE is not installed. Install it with: pip install ase"
+            )
+        
+        if not isinstance(ase_atoms, ASEAtoms):
+            raise TypeError(f"Expected ASE Atoms object, got {type(ase_atoms)}")
+        
+        # Extract properties from ASE Atoms if not provided
+        if forces is None:
+            try:
+                forces = ase_atoms.get_forces()
+            except (RuntimeError, AttributeError):
+                pass
+        
+        if stress is None:
+            try:
+                stress = ase_atoms.get_stress(voigt=False)  # Get 3x3 tensor
+            except (RuntimeError, AttributeError):
+                pass
+        
+        if energy is None:
+            try:
+                energy = ase_atoms.get_potential_energy()
+            except (RuntimeError, AttributeError):
+                pass
+        
+        if charges is None:
+            try:
+                charges = ase_atoms.get_charges()
+            except (RuntimeError, AttributeError):
+                pass
+        
+        if magmoms is None:
+            try:
+                magmoms = ase_atoms.get_magnetic_moments()
+            except (RuntimeError, AttributeError):
+                pass
+        
+        # Convert ASE Atoms to pymatgen Structure/Molecule
+        # Check if it's periodic (has cell)
+        try:
+            has_cell = (ase_atoms.cell is not None and 
+                       len(ase_atoms.cell) > 0 and 
+                       np.any(np.linalg.norm(ase_atoms.cell, axis=1) > 1e-10))
+        except (AttributeError, TypeError):
+            has_cell = False
+        
+        if has_cell:
+            # Convert to pymatgen Structure
+            from pymatgen.io.ase import AseAtomsAdaptor
+            adaptor = AseAtomsAdaptor()
+            pmg_structure = adaptor.get_structure(ase_atoms)
+            return StructureConverter.from_pymatgen(
+                pmg_structure,
+                forces=forces,
+                stress=stress,
+                energy=energy,
+                charges=charges,
+                magmoms=magmoms,
+                force_symmetric=force_symmetric,
+                **kwargs
+            )
+        else:
+            # Convert to pymatgen Molecule
+            from pymatgen.io.ase import AseAtomsAdaptor
+            adaptor = AseAtomsAdaptor()
+            pmg_molecule = adaptor.get_molecule(ase_atoms)
+            return StructureConverter.from_pymatgen(
+                pmg_molecule,
+                forces=forces,
+                energy=energy,
+                charges=charges,
+                force_symmetric=force_symmetric,
+                **kwargs
+            )
+    
+    @staticmethod
+    def to_ase(usif_structure: USIFStructure) -> 'ASEAtoms':
+        """
+        Convert USIFStructure to ASE Atoms format
+        
+        Converts a USIFStructure to an ASE Atoms object.
+        Expands symmetric sites (Wyckoff or point group) to explicit atomic positions.
+        Preserves atomic properties (forces, charges, magmoms) if available.
+        
+        Args:
+            usif_structure: USIFStructure to convert
+            
+        Returns:
+            ASEAtoms: ASE Atoms object
+            
+        Raises:
+            ImportError: If ASE is not installed
+            ValidationError: If structure data is invalid
+            
+        Example:
+            >>> from usif import StructureConverter
+            >>> ase_atoms = StructureConverter.to_ase(usif_structure)
+            >>> ase_atoms.write('structure.xyz')
+        """
+        if not HAS_ASE:
+            raise ImportError(
+                "ASE is not installed. Install it with: pip install ase"
+            )
+        
+        # First convert to pymatgen, then to ASE
+        pmg_obj = StructureConverter.to_pymatgen(usif_structure)
+        
+        from pymatgen.io.ase import AseAtomsAdaptor
+        adaptor = AseAtomsAdaptor()
+        
+        if isinstance(pmg_obj, PMGMolecule):
+            ase_atoms = adaptor.get_atoms(pmg_obj)
+        else:
+            ase_atoms = adaptor.get_atoms(pmg_obj)
+        
+        # Add properties from USIF structure
+        if usif_structure.structure_properties.energy is not None:
+            ase_atoms.calc = None  # Will be set by calculator if needed
+            # Store energy in info dict
+            ase_atoms.info['energy'] = usif_structure.structure_properties.energy
+        
+        # Add forces if available (from atomic properties)
+        if usif_structure.storage_mode == StorageMode.FULL_ATOMIC:
+            forces = []
+            for atom in usif_structure.atom_sites:
+                if atom.properties.force is not None:
+                    forces.append(atom.properties.force)
+                else:
+                    forces.append([0.0, 0.0, 0.0])
+            
+            if forces and any(any(f != 0.0 for f in force) for force in forces):
+                ase_atoms.set_array('forces', np.array(forces))
+        
+        # Add charges if available
+        if usif_structure.storage_mode == StorageMode.FULL_ATOMIC:
+            charges = []
+            for atom in usif_structure.atom_sites:
+                if atom.properties.charge is not None:
+                    charges.append(atom.properties.charge)
+                else:
+                    charges.append(0.0)
+            
+            if charges and any(c != 0.0 for c in charges):
+                ase_atoms.set_charges(charges)
+        
+        # Add magnetic moments if available
+        if usif_structure.storage_mode == StorageMode.FULL_ATOMIC:
+            magmoms = []
+            for atom in usif_structure.atom_sites:
+                if atom.properties.magmom is not None:
+                    magmoms.append(atom.properties.magmom)
+                else:
+                    magmoms.append(0.0)
+            
+            if magmoms and any(m != 0.0 for m in magmoms):
+                ase_atoms.set_initial_magnetic_moments(magmoms)
+        
+        return ase_atoms
 
