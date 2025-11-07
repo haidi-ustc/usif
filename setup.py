@@ -6,6 +6,11 @@ Setup script for USIF package
 from setuptools import setup, find_packages
 from pathlib import Path
 
+# Read version from package (single source of truth)
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+from usif.version import __version__
+
 # Read README for long description
 readme_file = Path(__file__).parent / "README.md"
 if readme_file.exists():
@@ -18,8 +23,8 @@ if readme_file.exists():
 else:
     long_description = "USIF (Universal Structure Interchange Format) - Unified format for crystals and molecules with intelligent compression"
 
-# Read version from package
-version = "4.0"
+# Use version from package
+version = __version__
 
 setup(
     name="usif",

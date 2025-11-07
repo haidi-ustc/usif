@@ -43,6 +43,7 @@ from typing import Optional, Tuple, Union
 from pathlib import Path
 
 from usif.constants import BinaryFormat
+from usif.version import FORMAT_VERSION
 
 logger = logging.getLogger(__name__)
 from usif.enums import CompressionType, StructureType, StorageMode
@@ -57,7 +58,7 @@ from usif.properties.structure import StructureProperties
 class USIF:
     """USIF (Universal Structure Interchange Format) Encoder/Decoder"""
     
-    VERSION = 4
+    VERSION = FORMAT_VERSION  # Use global format version
     HEADER_SIZE = 64
     
     def __init__(self, compression: CompressionType = CompressionType.GZIP):

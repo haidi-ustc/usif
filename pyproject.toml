@@ -4,6 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "usif"
+# Version should match usif/version.py __version__
+# This is used by build tools before package installation
 version = "4.0"
 description = "Universal Structure Interchange Format for crystals and molecules"
 readme = "README.md"

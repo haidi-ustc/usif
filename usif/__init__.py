@@ -81,8 +81,8 @@ from .utils import (
     USIFBenchmark,
 )
 
-# Version info
-__version__ = "4.0"
+# Version info - import from version module
+from .version import __version__, FORMAT_VERSION, VERSION_INFO
 __author__ = "haidi@hfut.edu.cn"
 
 # Export all public API
@@ -133,6 +133,8 @@ __all__ = [
     
     # Metadata
     '__version__',
+    'FORMAT_VERSION',
+    'VERSION_INFO',
     '__author__',
 ]
 
