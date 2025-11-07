@@ -19,6 +19,7 @@ from .exceptions import (
     StorageError,
 )
 from .enums import StructureType, StorageMode, CompressionType
+from .units import Units, UnitConversions
 
 # Property system
 from .properties import (
@@ -70,6 +71,10 @@ __all__ = [
     'StructureType',
     'StorageMode',
     'CompressionType',
+    
+    # Units
+    'Units',
+    'UnitConversions',
     
     # Properties
     'PropertyDefinition',

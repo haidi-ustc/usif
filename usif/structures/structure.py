@@ -308,13 +308,14 @@ class USIFStructure(MSONable):
                 lines.append(f"  Symmetry sites: {len(self.point_group_sites)}")
         
         # Properties
+        from usif.units import Units
         props = []
         if self.structure_properties.energy is not None:
-            props.append(f"E={self.structure_properties.energy:.6f} eV")
+            props.append(f"E={self.structure_properties.energy:.6f} {Units.EV}")
         if self.structure_properties.volume is not None:
-            props.append(f"V={self.structure_properties.volume:.3f} Å³")
+            props.append(f"V={self.structure_properties.volume:.3f} {Units.ANGSTROM_CUBED}")
         if self.structure_properties.pressure is not None:
-            props.append(f"P={self.structure_properties.pressure:.3f} GPa")
+            props.append(f"P={self.structure_properties.pressure:.3f} {Units.GPA}")
         if props:
             lines.append(f"  Properties: {', '.join(props)}")
         

@@ -11,27 +11,30 @@ from usif.properties.definitions import PropertyDefinition
 
 logger = logging.getLogger(__name__)
 
+# Import Units here to avoid circular import issues
+from usif.units import Units
+
 class PropertyRegistry:
     """Registry of built-in property definitions"""
     
     _properties: Dict[str, PropertyDefinition] = {
         # Atomic properties
         'force': PropertyDefinition('force', tuple, is_per_atom=True, dimensions=(3,),
-                                   description='Force on atom', units='eV/Å'),
+                                   description='Force on atom', units=Units.EV_PER_ANGSTROM),
         'charge': PropertyDefinition('charge', float, is_per_atom=True,
-                                    description='Atomic charge', units='e'),
+                                    description='Atomic charge', units=Units.ELEMENTARY_CHARGE),
         'magmom': PropertyDefinition('magmom', float, is_per_atom=True,
-                                    description='Magnetic moment', units='μB'),
+                                    description='Magnetic moment', units=Units.BOHR_MAGNETON),
         'velocity': PropertyDefinition('velocity', tuple, is_per_atom=True, dimensions=(3,),
-                                      description='Atomic velocity', units='Å/fs'),
+                                      description='Atomic velocity', units=Units.ANGSTROM_PER_FS),
         
         # Structure properties
-        'energy': PropertyDefinition('energy', float, description='Total energy', units='eV'),
+        'energy': PropertyDefinition('energy', float, description='Total energy', units=Units.EV),
         'stress': PropertyDefinition('stress', tuple, dimensions=(6,),
-                                    description='Stress tensor (Voigt)', units='GPa'),
-        'volume': PropertyDefinition('volume', float, description='Cell volume', units='Å³'),
-        'pressure': PropertyDefinition('pressure', float, description='Pressure', units='GPa'),
-        'temperature': PropertyDefinition('temperature', float, description='Temperature', units='K'),
+                                    description='Stress tensor (Voigt)', units=Units.GPA),
+        'volume': PropertyDefinition('volume', float, description='Cell volume', units=Units.ANGSTROM_CUBED),
+        'pressure': PropertyDefinition('pressure', float, description='Pressure', units=Units.GPA),
+        'temperature': PropertyDefinition('temperature', float, description='Temperature', units=Units.KELVIN),
     }
     
     @classmethod
@@ -57,4 +60,3 @@ class PropertyRegistry:
         """Check if property is structure-level"""
         prop_def = cls.get(name)
         return not prop_def.is_per_atom if prop_def else False
-
