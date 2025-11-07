@@ -7,6 +7,7 @@ Properties attached to individual atoms
 import numpy as np
 from typing import Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
+from usif.constants import SymmetryConstants
 
 @dataclass
 class AtomicProperties:
@@ -31,7 +32,7 @@ class AtomicProperties:
         props.update(self.custom)
         return props
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, AtomicProperties):
             return False
         
@@ -50,9 +51,9 @@ class AtomicProperties:
             if hasattr(t1, '__len__') and hasattr(t2, '__len__'):
                 if len(t1) != len(t2):
                     return False
-                return all(abs(float(a) - float(b)) < 1e-6 for a, b in zip(t1, t2))
+                return all(abs(float(a) - float(b)) < SymmetryConstants.COORDINATE_TOLERANCE for a, b in zip(t1, t2))
             else:
-                return abs(float(t1) - float(t2)) < 1e-6
+                return abs(float(t1) - float(t2)) < SymmetryConstants.COORDINATE_TOLERANCE
         
         if not compare_tuples(self.force, other.force):
             return False
@@ -60,13 +61,13 @@ class AtomicProperties:
             return False
         
         if self.charge is not None and other.charge is not None:
-            if abs(float(self.charge) - float(other.charge)) > 1e-6:
+            if abs(float(self.charge) - float(other.charge)) > SymmetryConstants.COORDINATE_TOLERANCE:
                 return False
         elif self.charge != other.charge:
             return False
         
         if self.magmom is not None and other.magmom is not None:
-            if abs(float(self.magmom) - float(other.magmom)) > 1e-6:
+            if abs(float(self.magmom) - float(other.magmom)) > SymmetryConstants.COORDINATE_TOLERANCE:
                 return False
         elif self.magmom != other.magmom:
             return False

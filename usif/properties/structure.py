@@ -35,7 +35,7 @@ class StructureProperties:
         return props
     
     
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, StructureProperties):
             return False
         

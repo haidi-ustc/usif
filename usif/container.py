@@ -16,7 +16,7 @@ import mmap
 import threading
 import logging
 
-from usif.constants import BinaryFormat
+from usif.constants import BinaryFormat, SymmetryConstants
 from usif.enums import CompressionType
 from usif.exceptions import StorageError, DecodingError, CorruptedDataError
 from usif.structures.structure import USIFStructure
@@ -511,8 +511,11 @@ class StructureContainer:
             
             return structure
             
-        except Exception as e:
+        except (DecodingError, CorruptedDataError) as e:
             logger.error(f"Error decoding structure {identifier}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error decoding structure {identifier}: {e}", exc_info=True)
             return None
     
     def _read_from_chunk(self, chunk_id: int, offset: int, size: int) -> bytes:
@@ -558,7 +561,7 @@ class StructureContainer:
                 if prop_name in self._property_index:
                     if isinstance(prop_value, (int, float)):
                         for bucket, hashes in self._property_index[prop_name].items():
-                            if isinstance(bucket, (int, float)) and abs(bucket - prop_value) < 0.001:
+                            if isinstance(bucket, (int, float)) and abs(bucket - prop_value) < SymmetryConstants.PROPERTY_VALUE_TOLERANCE:
                                 candidate_hashes.intersection_update(hashes)
                     else:
                         if prop_value in self._property_index[prop_name]:

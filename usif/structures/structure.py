@@ -227,13 +227,14 @@ class USIFStructure(MSONable):
             formula=d["formula"]
         )
     
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, USIFStructure):
             return False
         
         lattice_equal = True
         if self.lattice_matrix is not None and other.lattice_matrix is not None:
-            lattice_equal = np.allclose(self.lattice_matrix, other.lattice_matrix, atol=1e-6)
+            from usif.constants import SymmetryConstants
+            lattice_equal = np.allclose(self.lattice_matrix, other.lattice_matrix, atol=SymmetryConstants.COORDINATE_TOLERANCE)
         elif self.lattice_matrix != other.lattice_matrix:
             lattice_equal = False
         
@@ -248,7 +249,7 @@ class USIFStructure(MSONable):
                 self.structure_properties == other.structure_properties and
                 self.formula == other.formula)
     
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"USIFStructure(structure_type={self.structure_type.name}, "
                 f"storage_mode={self.storage_mode.name}, "
                 f"formula='{self.formula}', "
@@ -329,11 +330,8 @@ class USIFStructure(MSONable):
         else:
             # Use MSONable JSON format for other files
             try:
-                import json
-                # Use monty.json's jsanitize for proper serialization
-                from monty.json import jsanitize
-                with open(filename, 'w') as f:
-                    json.dump(jsanitize(self.as_dict()), f, indent=2)
+                from monty.serialization import dumpfn
+                dumpfn(self, filename, indent=2)
             except IOError as e:
                 raise StorageError(f"Failed to save structure to {filename}: {e}") from e
     

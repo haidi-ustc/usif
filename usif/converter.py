@@ -22,6 +22,7 @@ except ImportError:
 
 from usif.enums import StructureType, StorageMode
 from usif.exceptions import SymmetryAnalysisError, ValidationError
+from usif.constants import SymmetryConstants
 from usif.structures.structure import USIFStructure
 from usif.structures.sites import WyckoffSite, PointGroupSite, AtomSite
 from usif.properties.structure import StructureProperties
@@ -109,7 +110,7 @@ class StructureConverter:
                                 dist = np.linalg.norm(transformed - other_coords)
                                 min_dist = min(min_dist, dist)
                             
-                            if min_dist < 0.01:
+                            if min_dist < SymmetryConstants.MOLECULAR_EQUIVALENCE_THRESHOLD:
                                 equiv_count += 1
                                 used.add(other_idx)
                         
@@ -137,8 +138,10 @@ class StructureConverter:
                         structure_properties=struct_props,
                         formula=formula
                     )
-            except Exception as e:
-                logger.debug(f"Symmetric molecule conversion failed: {e}")
+            except (ValueError, RuntimeError) as e:
+                logger.debug(f"Symmetric molecule conversion failed due to symmetry analysis error: {e}")
+            except ValidationError as e:
+                logger.warning(f"Symmetric molecule conversion failed due to validation error: {e}")
         
         atom_sites = []
         for i, site in enumerate(pmg_molecule):
@@ -196,7 +199,7 @@ class StructureConverter:
         
         if storage_mode == StorageMode.SYMMETRIC:
             try:
-                sga = SpacegroupAnalyzer(pmg_structure, symprec=0.1)
+                sga = SpacegroupAnalyzer(pmg_structure, symprec=SymmetryConstants.DEFAULT_SYMMETRY_PRECISION)
                 spacegroup_number = sga.get_space_group_number()
                 symmetrized = sga.get_symmetrized_structure()
                 
@@ -216,9 +219,9 @@ class StructureConverter:
         
         if storage_mode == StorageMode.FULL_ATOMIC:
             try:
-                sga = SpacegroupAnalyzer(pmg_structure, symprec=0.1)
+                sga = SpacegroupAnalyzer(pmg_structure, symprec=SymmetryConstants.DEFAULT_SYMMETRY_PRECISION)
                 spacegroup_number = sga.get_space_group_number()
-            except Exception as e:
+            except (ValueError, RuntimeError) as e:
                 logger.warning(f"Failed to determine spacegroup: {e}")
                 spacegroup_number = 1
             

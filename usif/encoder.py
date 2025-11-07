@@ -76,7 +76,7 @@ class USIF:
             if self.compression == CompressionType.GZIP:
                 return gzip.compress(data, compresslevel=6)
             return data
-        except Exception as e:
+        except (OSError, MemoryError) as e:
             raise EncodingError(f"Compression failed: {e}") from e
     
     def _decompress_data(self, data: bytes, comp_type: CompressionType) -> bytes:
@@ -361,10 +361,12 @@ class USIF:
             
             return bytes(header) + compressed_data
             
-        except Exception as e:
-            if isinstance(e, (EncodingError, ValidationError)):
-                raise
+        except (EncodingError, ValidationError):
+            raise
+        except (ValueError, TypeError, struct.error) as e:
             raise EncodingError(f"Failed to encode structure: {e}") from e
+        except Exception as e:
+            raise EncodingError(f"Unexpected error during encoding: {e}") from e
     
     def decode(self, data: bytes) -> Tuple[USIFStructure, bytes]:
         """
@@ -516,9 +518,11 @@ class USIF:
             
         except (struct.error, UnicodeDecodeError) as e:
             raise DecodingError(f"Failed to decode data: {e}") from e
+        except (DecodingError, CorruptedDataError, ValidationError):
+            raise
+        except (ValueError, TypeError, KeyError) as e:
+            raise DecodingError(f"Failed to decode structure: {e}") from e
         except Exception as e:
-            if isinstance(e, (DecodingError, CorruptedDataError, ValidationError)):
-                raise
             raise DecodingError(f"Unexpected error during decoding: {e}") from e
     
     def get_structure_hash(self, structure: USIFStructure) -> str:

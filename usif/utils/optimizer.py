@@ -7,6 +7,8 @@ Structure optimization utilities
 import numpy as np
 import logging
 from typing import Optional
+from collections import defaultdict
+from usif.converter import StructureConverter
 
 try:
     from pymatgen.symmetry.analyzer import SpacegroupAnalyzer, PointGroupAnalyzer
@@ -15,7 +17,8 @@ except ImportError:
     PYMATGEN_AVAILABLE = False
 
 from usif.enums import StorageMode, StructureType
-from usif.exceptions import SymmetryAnalysisError
+from usif.exceptions import SymmetryAnalysisError, ValidationError
+from usif.constants import SymmetryConstants
 from usif.structures.structure import USIFStructure
 from usif.structures.sites import WyckoffSite, PointGroupSite, AtomSite
 
@@ -26,7 +29,7 @@ class USIFOptimizer:
     
     @staticmethod
     def optimize_structure(structure: USIFStructure, 
-                          tolerance: float = 1e-3) -> USIFStructure:
+                          tolerance: float = SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE) -> USIFStructure:
         """
         Optimize structure for maximum compression
         
@@ -46,6 +49,10 @@ class USIFOptimizer:
     def _optimize_crystal(structure: USIFStructure, tolerance: float) -> USIFStructure:
         """Optimize crystal structure"""
         if structure.storage_mode == StorageMode.SYMMETRIC:
+            return structure
+        
+        if not PYMATGEN_AVAILABLE:
+            logger.warning("Pymatgen not available, cannot optimize crystal structure")
             return structure
         
         try:
@@ -71,14 +78,24 @@ class USIFOptimizer:
                 structure_properties=structure.structure_properties,
                 formula=structure.formula
             )
+        except (ValueError, RuntimeError) as e:
+            logger.debug(f"Crystal optimization failed due to symmetry analysis error: {e}")
+            return structure
+        except ValidationError as e:
+            logger.warning(f"Crystal optimization failed due to validation error: {e}")
+            return structure
         except Exception as e:
-            logger.debug(f"Crystal optimization failed: {e}")
+            logger.error(f"Unexpected error during crystal optimization: {e}", exc_info=True)
             return structure
     
     @staticmethod
     def _optimize_molecule(structure: USIFStructure, tolerance: float) -> USIFStructure:
         """Optimize molecular structure"""
         if structure.storage_mode == StorageMode.SYMMETRIC:
+            return structure
+        
+        if not PYMATGEN_AVAILABLE:
+            logger.warning("Pymatgen not available, cannot optimize molecular structure")
             return structure
         
         try:
@@ -133,8 +150,12 @@ class USIFOptimizer:
                     structure_properties=structure.structure_properties,
                     formula=structure.formula
                 )
+        except (ValueError, RuntimeError) as e:
+            logger.debug(f"Molecule optimization failed due to symmetry analysis error: {e}")
+        except ValidationError as e:
+            logger.warning(f"Molecule optimization failed due to validation error: {e}")
         except Exception as e:
-            logger.debug(f"Molecule optimization failed: {e}")
+            logger.error(f"Unexpected error during molecule optimization: {e}", exc_info=True)
         
         return structure
 
