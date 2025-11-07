@@ -45,9 +45,9 @@ from usif import USIFStructure
 # From file (auto-detects format: CIF, POSCAR, XYZ, etc.)
 usif_struct = USIFStructure.from_source(
     "structure.cif",
-    energy=-10.5,
-    volume=179.4,
-    calculator="VASP"  # Stored in structure_properties.custom
+    energy=-10.5,      # Built-in property
+    volume=179.4,      # Built-in property
+    calculator="VASP"  # Custom property (stored in structure_properties.custom)
 )
 
 # From pymatgen Structure or Molecule object
@@ -55,9 +55,9 @@ from pymatgen.core import Structure
 pmg_struct = Structure.from_file("structure.cif")
 usif_struct = USIFStructure.from_source(
     pmg_struct,
-    energy=-10.5,
-    forces=forces_array,
-    stress=stress_tensor
+    energy=-10.5,           # Built-in property
+    forces=forces_array,     # Atomic property
+    stress=stress_tensor     # Built-in property
 )
 
 # From ASE Atoms object
@@ -65,8 +65,8 @@ from ase import Atoms
 ase_atoms = Atoms('H2O', positions=[[0, 0, 0], [0.95, 0, 0], [0.95, 0.95, 0]])
 usif_struct = USIFStructure.from_source(
     ase_atoms,
-    energy=-10.5,
-    calculator="VASP"
+    energy=-10.5,           # Built-in property
+    calculator="VASP"       # Custom property (stored in structure_properties.custom)
 )
 
 # Save directly to .usif file
@@ -92,12 +92,13 @@ from usif import USIFStructure
 pmg_struct = Structure.from_file("structure.cif")
 
 # Convert to USIF with automatic Wyckoff site extraction
-# Custom properties can be passed as keyword arguments
+# Built-in properties: energy, stress, volume, pressure, temperature
+# Additional kwargs are stored as custom properties
 usif_struct = USIFStructure.from_pymatgen(
     pmg_struct,
-    energy=-10.5,
-    volume=179.4,
-    calculator="VASP"  # Stored in structure_properties.custom
+    energy=-10.5,           # Built-in property
+    volume=179.4,           # Built-in property
+    calculator="VASP"       # Custom property (stored in structure_properties.custom)
 )
 
 # Save directly to .usif file
@@ -334,7 +335,7 @@ The main structure class with convenient methods:
   - Supports forces, stress, energy, charges, magmoms
   - Additional properties via `**kwargs` are stored in `structure_properties.custom`
   - Example: `calculator="VASP"` → `structure_properties.custom["calculator"] = "VASP"`
-  - Note: For more flexibility, use `from()` instead
+  - Note: For more flexibility, use `from_source()` instead
 
 - `load(filename)` - Load structure from file
   - Auto-detects format (.usif uses encoder, others use JSON)
@@ -497,19 +498,35 @@ USIF supports different structure types and storage modes:
 
 ### Structure Properties
 
+Built-in properties (direct attributes):
+- `energy`: Total energy (float, eV)
+- `stress`: Stress tensor in Voigt notation (6-element tuple, GPa)
+- `volume`: Cell volume (float, Å³)
+- `pressure`: Pressure (float, GPa)
+- `temperature`: Temperature (float, K)
+
+Custom properties (stored in `custom` dictionary):
+- Any additional properties passed as `**kwargs` to `from_source()` or `from_pymatgen()`
+- Access via `structure.structure_properties.custom["key"]`
+
 ```python
 from usif import StructureProperties
 
+# Create structure properties
 props = StructureProperties(
-    energy=-10.5,
-    volume=179.4,
-    stress=(1.0, 1.0, 1.0, 0.0, 0.0, 0.0),  # Voigt notation
+    energy=-10.5,                                    # Built-in property
+    volume=179.4,                                    # Built-in property
+    stress=(1.0, 1.0, 1.0, 0.0, 0.0, 0.0),         # Built-in property (Voigt notation)
     custom={"calculator": "VASP", "kpoints": "4x4x4"}  # Custom properties
 )
 
-# Note: When using from_pymatgen(), you can pass custom properties as kwargs:
-# USIFStructure.from_pymatgen(pmg_struct, calculator="VASP", kpoints="4x4x4")
-# This is equivalent to custom={"calculator": "VASP", "kpoints": "4x4x4"}
+# When using from_source() or from_pymatgen(), custom properties can be passed as kwargs:
+usif_struct = USIFStructure.from_source(
+    "structure.cif",
+    energy=-10.5,           # Built-in property
+    calculator="VASP",       # Custom property → structure_properties.custom["calculator"]
+    kpoints="4x4x4"          # Custom property → structure_properties.custom["kpoints"]
+)
 ```
 
 ### Atomic Properties
