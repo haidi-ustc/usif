@@ -169,7 +169,9 @@ class StructureContainer:
         self._cache_lock = threading.RLock()
         self._cache_size = cache_size
         
-        # Indexes
+        # Indexes with thread-safe lock
+        self._index_lock = threading.RLock()  # NEW: Lock for index operations
+        self._file_lock = threading.RLock()  # NEW: Lock for file I/O operations
         self._hash_index: Dict[str, Tuple[int, int, int]] = {}
         self._name_index: Dict[str, str] = {}
         self._formula_index: Dict[str, List[str]] = defaultdict(list)
@@ -249,7 +251,7 @@ class StructureContainer:
         self._file.flush()
     
     def _read_enhanced_index(self) -> None:
-        """Read enhanced index with secondary indexes"""
+        """Read enhanced index with secondary indexes (FIXED: matches new serialization format)"""
         try:
             if self._mmap:
                 data = self._mmap
@@ -276,17 +278,10 @@ class StructureContainer:
             self._data_offset = data_offset
             self._index_offset = index_offset
             
-            if index_offset > 0:
+            # FIXED: Read new serialization format
+            if index_offset > 0 and index_offset < len(data):
                 self._file.seek(index_offset)
-                for _ in range(num_structures):
-                    hash_bytes = self._file.read(32)
-                    chunk_id = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
-                    chunk_offset = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
-                    size = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
-                    self._hash_index[hash_bytes.hex()] = (chunk_id, chunk_offset, size)
-            
-            if group_offset > 0:
-                self._read_group_hierarchy(group_offset)
+                self._deserialize_indexes()
             
             self._build_secondary_indexes()
             
@@ -320,24 +315,36 @@ class StructureContainer:
             logger.error(f"Failed to read group hierarchy: {e}")
     
     def _build_secondary_indexes(self) -> None:
-        """Build secondary indexes for fast querying"""
+        """Build secondary indexes for fast querying (thread-safe, all structures)"""
         logger.info("Building secondary indexes...")
         
-        for struct_hash in list(self._hash_index.keys())[:10]:
-            try:
-                structure = self.get(struct_hash)
-                if structure:
-                    self._formula_index[structure.formula].append(struct_hash)
+        # FIXED: Index all structures, not just first 10
+        all_hashes = list(self._hash_index.keys())
+        total = len(all_hashes)
+        
+        with self._index_lock:  # FIXED: Thread-safe index building
+            for i, struct_hash in enumerate(all_hashes):
+                try:
+                    structure = self.get(struct_hash)
+                    if structure:
+                        self._formula_index[structure.formula].append(struct_hash)
+                        
+                        props = structure.structure_properties.get_all_properties()
+                        for prop_name, value in props.items():
+                            if isinstance(value, (int, float)):
+                                bucket = round(value, 3)
+                                self._property_index[prop_name][bucket].append(struct_hash)
+                            else:
+                                self._property_index[prop_name][value].append(struct_hash)
                     
-                    props = structure.structure_properties.get_all_properties()
-                    for prop_name, value in props.items():
-                        if isinstance(value, (int, float)):
-                            bucket = round(value, 3)
-                            self._property_index[prop_name][bucket].append(struct_hash)
-                        else:
-                            self._property_index[prop_name][value].append(struct_hash)
-            except Exception as e:
-                logger.warning(f"Failed to index structure {struct_hash[:16]}: {e}")
+                    # Log progress for large containers
+                    if (i + 1) % 100 == 0:
+                        logger.info(f"Indexed {i + 1}/{total} structures...")
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to index structure {struct_hash[:16]}: {e}")
+        
+        logger.info(f"Secondary indexing complete: {total} structures indexed")
     
     def _start_prefetch_thread(self) -> None:
         """Start background thread for prefetching"""
@@ -403,24 +410,29 @@ class StructureContainer:
             usif_data = self.encoder.encode(structure)
             struct_hash = self.encoder.get_structure_hash(structure)
             
-            if struct_hash in self._hash_index:
-                logger.info(f"Structure {struct_hash[:16]} already exists")
-                return struct_hash
+            # FIXED: Thread-safe check and index updates
+            with self._index_lock:
+                if struct_hash in self._hash_index:
+                    logger.info(f"Structure {struct_hash[:16]} already exists")
+                    return struct_hash
             
-            chunk_id, chunk_offset = self._allocate_space(len(usif_data))
-            self._write_to_chunk(chunk_id, chunk_offset, usif_data)
+            # FIXED: Thread-safe file I/O operations
+            with self._file_lock:
+                chunk_id, chunk_offset = self._allocate_space(len(usif_data))
+                self._write_to_chunk(chunk_id, chunk_offset, usif_data)
             
-            self._hash_index[struct_hash] = (chunk_id, chunk_offset, len(usif_data))
-            
-            if name:
-                self._name_index[name] = struct_hash
-                # Store attributes if provided (HDF5-like attributes)
-                if attributes:
-                    self._structure_attributes[name] = attributes
-            
-            target_group = self._get_or_create_group(group)
-            display_name = name or struct_hash[:16]
-            target_group.add_structure(display_name, struct_hash)
+            with self._index_lock:
+                self._hash_index[struct_hash] = (chunk_id, chunk_offset, len(usif_data))
+                
+                if name:
+                    self._name_index[name] = struct_hash
+                    # Store attributes if provided (HDF5-like attributes)
+                    if attributes:
+                        self._structure_attributes[name] = attributes
+                
+                target_group = self._get_or_create_group(group)
+                display_name = name or struct_hash[:16]
+                target_group.add_structure(display_name, struct_hash)
             
             self._update_secondary_indexes(structure, struct_hash)
             
@@ -523,16 +535,17 @@ class StructureContainer:
         return current
     
     def _update_secondary_indexes(self, structure: USIFStructure, struct_hash: str) -> None:
-        """Update secondary indexes for a structure"""
-        self._formula_index[structure.formula].append(struct_hash)
-        
-        props = structure.structure_properties.get_all_properties()
-        for prop_name, value in props.items():
-            if isinstance(value, (int, float)):
-                bucket = round(value, 3)
-                self._property_index[prop_name][bucket].append(struct_hash)
-            else:
-                self._property_index[prop_name][value].append(struct_hash)
+        """Update secondary indexes for a structure (thread-safe)"""
+        with self._index_lock:  # FIXED: Thread-safe index updates
+            self._formula_index[structure.formula].append(struct_hash)
+            
+            props = structure.structure_properties.get_all_properties()
+            for prop_name, value in props.items():
+                if isinstance(value, (int, float)):
+                    bucket = round(value, 3)
+                    self._property_index[prop_name][bucket].append(struct_hash)
+                else:
+                    self._property_index[prop_name][value].append(struct_hash)
     
     def get(self, identifier: str) -> Optional[USIFStructure]:
         """
@@ -559,12 +572,14 @@ class StructureContainer:
                 self._cache.move_to_end(identifier)
                 return self._cache[identifier]
         
-        struct_hash = self._name_index.get(identifier, identifier)
-        
-        if struct_hash not in self._hash_index:
-            return None
-        
-        chunk_id, chunk_offset, size = self._hash_index[struct_hash]
+        # FIXED: Thread-safe index lookups
+        with self._index_lock:
+            struct_hash = self._name_index.get(identifier, identifier)
+            
+            if struct_hash not in self._hash_index:
+                return None
+            
+            chunk_id, chunk_offset, size = self._hash_index[struct_hash]
         usif_data = self._read_from_chunk(chunk_id, chunk_offset, size)
         
         try:
@@ -585,17 +600,19 @@ class StructureContainer:
             return None
     
     def _read_from_chunk(self, chunk_id: int, offset: int, size: int) -> bytes:
-        """Read data from specific chunk"""
+        """Read data from specific chunk (thread-safe)"""
         actual_offset = chunk_id * self.CHUNK_SIZE + offset
         
-        if self._mmap:
-            return bytes(self._mmap[actual_offset:actual_offset + size])
-        else:
-            current_pos = self._file.tell()
-            self._file.seek(actual_offset)
-            data = self._file.read(size)
-            self._file.seek(current_pos)
-            return data
+        # FIXED: Thread-safe file I/O
+        with self._file_lock:
+            if self._mmap:
+                return bytes(self._mmap[actual_offset:actual_offset + size])
+            else:
+                current_pos = self._file.tell()
+                self._file.seek(actual_offset)
+                data = self._file.read(size)
+                self._file.seek(current_pos)
+                return data
     
     def query(self, 
               formula: Optional[str] = None,
@@ -635,40 +652,42 @@ class StructureContainer:
         """
         results = []
         
-        candidate_hashes = set()
-        if formula:
-            candidate_hashes.update(self._formula_index.get(formula, []))
-        else:
-            candidate_hashes.update(self._hash_index.keys())
-        
-        if properties:
-            for prop_name, prop_value in properties.items():
-                if prop_name in self._property_index:
-                    if isinstance(prop_value, (int, float)):
-                        for bucket, hashes in self._property_index[prop_name].items():
-                            if isinstance(bucket, (int, float)) and abs(bucket - prop_value) < SymmetryConstants.PROPERTY_VALUE_TOLERANCE:
-                                candidate_hashes.intersection_update(hashes)
-                    else:
-                        if prop_value in self._property_index[prop_name]:
-                            candidate_hashes.intersection_update(
-                                self._property_index[prop_name][prop_value]
-                            )
-        
-        if energy_range:
-            min_energy, max_energy = energy_range
-            energy_hashes = set()
-            for bucket, hashes in self._property_index.get('energy', {}).items():
-                if isinstance(bucket, (int, float)) and min_energy <= bucket <= max_energy:
-                    energy_hashes.update(hashes)
-            candidate_hashes.intersection_update(energy_hashes)
-        
-        if group and group != "/":
-            group_hashes = set()
-            target_group = self.get_group(group)
-            if target_group:
-                for struct_name, struct_hash in target_group.structures.items():
-                    group_hashes.add(struct_hash)
-            candidate_hashes.intersection_update(group_hashes)
+        # FIXED: Thread-safe query operations
+        with self._index_lock:
+            candidate_hashes = set()
+            if formula:
+                candidate_hashes.update(self._formula_index.get(formula, []))
+            else:
+                candidate_hashes.update(self._hash_index.keys())
+            
+            if properties:
+                for prop_name, prop_value in properties.items():
+                    if prop_name in self._property_index:
+                        if isinstance(prop_value, (int, float)):
+                            for bucket, hashes in self._property_index[prop_name].items():
+                                if isinstance(bucket, (int, float)) and abs(bucket - prop_value) < SymmetryConstants.PROPERTY_VALUE_TOLERANCE:
+                                    candidate_hashes.intersection_update(hashes)
+                        else:
+                            if prop_value in self._property_index[prop_name]:
+                                candidate_hashes.intersection_update(
+                                    self._property_index[prop_name][prop_value]
+                                )
+            
+            if energy_range:
+                min_energy, max_energy = energy_range
+                energy_hashes = set()
+                for bucket, hashes in self._property_index.get('energy', {}).items():
+                    if isinstance(bucket, (int, float)) and min_energy <= bucket <= max_energy:
+                        energy_hashes.update(hashes)
+                candidate_hashes.intersection_update(energy_hashes)
+            
+            if group and group != "/":
+                group_hashes = set()
+                target_group = self.get_group(group)
+                if target_group:
+                    for struct_name, struct_hash in target_group.structures.items():
+                        group_hashes.add(struct_hash)
+                candidate_hashes.intersection_update(group_hashes)
         
         for hash_val in candidate_hashes:
             structure = self.get(hash_val)
@@ -879,18 +898,122 @@ class StructureContainer:
             return
         
         try:
-            # Write index at the end of file
-            index_data = self._serialize_indexes()
-            index_offset = self._file.tell()
-            self._file.write(index_data)
-            self._file.flush()
-            
-            # Update header with index offset
-            self._file.seek(20)  # Index offset position in header
-            self._file.write(struct.pack(BinaryFormat.UINT64, index_offset))
-            self._file.flush()
+            # FIXED: Thread-safe index writing
+            with self._file_lock:
+                # Write index at the end of file
+                index_data = self._serialize_indexes()
+                self._file.seek(0, 2)  # FIXED: Seek to end of file first
+                index_offset = self._file.tell()
+                self._file.write(index_data)
+                self._file.flush()
+                
+                # Update header with index offset
+                self._file.seek(20)  # Index offset position in header
+                self._file.write(struct.pack(BinaryFormat.UINT64, index_offset))
+                self._file.flush()
         except Exception as e:
             logger.warning(f"Failed to write enhanced index: {e}")
+    
+    def _deserialize_indexes(self) -> None:
+        """Deserialize indexes from file (matches _serialize_indexes format)"""
+        # Read hash index
+        num_hashes = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
+        for _ in range(num_hashes):
+            hash_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
+            hash_bytes = self._file.read(hash_len)
+            struct_hash = hash_bytes.decode('utf-8')
+            chunk_id = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
+            offset = struct.unpack(BinaryFormat.UINT64, self._file.read(8))[0]
+            size = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
+            self._hash_index[struct_hash] = (chunk_id, offset, size)
+        
+        # Read name index
+        num_names = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
+        for _ in range(num_names):
+            name_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
+            name = self._file.read(name_len).decode('utf-8')
+            hash_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
+            struct_hash = self._file.read(hash_len).decode('utf-8')
+            self._name_index[name] = struct_hash
+        
+        # Read structure attributes
+        num_attrs = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
+        for _ in range(num_attrs):
+            name_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
+            name = self._file.read(name_len).decode('utf-8')
+            num_attr_pairs = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
+            attrs = {}
+            for _ in range(num_attr_pairs):
+                attr_name_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
+                attr_name = self._file.read(attr_name_len).decode('utf-8')
+                value_len = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
+                value_str = self._file.read(value_len).decode('utf-8')
+                # Try to parse as number, otherwise keep as string
+                try:
+                    attrs[attr_name] = float(value_str) if '.' in value_str else int(value_str)
+                except ValueError:
+                    attrs[attr_name] = value_str
+            self._structure_attributes[name] = attrs
+        
+        # Read group hierarchy
+        group_data_len = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
+        if group_data_len > 0:
+            group_data = self._file.read(group_data_len)
+            self._deserialize_group_hierarchy(group_data)
+    
+    def _deserialize_group_hierarchy(self, data: bytes) -> None:
+        """Deserialize group hierarchy from bytes"""
+        def deserialize_group(offset: int) -> Tuple[USIFGroup, int]:
+            # Group name
+            name_len = struct.unpack(BinaryFormat.UINT16, data[offset:offset+2])[0]
+            offset += 2
+            name = data[offset:offset+name_len].decode('utf-8')
+            offset += name_len
+            
+            group = USIFGroup(name)
+            
+            # Structures in group
+            num_structs = struct.unpack(BinaryFormat.UINT32, data[offset:offset+4])[0]
+            offset += 4
+            for _ in range(num_structs):
+                struct_name_len = struct.unpack(BinaryFormat.UINT16, data[offset:offset+2])[0]
+                offset += 2
+                struct_name = data[offset:offset+struct_name_len].decode('utf-8')
+                offset += struct_name_len
+                hash_len = struct.unpack(BinaryFormat.UINT16, data[offset:offset+2])[0]
+                offset += 2
+                struct_hash = data[offset:offset+hash_len].decode('utf-8')
+                offset += hash_len
+                group.structures[struct_name] = struct_hash
+            
+            # Attributes
+            num_attrs = struct.unpack(BinaryFormat.UINT16, data[offset:offset+2])[0]
+            offset += 2
+            for _ in range(num_attrs):
+                attr_name_len = struct.unpack(BinaryFormat.UINT16, data[offset:offset+2])[0]
+                offset += 2
+                attr_name = data[offset:offset+attr_name_len].decode('utf-8')
+                offset += attr_name_len
+                value_len = struct.unpack(BinaryFormat.UINT32, data[offset:offset+4])[0]
+                offset += 4
+                value_str = data[offset:offset+value_len].decode('utf-8')
+                offset += value_len
+                # Try to parse as number
+                try:
+                    group.attributes[attr_name] = float(value_str) if '.' in value_str else int(value_str)
+                except ValueError:
+                    group.attributes[attr_name] = value_str
+            
+            # Subgroups
+            num_subgroups = struct.unpack(BinaryFormat.UINT32, data[offset:offset+4])[0]
+            offset += 4
+            for _ in range(num_subgroups):
+                subgroup, offset = deserialize_group(offset)
+                group.subgroups[subgroup.name] = subgroup
+            
+            return group, offset
+        
+        self.root_group, _ = deserialize_group(0)
     
     def _serialize_indexes(self) -> bytes:
         """Serialize all indexes to bytes for persistence"""
