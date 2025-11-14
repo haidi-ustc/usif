@@ -6,10 +6,14 @@ Setup script for USIF package
 from setuptools import setup, find_packages
 from pathlib import Path
 
-# Read version from package (single source of truth)
-import sys
-sys.path.insert(0, str(Path(__file__).parent))
-from usif.version import __version__
+def read_version():
+    version_file = Path(__file__).parent / "usif" / "version.py"
+    with open(version_file, "r") as f:
+        for line in f:
+            if line.startswith("__version__"):
+                return line.split("=")[1].strip().strip("\"'")
+
+__version__ = read_version()
 
 # Read README for long description
 readme_file = Path(__file__).parent / "README.md"
