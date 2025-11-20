@@ -60,6 +60,7 @@ import numpy as np
 @dataclass
 class StructureProperties:
     """Properties that can be attached to the entire structure"""
+
     energy: Optional[float] = None
     stress: Optional[Tuple[float, ...]] = None
     volume: Optional[float] = None
@@ -71,18 +72,17 @@ class StructureProperties:
         """Get all properties as dictionary"""
         props = {}
         if self.energy is not None:
-            props['energy'] = self.energy
+            props["energy"] = self.energy
         if self.stress is not None:
-            props['stress'] = self.stress
+            props["stress"] = self.stress
         if self.volume is not None:
-            props['volume'] = self.volume
+            props["volume"] = self.volume
         if self.pressure is not None:
-            props['pressure'] = self.pressure
+            props["pressure"] = self.pressure
         if self.temperature is not None:
-            props['temperature'] = self.temperature
+            props["temperature"] = self.temperature
         props.update(self.custom)
         return props
-
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, StructureProperties):
@@ -95,7 +95,9 @@ class StructureProperties:
                 return False
 
             # Handle numpy arrays and tuples
-            if isinstance(v1, (tuple, list, np.ndarray)) and isinstance(v2, (tuple, list, np.ndarray)):
+            if isinstance(v1, (tuple, list, np.ndarray)) and isinstance(
+                v2, (tuple, list, np.ndarray)
+            ):
                 if len(v1) != len(v2):
                     return False
                 return all(abs(float(a) - float(b)) < 1e-5 for a, b in zip(v1, v2))
@@ -104,7 +106,7 @@ class StructureProperties:
             else:
                 return v1 == v2
 
-        for prop_name in ['energy', 'volume', 'pressure', 'temperature']:
+        for prop_name in ["energy", "volume", "pressure", "temperature"]:
             v1 = getattr(self, prop_name, None)
             v2 = getattr(other, prop_name, None)
             if not compare_values(v1, v2):

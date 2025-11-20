@@ -111,5 +111,5 @@ class TestModularImports(unittest.TestCase):
         self.assertIsNotNone(__author__)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

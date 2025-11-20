@@ -90,6 +90,7 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
     def tearDown(self):
         """Clean up"""
         import shutil
+
         if self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
 
@@ -107,14 +108,18 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
                     self.assertTrue(usif_struct.is_crystal())  # MP data is crystals
 
                     # Verify properties
-                    if 'formation_energy_per_atom' in doc and 'nsites' in doc:
-                        expected_energy = doc.get('formation_energy_per_atom') * doc.get('nsites')
+                    if "formation_energy_per_atom" in doc and "nsites" in doc:
+                        expected_energy = doc.get(
+                            "formation_energy_per_atom"
+                        ) * doc.get("nsites")
                         if expected_energy is not None:
-                            self.assertIsNotNone(usif_struct.structure_properties.energy)
+                            self.assertIsNotNone(
+                                usif_struct.structure_properties.energy
+                            )
                             self.assertAlmostEqual(
                                 usif_struct.structure_properties.energy,
                                 expected_energy,
-                                places=5
+                                places=5,
                             )
 
                     # Verify structure has atoms
@@ -154,22 +159,20 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
                         self.assertAlmostEqual(
                             original.structure_properties.energy,
                             decoded.structure_properties.energy,
-                            places=6
+                            places=6,
                         )
                     if original.structure_properties.volume is not None:
                         self.assertIsNotNone(decoded.structure_properties.volume)
                         self.assertAlmostEqual(
                             original.structure_properties.volume,
                             decoded.structure_properties.volume,
-                            places=3
+                            places=3,
                         )
 
                     # Verify lattice (if present)
                     if original.lattice_matrix is not None:
                         np.testing.assert_allclose(
-                            original.lattice_matrix,
-                            decoded.lattice_matrix,
-                            atol=1e-6
+                            original.lattice_matrix, decoded.lattice_matrix, atol=1e-6
                         )
 
                     # Verify hash (convert to hex for comparison)
@@ -233,7 +236,7 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
                         self.assertAlmostEqual(
                             original.structure_properties.energy,
                             loaded.structure_properties.energy,
-                            places=6
+                            places=6,
                         )
 
                 except Exception as e:
@@ -250,7 +253,9 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
                         encoded = self.encoder_gzip.encode(original)
                         decoded, _ = self.encoder_gzip.decode(encoded)
                         # Verify key properties (floating point precision may differ)
-                        self.assertEqual(original.structure_type, decoded.structure_type)
+                        self.assertEqual(
+                            original.structure_type, decoded.structure_type
+                        )
                         self.assertEqual(original.formula, decoded.formula)
                         self.assertEqual(original.num_atoms(), decoded.num_atoms())
                         tested += 1
@@ -309,7 +314,11 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
                 _, encoded_hash = self.encoder_gzip.decode(encoded)
                 # Convert both to hex strings for comparison
                 hash1_hex = hash1.hex() if isinstance(hash1, bytes) else hash1
-                encoded_hash_hex = encoded_hash.hex() if isinstance(encoded_hash, bytes) else encoded_hash
+                encoded_hash_hex = (
+                    encoded_hash.hex()
+                    if isinstance(encoded_hash, bytes)
+                    else encoded_hash
+                )
                 self.assertEqual(hash1_hex, encoded_hash_hex)
 
             except Exception as e:
@@ -319,7 +328,7 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
         """Test StructureContainer with MP data"""
         container_file = self.temp_dir / "test_container.usifc"
 
-        container = StructureContainer(container_file, mode='w')
+        container = StructureContainer(container_file, mode="w")
 
         # Add structures from first group
         group_name, docs = self.test_groups[0]
@@ -329,15 +338,21 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
         for i, doc in enumerate(docs[:10]):  # Add first 10
             try:
                 usif_struct = convert_mp_to_usif(doc)
-                material_id = doc.get('material_id', f"mp-{i}")
-                container.add(usif_struct, group=f"/mp_data/{group_name}", attributes={"material_id": material_id})
+                material_id = doc.get("material_id", f"mp-{i}")
+                container.add(
+                    usif_struct,
+                    group=f"/mp_data/{group_name}",
+                    attributes={"material_id": material_id},
+                )
                 added_count += 1
             except Exception as e:
                 errors.append(f"Doc {i}: {str(e)}")
                 continue
 
         # Verify structures were added before closing
-        self.assertGreater(added_count, 0, f"No structures were added. Errors: {errors}")
+        self.assertGreater(
+            added_count, 0, f"No structures were added. Errors: {errors}"
+        )
 
         container.close()
 
@@ -345,20 +360,20 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
         self.assertTrue(container_file.exists(), "Container file was not created")
 
         # Reopen and verify
-        container = StructureContainer(container_file, mode='r')
+        container = StructureContainer(container_file, mode="r")
         stats = container.stats()
 
         # Note: Container might need explicit flush or structures might not be immediately visible
         # This is a known limitation - we verify that structures were added successfully
         # The actual persistence depends on container implementation
-        if stats['total_structures'] == 0:
+        if stats["total_structures"] == 0:
             # If stats show 0, it might be a container implementation issue
             # But we verified structures were added, so we'll skip the stats check
             # and just verify the file exists and container can be opened
             self.assertIsNotNone(stats)
         else:
-            self.assertGreater(stats['total_structures'], 0)
-            self.assertGreater(stats['total_groups'], 0)
+            self.assertGreater(stats["total_structures"], 0)
+            self.assertGreater(stats["total_groups"], 0)
 
             # Query structures
             results = container.query(group=f"/mp_data/{group_name}")
@@ -387,9 +402,13 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
 
                 # Verify all properties (with tolerance for floating point)
                 if orig_energy is not None:
-                    self.assertAlmostEqual(orig_energy, decoded.structure_properties.energy, places=6)
+                    self.assertAlmostEqual(
+                        orig_energy, decoded.structure_properties.energy, places=6
+                    )
                 if orig_volume is not None:
-                    self.assertAlmostEqual(orig_volume, decoded.structure_properties.volume, places=3)
+                    self.assertAlmostEqual(
+                        orig_volume, decoded.structure_properties.volume, places=3
+                    )
                 self.assertEqual(orig_formula, decoded.formula)
                 self.assertEqual(orig_num_atoms, decoded.num_atoms())
 
@@ -399,7 +418,15 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
                 if orig_custom:
                     decoded_custom = decoded.structure_properties.custom
                     # Check key MP properties
-                    for key in ['material_id', 'band_gap', 'density', 'is_magnetic', 'is_metal', 'is_stable', 'formula_pretty']:
+                    for key in [
+                        "material_id",
+                        "band_gap",
+                        "density",
+                        "is_magnetic",
+                        "is_metal",
+                        "is_stable",
+                        "formula_pretty",
+                    ]:
                         if key in orig_custom:
                             orig_value = orig_custom[key]
                             decoded_value = decoded_custom.get(key)
@@ -410,14 +437,18 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
                                 if isinstance(orig_value, float):
                                     try:
                                         decoded_value = float(decoded_value)
-                                        self.assertAlmostEqual(orig_value, decoded_value, places=6)
+                                        self.assertAlmostEqual(
+                                            orig_value, decoded_value, places=6
+                                        )
                                     except (ValueError, TypeError):
-                                        self.fail(f"Could not convert {key} from string to float: {decoded_value}")
+                                        self.fail(
+                                            f"Could not convert {key} from string to float: {decoded_value}"
+                                        )
                                 elif isinstance(orig_value, bool):
                                     # Handle boolean strings
-                                    if decoded_value.lower() in ('true', '1', 'yes'):
+                                    if decoded_value.lower() in ("true", "1", "yes"):
                                         decoded_value = True
-                                    elif decoded_value.lower() in ('false', '0', 'no'):
+                                    elif decoded_value.lower() in ("false", "0", "no"):
                                         decoded_value = False
                                     else:
                                         decoded_value = bool(decoded_value)
@@ -427,7 +458,9 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
                                         decoded_value = int(decoded_value)
                                         self.assertEqual(orig_value, decoded_value)
                                     except (ValueError, TypeError):
-                                        self.fail(f"Could not convert {key} from string to int: {decoded_value}")
+                                        self.fail(
+                                            f"Could not convert {key} from string to int: {decoded_value}"
+                                        )
                                 else:
                                     # String or other - direct comparison
                                     self.assertEqual(str(orig_value), decoded_value)
@@ -439,5 +472,5 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
                 self.fail(f"Property preservation test failed: {e}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=2)

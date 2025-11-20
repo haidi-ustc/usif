@@ -52,11 +52,7 @@ class TestPropertySerializer(unittest.TestCase):
 
     def test_serialize_multi_dimensional(self):
         """Test serializing multi-dimensional value"""
-        prop_def = PropertyDefinition(
-            name="force",
-            data_type=tuple,
-            dimensions=(3,)
-        )
+        prop_def = PropertyDefinition(name="force", data_type=tuple, dimensions=(3,))
         value = (1.0, 2.0, 3.0)
         data = PropertySerializer.serialize_value(value, prop_def)
 
@@ -67,29 +63,25 @@ class TestPropertySerializer(unittest.TestCase):
 
     def test_serialize_per_atom_scalar(self):
         """Test serializing per-atom scalar property"""
-        prop_def = PropertyDefinition(
-            name="charge",
-            data_type=float,
-            is_per_atom=True
-        )
+        prop_def = PropertyDefinition(name="charge", data_type=float, is_per_atom=True)
         value = 0.5  # Single value for all atoms
         data = PropertySerializer.serialize_value(value, prop_def, num_atoms=3)
 
-        decoded, offset = PropertySerializer.deserialize_value(prop_def, data, 0, num_atoms=3)
+        decoded, offset = PropertySerializer.deserialize_value(
+            prop_def, data, 0, num_atoms=3
+        )
         self.assertEqual(len(decoded), 3)
         self.assertAlmostEqual(decoded[0], value, places=5)
 
     def test_serialize_per_atom_array(self):
         """Test serializing per-atom array property"""
-        prop_def = PropertyDefinition(
-            name="charge",
-            data_type=float,
-            is_per_atom=True
-        )
+        prop_def = PropertyDefinition(name="charge", data_type=float, is_per_atom=True)
         value = [0.5, 0.6, 0.7]  # Different value for each atom
         data = PropertySerializer.serialize_value(value, prop_def, num_atoms=3)
 
-        decoded, offset = PropertySerializer.deserialize_value(prop_def, data, 0, num_atoms=3)
+        decoded, offset = PropertySerializer.deserialize_value(
+            prop_def, data, 0, num_atoms=3
+        )
         self.assertEqual(len(decoded), 3)
         for i in range(3):
             self.assertAlmostEqual(decoded[i], value[i], places=5)
@@ -97,24 +89,19 @@ class TestPropertySerializer(unittest.TestCase):
     def test_serialize_per_atom_multi_dimensional(self):
         """Test serializing per-atom multi-dimensional property"""
         prop_def = PropertyDefinition(
-            name="force",
-            data_type=tuple,
-            is_per_atom=True,
-            dimensions=(3,)
+            name="force", data_type=tuple, is_per_atom=True, dimensions=(3,)
         )
         value = (1.0, 2.0, 3.0)  # Single force vector
         data = PropertySerializer.serialize_value(value, prop_def, num_atoms=1)
 
-        decoded, offset = PropertySerializer.deserialize_value(prop_def, data, 0, num_atoms=1)
+        decoded, offset = PropertySerializer.deserialize_value(
+            prop_def, data, 0, num_atoms=1
+        )
         self.assertEqual(decoded, value)
 
     def test_serialize_structure_array(self):
         """Test serializing structure-level array property"""
-        prop_def = PropertyDefinition(
-            name="stress",
-            data_type=tuple,
-            dimensions=(6,)
-        )
+        prop_def = PropertyDefinition(name="stress", data_type=tuple, dimensions=(6,))
         value = (1.0, 1.0, 1.0, 0.0, 0.0, 0.0)
         data = PropertySerializer.serialize_value(value, prop_def)
 
@@ -127,12 +114,12 @@ class TestPropertySerializer(unittest.TestCase):
         """Test serializing None value"""
         prop_def = PropertyDefinition(name="energy", data_type=float)
         data = PropertySerializer.serialize_value(None, prop_def)
-        self.assertEqual(data, b'')
+        self.assertEqual(data, b"")
 
     def test_deserialize_empty_data(self):
         """Test deserializing from empty data"""
         prop_def = PropertyDefinition(name="energy", data_type=float)
-        value, offset = PropertySerializer.deserialize_value(prop_def, b'', 0)
+        value, offset = PropertySerializer.deserialize_value(prop_def, b"", 0)
         self.assertIsNone(value)
         self.assertEqual(offset, 0)
 
@@ -148,20 +135,19 @@ class TestPropertySerializer(unittest.TestCase):
     def test_serialize_per_atom_list_of_vectors(self):
         """Test serializing list of vectors for per-atom property"""
         prop_def = PropertyDefinition(
-            name="force",
-            data_type=tuple,
-            is_per_atom=True,
-            dimensions=(3,)
+            name="force", data_type=tuple, is_per_atom=True, dimensions=(3,)
         )
         value = [(1.0, 2.0, 3.0), (4.0, 5.0, 6.0)]
         data = PropertySerializer.serialize_value(value, prop_def, num_atoms=2)
 
-        decoded, offset = PropertySerializer.deserialize_value(prop_def, data, 0, num_atoms=2)
+        decoded, offset = PropertySerializer.deserialize_value(
+            prop_def, data, 0, num_atoms=2
+        )
         self.assertEqual(len(decoded), 2)
         for i in range(2):
             for j in range(3):
                 self.assertAlmostEqual(decoded[i][j], value[i][j], places=5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

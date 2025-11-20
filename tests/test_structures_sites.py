@@ -20,10 +20,7 @@ class TestWyckoffSite(unittest.TestCase):
     def test_create_wyckoff_site(self):
         """Test creating Wyckoff site"""
         site = WyckoffSite(
-            atomic_number=14,
-            multiplicity=8,
-            coords=(0.0, 0.0, 0.0),
-            occupancy=1.0
+            atomic_number=14, multiplicity=8, coords=(0.0, 0.0, 0.0), occupancy=1.0
         )
         self.assertEqual(site.atomic_number, 14)
         self.assertEqual(site.multiplicity, 8)
@@ -57,10 +54,7 @@ class TestPointGroupSite(unittest.TestCase):
     def test_create_point_group_site(self):
         """Test creating point group site"""
         site = PointGroupSite(
-            atomic_number=8,
-            multiplicity=1,
-            coords=(0.0, 0.0, 0.0),
-            occupancy=1.0
+            atomic_number=8, multiplicity=1, coords=(0.0, 0.0, 0.0), occupancy=1.0
         )
         self.assertEqual(site.atomic_number, 8)
         self.assertEqual(site.multiplicity, 1)
@@ -93,10 +87,7 @@ class TestAtomSite(unittest.TestCase):
 
     def test_create_atom_site(self):
         """Test creating atom site"""
-        site = AtomSite(
-            atomic_number=14,
-            coords=(0.0, 0.0, 0.0)
-        )
+        site = AtomSite(atomic_number=14, coords=(0.0, 0.0, 0.0))
         self.assertEqual(site.atomic_number, 14)
         self.assertEqual(site.coords, (0.0, 0.0, 0.0))
         self.assertIsNotNone(site.properties)
@@ -142,5 +133,5 @@ class TestAtomSite(unittest.TestCase):
         self.assertEqual(site1, site2)  # Should be equal within tolerance
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

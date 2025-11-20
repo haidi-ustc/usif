@@ -142,10 +142,16 @@ class Units:
     def is_valid_unit(cls, unit: str) -> bool:
         """Check if a unit string is recognized"""
         all_units = (
-            cls.ENERGY_UNITS | cls.LENGTH_UNITS | cls.VOLUME_UNITS |
-            cls.FORCE_UNITS | cls.PRESSURE_UNITS | cls.TEMPERATURE_UNITS |
-            cls.CHARGE_UNITS | cls.MAGNETIC_MOMENT_UNITS | cls.TIME_UNITS |
-            cls.VELOCITY_UNITS
+            cls.ENERGY_UNITS
+            | cls.LENGTH_UNITS
+            | cls.VOLUME_UNITS
+            | cls.FORCE_UNITS
+            | cls.PRESSURE_UNITS
+            | cls.TEMPERATURE_UNITS
+            | cls.CHARGE_UNITS
+            | cls.MAGNETIC_MOMENT_UNITS
+            | cls.TIME_UNITS
+            | cls.VELOCITY_UNITS
         )
         return unit in all_units
 
@@ -254,7 +260,7 @@ class UnitConversions:
     # Temperature: K (standard)
     KELVIN_TO_KELVIN = 1.0
     CELSIUS_TO_KELVIN = lambda c: c + 273.15  # °C to K (offset)
-    FAHRENHEIT_TO_KELVIN = lambda f: (f - 32) * 5/9 + 273.15  # °F to K
+    FAHRENHEIT_TO_KELVIN = lambda f: (f - 32) * 5 / 9 + 273.15  # °F to K
 
     # Charge: e (standard)
     ELEMENTARY_CHARGE_TO_ELEMENTARY_CHARGE = 1.0

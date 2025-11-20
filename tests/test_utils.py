@@ -35,11 +35,8 @@ class TestUSIFOptimizer(unittest.TestCase):
             storage_mode=StorageMode.FULL_ATOMIC,
             lattice_matrix=np.eye(3) * 5.0,
             spacegroup=1,
-            atom_sites=[
-                AtomSite(14, (0.0, 0.0, 0.0)),
-                AtomSite(14, (2.5, 2.5, 2.5))
-            ],
-            formula="Si2"
+            atom_sites=[AtomSite(14, (0.0, 0.0, 0.0)), AtomSite(14, (2.5, 2.5, 2.5))],
+            formula="Si2",
         )
 
         self.molecular_structure = USIFStructure(
@@ -48,9 +45,9 @@ class TestUSIFOptimizer(unittest.TestCase):
             atom_sites=[
                 AtomSite(8, (0.0, 0.0, 0.0)),
                 AtomSite(1, (0.76, 0.59, 0.0)),
-                AtomSite(1, (-0.76, 0.59, 0.0))
+                AtomSite(1, (-0.76, 0.59, 0.0)),
             ],
-            formula="H2O"
+            formula="H2O",
         )
 
     def test_optimize_periodic_structure(self):
@@ -73,7 +70,9 @@ class TestUSIFOptimizer(unittest.TestCase):
             self.assertIsInstance(optimized, USIFStructure)
             self.assertTrue(optimized.is_molecular())
             # Should maintain same number of atoms
-            self.assertEqual(optimized.num_atoms(), self.molecular_structure.num_atoms())
+            self.assertEqual(
+                optimized.num_atoms(), self.molecular_structure.num_atoms()
+            )
         except Exception:
             # Optimization might fail if pymatgen not available or symmetry analysis fails
             # This is acceptable
@@ -83,8 +82,7 @@ class TestUSIFOptimizer(unittest.TestCase):
         """Test optimizing with custom tolerance"""
         try:
             optimized = USIFOptimizer.optimize_structure(
-                self.periodic_structure,
-                tolerance=1e-2
+                self.periodic_structure, tolerance=1e-2
             )
             self.assertIsInstance(optimized, USIFStructure)
         except Exception:
@@ -104,7 +102,7 @@ class TestUSIFBenchmark(unittest.TestCase):
                 spacegroup=227,
                 wyckoff_sites=[WyckoffSite(14, 8, (0.0, 0.0, 0.0))],
                 structure_properties=StructureProperties(energy=-10.5),
-                formula="Si"
+                formula="Si",
             ),
             USIFStructure(
                 structure_type=StructureType.CRYSTAL,
@@ -113,8 +111,8 @@ class TestUSIFBenchmark(unittest.TestCase):
                 spacegroup=227,
                 wyckoff_sites=[WyckoffSite(14, 8, (0.0, 0.0, 0.0))],
                 structure_properties=StructureProperties(energy=-10.6),
-                formula="Si"
-            )
+                formula="Si",
+            ),
         ]
 
     def test_benchmark_compression(self):
@@ -122,11 +120,11 @@ class TestUSIFBenchmark(unittest.TestCase):
         try:
             results = USIFBenchmark.benchmark_compression(self.structures)
             self.assertIsInstance(results, dict)
-            self.assertIn('num_structures', results)
-            self.assertIn('average_compression_ratio', results)
-            self.assertIn('average_compression_time', results)
-            self.assertIn('average_decompression_time', results)
-            self.assertEqual(results['num_structures'], len(self.structures))
+            self.assertIn("num_structures", results)
+            self.assertIn("average_compression_ratio", results)
+            self.assertIn("average_compression_time", results)
+            self.assertIn("average_decompression_time", results)
+            self.assertEqual(results["num_structures"], len(self.structures))
         except Exception:
             # Benchmark might fail if pymatgen not available
             # This is acceptable
@@ -135,9 +133,9 @@ class TestUSIFBenchmark(unittest.TestCase):
     def test_benchmark_empty_list(self):
         """Test benchmarking with empty list"""
         results = USIFBenchmark.benchmark_compression([])
-        self.assertEqual(results['num_structures'], 0)
-        self.assertEqual(results['average_compression_ratio'], 0)
+        self.assertEqual(results["num_structures"], 0)
+        self.assertEqual(results["average_compression_ratio"], 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

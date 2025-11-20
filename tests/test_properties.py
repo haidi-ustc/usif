@@ -25,10 +25,7 @@ class TestPropertyDefinition(unittest.TestCase):
     def test_scalar_property_definition(self):
         """Test scalar property definition"""
         prop_def = PropertyDefinition(
-            name="energy",
-            data_type=float,
-            description="Total energy",
-            units="eV"
+            name="energy", data_type=float, description="Total energy", units="eV"
         )
         self.assertTrue(prop_def.is_scalar())
         self.assertEqual(prop_def.name, "energy")
@@ -41,7 +38,7 @@ class TestPropertyDefinition(unittest.TestCase):
             data_type=tuple,
             is_per_atom=True,
             dimensions=(3,),
-            description="Force vector"
+            description="Force vector",
         )
         self.assertFalse(prop_def.is_scalar())
         self.assertEqual(prop_def.dimensions, (3,))
@@ -57,11 +54,7 @@ class TestPropertyDefinition(unittest.TestCase):
 
     def test_validate_array_value(self):
         """Test array value validation"""
-        prop_def = PropertyDefinition(
-            name="force",
-            data_type=tuple,
-            dimensions=(3,)
-        )
+        prop_def = PropertyDefinition(name="force", data_type=tuple, dimensions=(3,))
         is_valid, msg = prop_def.validate_value((1.0, 2.0, 3.0))
         self.assertTrue(is_valid)
 
@@ -71,10 +64,7 @@ class TestPropertyDefinition(unittest.TestCase):
     def test_validate_with_range(self):
         """Test validation with min/max values"""
         prop_def = PropertyDefinition(
-            name="temperature",
-            data_type=float,
-            min_value=0.0,
-            max_value=1000.0
+            name="temperature", data_type=float, min_value=0.0, max_value=1000.0
         )
         is_valid, msg = prop_def.validate_value(500.0)
         self.assertTrue(is_valid)
@@ -88,19 +78,12 @@ class TestPropertyDefinition(unittest.TestCase):
     def test_get_expected_shape(self):
         """Test expected shape calculation"""
         prop_def = PropertyDefinition(
-            name="force",
-            data_type=tuple,
-            is_per_atom=True,
-            dimensions=(3,)
+            name="force", data_type=tuple, is_per_atom=True, dimensions=(3,)
         )
         shape = prop_def.get_expected_shape(num_atoms=10)
         self.assertEqual(shape, (10, 3))
 
-        prop_def2 = PropertyDefinition(
-            name="stress",
-            data_type=tuple,
-            dimensions=(6,)
-        )
+        prop_def2 = PropertyDefinition(name="stress", data_type=tuple, dimensions=(6,))
         shape = prop_def2.get_expected_shape()
         self.assertEqual(shape, (6,))
 
@@ -110,39 +93,37 @@ class TestPropertyRegistry(unittest.TestCase):
 
     def test_get_builtin_property(self):
         """Test getting built-in properties"""
-        energy_def = PropertyRegistry.get('energy')
+        energy_def = PropertyRegistry.get("energy")
         self.assertIsNotNone(energy_def)
-        self.assertEqual(energy_def.name, 'energy')
+        self.assertEqual(energy_def.name, "energy")
         self.assertFalse(energy_def.is_per_atom)
 
-        force_def = PropertyRegistry.get('force')
+        force_def = PropertyRegistry.get("force")
         self.assertIsNotNone(force_def)
         self.assertTrue(force_def.is_per_atom)
 
     def test_register_custom_property(self):
         """Test registering custom property"""
         custom_prop = PropertyDefinition(
-            name="custom_prop",
-            data_type=float,
-            description="Custom property"
+            name="custom_prop", data_type=float, description="Custom property"
         )
         PropertyRegistry.register(custom_prop)
 
-        retrieved = PropertyRegistry.get('custom_prop')
+        retrieved = PropertyRegistry.get("custom_prop")
         self.assertIsNotNone(retrieved)
         self.assertEqual(retrieved.name, "custom_prop")
 
     def test_is_atomic_property(self):
         """Test checking if property is atomic"""
-        self.assertTrue(PropertyRegistry.is_atomic_property('force'))
-        self.assertTrue(PropertyRegistry.is_atomic_property('charge'))
-        self.assertFalse(PropertyRegistry.is_atomic_property('energy'))
+        self.assertTrue(PropertyRegistry.is_atomic_property("force"))
+        self.assertTrue(PropertyRegistry.is_atomic_property("charge"))
+        self.assertFalse(PropertyRegistry.is_atomic_property("energy"))
 
     def test_is_structure_property(self):
         """Test checking if property is structure-level"""
-        self.assertTrue(PropertyRegistry.is_structure_property('energy'))
-        self.assertTrue(PropertyRegistry.is_structure_property('volume'))
-        self.assertFalse(PropertyRegistry.is_structure_property('force'))
+        self.assertTrue(PropertyRegistry.is_structure_property("energy"))
+        self.assertTrue(PropertyRegistry.is_structure_property("volume"))
+        self.assertFalse(PropertyRegistry.is_structure_property("force"))
 
 
 class TestAtomicProperties(unittest.TestCase):
@@ -160,10 +141,7 @@ class TestAtomicProperties(unittest.TestCase):
     def test_create_with_values(self):
         """Test creating atomic properties with values"""
         props = AtomicProperties(
-            force=(1.0, 2.0, 3.0),
-            charge=0.5,
-            magmom=2.0,
-            velocity=(0.1, 0.2, 0.3)
+            force=(1.0, 2.0, 3.0), charge=0.5, magmom=2.0, velocity=(0.1, 0.2, 0.3)
         )
         self.assertEqual(props.force, (1.0, 2.0, 3.0))
         self.assertEqual(props.charge, 0.5)
@@ -174,18 +152,18 @@ class TestAtomicProperties(unittest.TestCase):
         """Test getting all properties as dictionary"""
         props = AtomicProperties(charge=0.5, force=(1.0, 2.0, 3.0))
         all_props = props.get_all_properties()
-        self.assertIn('charge', all_props)
-        self.assertIn('force', all_props)
-        self.assertEqual(all_props['charge'], 0.5)
-        self.assertEqual(all_props['force'], (1.0, 2.0, 3.0))
+        self.assertIn("charge", all_props)
+        self.assertIn("force", all_props)
+        self.assertEqual(all_props["charge"], 0.5)
+        self.assertEqual(all_props["force"], (1.0, 2.0, 3.0))
 
     def test_custom_properties(self):
         """Test custom properties"""
         props = AtomicProperties()
-        props.custom['custom_key'] = 'custom_value'
+        props.custom["custom_key"] = "custom_value"
         all_props = props.get_all_properties()
-        self.assertIn('custom_key', all_props)
-        self.assertEqual(all_props['custom_key'], 'custom_value')
+        self.assertIn("custom_key", all_props)
+        self.assertEqual(all_props["custom_key"], "custom_value")
 
     def test_equality(self):
         """Test property equality"""
@@ -223,7 +201,7 @@ class TestStructureProperties(unittest.TestCase):
             volume=125.0,
             stress=(1.0, 1.0, 1.0, 0.0, 0.0, 0.0),
             pressure=1.0,
-            temperature=300.0
+            temperature=300.0,
         )
         self.assertEqual(props.energy, -10.5)
         self.assertEqual(props.volume, 125.0)
@@ -235,18 +213,18 @@ class TestStructureProperties(unittest.TestCase):
         """Test getting all properties as dictionary"""
         props = StructureProperties(energy=-10.5, volume=125.0)
         all_props = props.get_all_properties()
-        self.assertIn('energy', all_props)
-        self.assertIn('volume', all_props)
-        self.assertEqual(all_props['energy'], -10.5)
-        self.assertEqual(all_props['volume'], 125.0)
+        self.assertIn("energy", all_props)
+        self.assertIn("volume", all_props)
+        self.assertEqual(all_props["energy"], -10.5)
+        self.assertEqual(all_props["volume"], 125.0)
 
     def test_custom_properties(self):
         """Test custom properties"""
         props = StructureProperties()
-        props.custom['calculator'] = 'VASP'
+        props.custom["calculator"] = "VASP"
         all_props = props.get_all_properties()
-        self.assertIn('calculator', all_props)
-        self.assertEqual(all_props['calculator'], 'VASP')
+        self.assertIn("calculator", all_props)
+        self.assertEqual(all_props["calculator"], "VASP")
 
     def test_equality(self):
         """Test property equality"""
@@ -271,5 +249,5 @@ class TestStructureProperties(unittest.TestCase):
         self.assertEqual(props1, props2)  # Should be equal within tolerance
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

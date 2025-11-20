@@ -87,21 +87,32 @@ class USIFStructure(MSONable):
     └─────────────┴──────────────┴─────────────────┘
     """
 
-    __slots__ = ['structure_type', 'storage_mode', 'lattice_matrix', 'spacegroup',
-                'point_group', 'wyckoff_sites', 'point_group_sites', 'atom_sites',
-                'structure_properties', 'formula']
+    __slots__ = [
+        "structure_type",
+        "storage_mode",
+        "lattice_matrix",
+        "spacegroup",
+        "point_group",
+        "wyckoff_sites",
+        "point_group_sites",
+        "atom_sites",
+        "structure_properties",
+        "formula",
+    ]
 
-    def __init__(self,
-                 structure_type: StructureType = StructureType.CRYSTAL,
-                 storage_mode: StorageMode = StorageMode.SYMMETRIC,
-                 lattice_matrix: Optional[np.ndarray] = None,
-                 spacegroup: int = 1,
-                 point_group: Optional[str] = None,
-                 wyckoff_sites: Optional[List[WyckoffSite]] = None,
-                 point_group_sites: Optional[List[PointGroupSite]] = None,
-                 atom_sites: Optional[List[AtomSite]] = None,
-                 structure_properties: Optional[StructureProperties] = None,
-                 formula: str = ""):
+    def __init__(
+        self,
+        structure_type: StructureType = StructureType.CRYSTAL,
+        storage_mode: StorageMode = StorageMode.SYMMETRIC,
+        lattice_matrix: Optional[np.ndarray] = None,
+        spacegroup: int = 1,
+        point_group: Optional[str] = None,
+        wyckoff_sites: Optional[List[WyckoffSite]] = None,
+        point_group_sites: Optional[List[PointGroupSite]] = None,
+        atom_sites: Optional[List[AtomSite]] = None,
+        structure_properties: Optional[StructureProperties] = None,
+        formula: str = "",
+    ):
         """
         Initialize USIFStructure
 
@@ -150,8 +161,11 @@ class USIFStructure(MSONable):
         self.wyckoff_sites = wyckoff_sites
         self.point_group_sites = point_group_sites
         self.atom_sites = atom_sites
-        self.structure_properties = structure_properties if structure_properties is not None \
-                                    else StructureProperties()
+        self.structure_properties = (
+            structure_properties
+            if structure_properties is not None
+            else StructureProperties()
+        )
         self.formula = formula
 
         self._validate_structure()
@@ -163,19 +177,27 @@ class USIFStructure(MSONable):
                 raise ValidationError("Molecular structures should not have lattice")
             if self.storage_mode == StorageMode.SYMMETRIC:
                 if self.point_group_sites is None or len(self.point_group_sites) == 0:
-                    raise ValidationError("Molecular SYMMETRIC mode requires non-empty point_group_sites")
+                    raise ValidationError(
+                        "Molecular SYMMETRIC mode requires non-empty point_group_sites"
+                    )
             elif self.storage_mode == StorageMode.FULL_ATOMIC:
                 if self.atom_sites is None or len(self.atom_sites) == 0:
-                    raise ValidationError("Molecular FULL_ATOMIC mode requires non-empty atom_sites")
+                    raise ValidationError(
+                        "Molecular FULL_ATOMIC mode requires non-empty atom_sites"
+                    )
         else:
             if self.lattice_matrix is None:
                 raise ValidationError("Crystal structures require lattice")
             if self.storage_mode == StorageMode.SYMMETRIC:
                 if self.wyckoff_sites is None or len(self.wyckoff_sites) == 0:
-                    raise ValidationError("Crystal SYMMETRIC mode requires non-empty wyckoff_sites")
+                    raise ValidationError(
+                        "Crystal SYMMETRIC mode requires non-empty wyckoff_sites"
+                    )
             elif self.storage_mode == StorageMode.FULL_ATOMIC:
                 if self.atom_sites is None or len(self.atom_sites) == 0:
-                    raise ValidationError("Crystal FULL_ATOMIC mode requires non-empty atom_sites")
+                    raise ValidationError(
+                        "Crystal FULL_ATOMIC mode requires non-empty atom_sites"
+                    )
 
     def is_crystal(self) -> bool:
         """
@@ -265,45 +287,54 @@ class USIFStructure(MSONable):
             "spacegroup": self.spacegroup,
             "point_group": self.point_group,
             "structure_properties": self.structure_properties,
-            "formula": self.formula
+            "formula": self.formula,
         }
 
         if self.lattice_matrix is not None:
             d["lattice_matrix"] = self.lattice_matrix.tolist()
 
         if self.wyckoff_sites is not None:
-            d["wyckoff_sites"] = [{
-                'atomic_number': site.atomic_number,
-                'multiplicity': site.multiplicity,
-                'coords': site.coords,
-                'occupancy': site.occupancy
-            } for site in self.wyckoff_sites]
+            d["wyckoff_sites"] = [
+                {
+                    "atomic_number": site.atomic_number,
+                    "multiplicity": site.multiplicity,
+                    "coords": site.coords,
+                    "occupancy": site.occupancy,
+                }
+                for site in self.wyckoff_sites
+            ]
 
         if self.point_group_sites is not None:
-            d["point_group_sites"] = [{
-                'atomic_number': site.atomic_number,
-                'multiplicity': site.multiplicity,
-                'coords': site.coords,
-                'occupancy': site.occupancy
-            } for site in self.point_group_sites]
+            d["point_group_sites"] = [
+                {
+                    "atomic_number": site.atomic_number,
+                    "multiplicity": site.multiplicity,
+                    "coords": site.coords,
+                    "occupancy": site.occupancy,
+                }
+                for site in self.point_group_sites
+            ]
 
         if self.atom_sites is not None:
-            d["atom_sites"] = [{
-                'atomic_number': site.atomic_number,
-                'coords': site.coords,
-                'properties': {
-                    'force': site.properties.force,
-                    'charge': site.properties.charge,
-                    'magmom': site.properties.magmom,
-                    'velocity': site.properties.velocity,
-                    'custom': site.properties.custom
+            d["atom_sites"] = [
+                {
+                    "atomic_number": site.atomic_number,
+                    "coords": site.coords,
+                    "properties": {
+                        "force": site.properties.force,
+                        "charge": site.properties.charge,
+                        "magmom": site.properties.magmom,
+                        "velocity": site.properties.velocity,
+                        "custom": site.properties.custom,
+                    },
                 }
-            } for site in self.atom_sites]
+                for site in self.atom_sites
+            ]
 
         return d
 
     @classmethod
-    def from_dict(cls, d: dict) -> 'USIFStructure':
+    def from_dict(cls, d: dict) -> "USIFStructure":
         """
         Create USIFStructure from MSONable dictionary
 
@@ -340,19 +371,21 @@ class USIFStructure(MSONable):
         if "atom_sites" in d and d["atom_sites"] is not None:
             atom_sites = []
             for site_dict in d["atom_sites"]:
-                props_dict = site_dict.get('properties', {})
+                props_dict = site_dict.get("properties", {})
                 atom_props = AtomicProperties(
-                    force=props_dict.get('force'),
-                    charge=props_dict.get('charge'),
-                    magmom=props_dict.get('magmom'),
-                    velocity=props_dict.get('velocity'),
-                    custom=props_dict.get('custom', {})
+                    force=props_dict.get("force"),
+                    charge=props_dict.get("charge"),
+                    magmom=props_dict.get("magmom"),
+                    velocity=props_dict.get("velocity"),
+                    custom=props_dict.get("custom", {}),
                 )
-                atom_sites.append(AtomSite(
-                    atomic_number=site_dict['atomic_number'],
-                    coords=site_dict['coords'],
-                    properties=atom_props
-                ))
+                atom_sites.append(
+                    AtomSite(
+                        atomic_number=site_dict["atomic_number"],
+                        coords=site_dict["coords"],
+                        properties=atom_props,
+                    )
+                )
 
         structure_properties = None
         if "structure_properties" in d:
@@ -371,7 +404,7 @@ class USIFStructure(MSONable):
             point_group_sites=point_group_sites,
             atom_sites=atom_sites,
             structure_properties=structure_properties,
-            formula=d["formula"]
+            formula=d["formula"],
         )
 
     def __eq__(self, other: object) -> bool:
@@ -381,20 +414,27 @@ class USIFStructure(MSONable):
         lattice_equal = True
         if self.lattice_matrix is not None and other.lattice_matrix is not None:
             from usif.constants import SymmetryConstants
-            lattice_equal = np.allclose(self.lattice_matrix, other.lattice_matrix, atol=SymmetryConstants.COORDINATE_TOLERANCE)
+
+            lattice_equal = np.allclose(
+                self.lattice_matrix,
+                other.lattice_matrix,
+                atol=SymmetryConstants.COORDINATE_TOLERANCE,
+            )
         elif self.lattice_matrix != other.lattice_matrix:
             lattice_equal = False
 
-        return (self.structure_type == other.structure_type and
-                self.storage_mode == other.storage_mode and
-                lattice_equal and
-                self.spacegroup == other.spacegroup and
-                self.point_group == other.point_group and
-                self.wyckoff_sites == other.wyckoff_sites and
-                self.point_group_sites == other.point_group_sites and
-                self.atom_sites == other.atom_sites and
-                self.structure_properties == other.structure_properties and
-                self.formula == other.formula)
+        return (
+            self.structure_type == other.structure_type
+            and self.storage_mode == other.storage_mode
+            and lattice_equal
+            and self.spacegroup == other.spacegroup
+            and self.point_group == other.point_group
+            and self.wyckoff_sites == other.wyckoff_sites
+            and self.point_group_sites == other.point_group_sites
+            and self.atom_sites == other.atom_sites
+            and self.structure_properties == other.structure_properties
+            and self.formula == other.formula
+        )
 
     def __repr__(self) -> str:
         """Unambiguous string representation for debugging"""
@@ -402,7 +442,7 @@ class USIFStructure(MSONable):
             f"structure_type={self.structure_type.name}",
             f"storage_mode={self.storage_mode.name}",
             f"formula='{self.formula}'",
-            f"atoms={self.num_atoms()}"
+            f"atoms={self.num_atoms()}",
         ]
 
         if self.is_crystal():
@@ -410,7 +450,9 @@ class USIFStructure(MSONable):
             if self.lattice_matrix is not None:
                 # Show lattice parameters (a, b, c lengths)
                 lengths = np.linalg.norm(self.lattice_matrix, axis=1)
-                parts.append(f"lattice=({lengths[0]:.3f}, {lengths[1]:.3f}, {lengths[2]:.3f})")
+                parts.append(
+                    f"lattice=({lengths[0]:.3f}, {lengths[1]:.3f}, {lengths[2]:.3f})"
+                )
         else:
             if self.point_group:
                 parts.append(f"point_group='{self.point_group}'")
@@ -443,8 +485,12 @@ class USIFStructure(MSONable):
                     v2 = self.lattice_matrix[k] / lengths[k]
                     angle = np.arccos(np.clip(np.dot(v1, v2), -1.0, 1.0)) * 180 / np.pi
                     angles.append(angle)
-                lines.append(f"  Lattice: a={lengths[0]:.3f} Å, b={lengths[1]:.3f} Å, c={lengths[2]:.3f} Å")
-                lines.append(f"  Angles: α={angles[0]:.1f}°, β={angles[1]:.1f}°, γ={angles[2]:.1f}°")
+                lines.append(
+                    f"  Lattice: a={lengths[0]:.3f} Å, b={lengths[1]:.3f} Å, c={lengths[2]:.3f} Å"
+                )
+                lines.append(
+                    f"  Angles: α={angles[0]:.1f}°, β={angles[1]:.1f}°, γ={angles[2]:.1f}°"
+                )
             lines.append(f"  Spacegroup: {self.spacegroup}")
             if self.storage_mode == StorageMode.SYMMETRIC and self.wyckoff_sites:
                 lines.append(f"  Wyckoff sites: {len(self.wyckoff_sites)}")
@@ -456,11 +502,14 @@ class USIFStructure(MSONable):
 
         # Properties
         from usif.units import Units
+
         props = []
         if self.structure_properties.energy is not None:
             props.append(f"E={self.structure_properties.energy:.6f} {Units.EV}")
         if self.structure_properties.volume is not None:
-            props.append(f"V={self.structure_properties.volume:.3f} {Units.ANGSTROM_CUBED}")
+            props.append(
+                f"V={self.structure_properties.volume:.3f} {Units.ANGSTROM_CUBED}"
+            )
         if self.structure_properties.pressure is not None:
             props.append(f"P={self.structure_properties.pressure:.3f} {Units.GPA}")
         if props:
@@ -469,14 +518,17 @@ class USIFStructure(MSONable):
         return "\n".join(lines)
 
     @classmethod
-    def from_source(cls, source: Union[str, Path, Any],
-             forces: Optional[np.ndarray] = None,
-             stress: Optional[np.ndarray] = None,
-             energy: Optional[float] = None,
-             charges: Optional[np.ndarray] = None,
-             magmoms: Optional[np.ndarray] = None,
-             force_symmetric: bool = False,
-             **kwargs) -> 'USIFStructure':
+    def from_source(
+        cls,
+        source: Union[str, Path, Any],
+        forces: Optional[np.ndarray] = None,
+        stress: Optional[np.ndarray] = None,
+        energy: Optional[float] = None,
+        charges: Optional[np.ndarray] = None,
+        magmoms: Optional[np.ndarray] = None,
+        force_symmetric: bool = False,
+        **kwargs,
+    ) -> "USIFStructure":
         """
         High-level interface to create USIFStructure from various sources
 
@@ -564,7 +616,7 @@ class USIFStructure(MSONable):
                     charges=charges,
                     magmoms=magmoms,
                     force_symmetric=force_symmetric,
-                    **kwargs
+                    **kwargs,
                 )
             except ImportError:
                 raise ImportError(
@@ -575,6 +627,7 @@ class USIFStructure(MSONable):
         try:
             from pymatgen.core import Molecule as PMGMolecule
             from pymatgen.core import Structure as PMGStructure
+
             if isinstance(source, (PMGStructure, PMGMolecule)):
                 return StructureConverter.from_pymatgen(
                     source,
@@ -584,7 +637,7 @@ class USIFStructure(MSONable):
                     charges=charges,
                     magmoms=magmoms,
                     force_symmetric=force_symmetric,
-                    **kwargs
+                    **kwargs,
                 )
         except ImportError:
             pass  # pymatgen not available, continue to check ASE
@@ -592,6 +645,7 @@ class USIFStructure(MSONable):
         # Check if it's an ASE Atoms object
         try:
             from ase import Atoms as ASEAtoms
+
             if isinstance(source, ASEAtoms):
                 return StructureConverter.from_ase(
                     source,
@@ -601,7 +655,7 @@ class USIFStructure(MSONable):
                     charges=charges,
                     magmoms=magmoms,
                     force_symmetric=force_symmetric,
-                    **kwargs
+                    **kwargs,
                 )
         except ImportError:
             pass  # ASE not available
@@ -613,14 +667,17 @@ class USIFStructure(MSONable):
         )
 
     @classmethod
-    def from_pymatgen(cls, pmg_obj,
-                     forces: Optional[np.ndarray] = None,
-                     stress: Optional[np.ndarray] = None,
-                     energy: Optional[float] = None,
-                     charges: Optional[np.ndarray] = None,
-                     magmoms: Optional[np.ndarray] = None,
-                     force_symmetric: bool = False,
-                     **kwargs) -> 'USIFStructure':
+    def from_pymatgen(
+        cls,
+        pmg_obj,
+        forces: Optional[np.ndarray] = None,
+        stress: Optional[np.ndarray] = None,
+        energy: Optional[float] = None,
+        charges: Optional[np.ndarray] = None,
+        magmoms: Optional[np.ndarray] = None,
+        force_symmetric: bool = False,
+        **kwargs,
+    ) -> "USIFStructure":
         """
         Create USIFStructure from pymatgen Structure or Molecule
 
@@ -656,6 +713,7 @@ class USIFStructure(MSONable):
             USIFStructure.from_source(): High-level interface supporting files, pymatgen, and ASE
         """
         from usif.converter import StructureConverter
+
         return StructureConverter.from_pymatgen(
             pmg_obj,
             forces=forces,
@@ -664,10 +722,15 @@ class USIFStructure(MSONable):
             charges=charges,
             magmoms=magmoms,
             force_symmetric=force_symmetric,
-            **kwargs
+            **kwargs,
         )
 
-    def to(self, filename: Optional[Union[str, Path]] = None, fmt: Optional[str] = None, **kwargs) -> Any:
+    def to(
+        self,
+        filename: Optional[Union[str, Path]] = None,
+        fmt: Optional[str] = None,
+        **kwargs,
+    ) -> Any:
         """
         Convert structure to various formats (similar to pymatgen's to() method)
 
@@ -734,21 +797,27 @@ class USIFStructure(MSONable):
         fmt = fmt.lower().strip()
 
         # Normalize format string (remove leading dot if present)
-        if fmt.startswith('.'):
+        if fmt.startswith("."):
             fmt = fmt[1:]
 
         # Pymatgen format (object return, no filename needed)
         if fmt == "pymatgen":
             if filename is not None:
-                raise ValueError("filename should not be provided for 'pymatgen' format (returns object)")
+                raise ValueError(
+                    "filename should not be provided for 'pymatgen' format (returns object)"
+                )
             from usif.converter import StructureConverter
+
             return StructureConverter.to_pymatgen(self)
 
         # ASE format (object return, no filename needed)
         if fmt == "ase":
             if filename is not None:
-                raise ValueError("filename should not be provided for 'ase' format (returns object)")
+                raise ValueError(
+                    "filename should not be provided for 'ase' format (returns object)"
+                )
             from usif.converter import StructureConverter
+
             return StructureConverter.to_ase(self)
 
         # All other formats require a filename
@@ -757,7 +826,7 @@ class USIFStructure(MSONable):
 
         # USIF format
         if fmt == "usif":
-            compression = kwargs.get('compression', CompressionType.GZIP)
+            compression = kwargs.get("compression", CompressionType.GZIP)
             self.save(filename, compression=compression)
             return None
 
@@ -765,6 +834,7 @@ class USIFStructure(MSONable):
         if fmt == "xyz":
             try:
                 from usif.converter import StructureConverter
+
                 ase_atoms = StructureConverter.to_ase(self)
                 ase_atoms.write(str(filename))
                 return None
@@ -776,6 +846,7 @@ class USIFStructure(MSONable):
         # File formats via pymatgen
         # Supported formats: cif, poscar, json, etc.
         from usif.converter import StructureConverter
+
         pmg_obj = StructureConverter.to_pymatgen(self)
 
         # Use pymatgen's to() method to save in the requested format
@@ -790,8 +861,11 @@ class USIFStructure(MSONable):
                 f"and formats supported by pymatgen (cif, poscar, json, etc.). Error: {e}"
             ) from e
 
-    def save(self, filename: Union[str, Path],
-             compression: CompressionType = CompressionType.GZIP) -> None:
+    def save(
+        self,
+        filename: Union[str, Path],
+        compression: CompressionType = CompressionType.GZIP,
+    ) -> None:
         """
         Save structure to file
 
@@ -808,21 +882,25 @@ class USIFStructure(MSONable):
         """
         filename = Path(filename)
 
-        if filename.suffix.lower() == '.usif':
+        if filename.suffix.lower() == ".usif":
             # Use USIF encoder for .usif files
             from usif.encoder import USIF
+
             encoder = USIF(compression=compression)
             encoder.save(self, filename)
         else:
             # Use MSONable JSON format for other files
             try:
                 from monty.serialization import dumpfn
+
                 dumpfn(self, filename, indent=2)
             except IOError as e:
-                raise StorageError(f"Failed to save structure to {filename}: {e}") from e
+                raise StorageError(
+                    f"Failed to save structure to {filename}: {e}"
+                ) from e
 
     @classmethod
-    def load(cls, filename: Union[str, Path]) -> 'USIFStructure':
+    def load(cls, filename: Union[str, Path]) -> "USIFStructure":
         """
         Load structure from file
 
@@ -842,12 +920,12 @@ class USIFStructure(MSONable):
         """
         filename = Path(filename)
 
-        if filename.suffix.lower() == '.usif':
+        if filename.suffix.lower() == ".usif":
             # Check if it's a container file by reading magic bytes
             try:
-                with open(filename, 'rb') as f:
+                with open(filename, "rb") as f:
                     magic = f.read(7)
-                    if magic == b'USIFC\x00\x00':
+                    if magic == b"USIFC\x00\x00":
                         raise StorageError(
                             f"File {filename} is a StructureContainer, not a USIF structure. "
                             f"Use StructureContainer() to open it."
@@ -857,27 +935,33 @@ class USIFStructure(MSONable):
 
             # Use USIF decoder for .usif files
             from usif.encoder import USIF
+
             encoder = USIF()
             return encoder.load(filename)
         else:
             # Use MSONable JSON format for other files
             try:
                 import json
-                with open(filename, 'r') as f:
+
+                with open(filename, "r") as f:
                     data = json.load(f)
                 return cls.from_dict(data)
             except (IOError, FileNotFoundError) as e:
-                raise StorageError(f"Failed to load structure from {filename}: {e}") from e
+                raise StorageError(
+                    f"Failed to load structure from {filename}: {e}"
+                ) from e
 
     def __getattr__(self, name: str):
         """Allow access to 'from' as an alias for 'from_source' (since 'from' is a reserved keyword)"""
-        if name == 'from':
+        if name == "from":
             return self.from_source
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+        )
 
     @classmethod
     def __getattr__(cls, name: str):  # noqa: F811
         """Allow class-level access to 'from' as an alias for 'from_source'"""
-        if name == 'from':
+        if name == "from":
             return cls.from_source
         raise AttributeError(f"'{cls.__name__}' has no attribute '{name}'")

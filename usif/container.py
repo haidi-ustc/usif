@@ -58,10 +58,16 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from usif.constants import BinaryFormat, SymmetryConstants
 from usif.encoder import USIF
 from usif.enums import CompressionType
-from usif.exceptions import CorruptedDataError, DecodingError, StorageError, ValidationError
+from usif.exceptions import (
+    CorruptedDataError,
+    DecodingError,
+    StorageError,
+    ValidationError,
+)
 from usif.structures.structure import USIFStructure
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class USIFGroup:
@@ -71,9 +77,10 @@ class USIFGroup:
     Groups can contain structures and subgroups, similar to HDF5 groups.
     Supports attributes for metadata storage.
     """
+
     name: str
     structures: Dict[str, str] = field(default_factory=dict)
-    subgroups: Dict[str, 'USIFGroup'] = field(default_factory=dict)
+    subgroups: Dict[str, "USIFGroup"] = field(default_factory=dict)
     attributes: Dict[str, Any] = field(default_factory=dict)
 
     def add_structure(self, name: str, struct_hash: str) -> None:
@@ -87,12 +94,12 @@ class USIFGroup:
             return True
         return False
 
-    def get_subgroup(self, path: str) -> Optional['USIFGroup']:
+    def get_subgroup(self, path: str) -> Optional["USIFGroup"]:
         """Get subgroup by path (HDF5-like path navigation)"""
         if not path or path == "/":
             return self
 
-        parts = [p for p in path.split('/') if p]
+        parts = [p for p in path.split("/") if p]
         current = self
 
         for part in parts:
@@ -124,24 +131,24 @@ class USIFGroup:
         return name in self.attributes
 
 
-
-
 class StructureContainer:
     """
     Container for storing multiple USIF structures with indexing
     Thread-safe implementation with proper error handling
     """
 
-    CONTAINER_MAGIC = b'USIFC\x00\x00'
+    CONTAINER_MAGIC = b"USIFC\x00\x00"
     CHUNK_SIZE = 64 * 1024 * 1024  # 64 MB chunks
 
-    def __init__(self,
-                 filename: Union[str, Path],
-                 mode: str = "r",
-                 compression: CompressionType = CompressionType.GZIP,
-                 use_mmap: bool = True,
-                 cache_size: int = 1000,
-                 num_workers: int = 4):
+    def __init__(
+        self,
+        filename: Union[str, Path],
+        mode: str = "r",
+        compression: CompressionType = CompressionType.GZIP,
+        use_mmap: bool = True,
+        cache_size: int = 1000,
+        num_workers: int = 4,
+    ):
         """
         Initialize container
 
@@ -153,7 +160,7 @@ class StructureContainer:
             cache_size: Cache size
             num_workers: Number of worker threads
         """
-        if mode not in ('r', 'w', 'a'):
+        if mode not in ("r", "w", "a"):
             raise ValueError(f"Invalid mode: {mode}. Must be 'r', 'w', or 'a'")
 
         self.filename = Path(filename).resolve()
@@ -177,7 +184,9 @@ class StructureContainer:
             lambda: defaultdict(list)
         )
         self._group_index: Dict[str, USIFGroup] = {}
-        self._structure_attributes: Dict[str, Dict[str, Any]] = {}  # HDF5-like attributes
+        self._structure_attributes: Dict[str, Dict[str, Any]] = (
+            {}
+        )  # HDF5-like attributes
 
         # File and mmap
         self._file = None
@@ -201,7 +210,9 @@ class StructureContainer:
             self._file = open(self.filename, "rb")
             if use_mmap:
                 try:
-                    self._mmap = mmap.mmap(self._file.fileno(), 0, access=mmap.ACCESS_READ)
+                    self._mmap = mmap.mmap(
+                        self._file.fileno(), 0, access=mmap.ACCESS_READ
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to create mmap: {e}")
                     self.use_mmap = False
@@ -233,7 +244,9 @@ class StructureContainer:
         header[0:7] = self.CONTAINER_MAGIC
         header[7:8] = struct.pack(BinaryFormat.UINT8, 1)  # Version
         header[8:12] = struct.pack(BinaryFormat.UINT32, 0)  # num_structures
-        header[12:20] = struct.pack(BinaryFormat.UINT64, self.HEADER_SIZE)  # data_offset
+        header[12:20] = struct.pack(
+            BinaryFormat.UINT64, self.HEADER_SIZE
+        )  # data_offset
         header[20:28] = struct.pack(BinaryFormat.UINT64, 0)  # index_offset
         header[28:36] = struct.pack(BinaryFormat.UINT64, 0)  # group_offset
         header[36:44] = struct.pack(BinaryFormat.UINT64, 0)  # attribute_offset
@@ -241,6 +254,7 @@ class StructureContainer:
         header[45:46] = struct.pack(BinaryFormat.UINT8, 1)  # use_chunking
 
         import time
+
         timestamp = int(time.time())
         header[46:54] = struct.pack(BinaryFormat.UINT64, timestamp)
         header[54:62] = struct.pack(BinaryFormat.UINT64, timestamp)
@@ -260,7 +274,7 @@ class StructureContainer:
             magic = data[0:7]
             if magic != self.CONTAINER_MAGIC:
                 # Check if it's a single structure file instead
-                if magic == b'USIF\x00\x00\x00':
+                if magic == b"USIF\x00\x00\x00":
                     raise StorageError(
                         f"File {self.filename} is a USIF structure file, not a container. "
                         f"Use USIFStructure.load() to open it."
@@ -296,16 +310,20 @@ class StructureContainer:
 
             for _ in range(num_groups):
                 name_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
-                name = self._file.read(name_len).decode('utf-8')
+                name = self._file.read(name_len).decode("utf-8")
 
-                num_structures = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
+                num_structures = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[
+                    0
+                ]
                 group = self.create_group(name)
 
                 for _ in range(num_structures):
-                    struct_name_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
-                    struct_name = self._file.read(struct_name_len).decode('utf-8')
+                    struct_name_len = struct.unpack(
+                        BinaryFormat.UINT16, self._file.read(2)
+                    )[0]
+                    struct_name = self._file.read(struct_name_len).decode("utf-8")
                     hash_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
-                    struct_hash = self._file.read(hash_len).decode('utf-8')
+                    struct_hash = self._file.read(hash_len).decode("utf-8")
 
                     group.add_structure(struct_name, struct_hash)
                     self._name_index[struct_name] = struct_hash
@@ -331,9 +349,13 @@ class StructureContainer:
                         for prop_name, value in props.items():
                             if isinstance(value, (int, float)):
                                 bucket = round(value, 3)
-                                self._property_index[prop_name][bucket].append(struct_hash)
+                                self._property_index[prop_name][bucket].append(
+                                    struct_hash
+                                )
                             else:
-                                self._property_index[prop_name][value].append(struct_hash)
+                                self._property_index[prop_name][value].append(
+                                    struct_hash
+                                )
 
                     # Log progress for large containers
                     if (i + 1) % 100 == 0:
@@ -346,6 +368,7 @@ class StructureContainer:
 
     def _start_prefetch_thread(self) -> None:
         """Start background thread for prefetching"""
+
         def prefetch_worker():
             while True:
                 try:
@@ -365,8 +388,13 @@ class StructureContainer:
         self._prefetch_thread = threading.Thread(target=prefetch_worker, daemon=True)
         self._prefetch_thread.start()
 
-    def add(self, structure: USIFStructure, name: Optional[str] = None,
-            group: str = "/", attributes: Optional[Dict[str, Any]] = None) -> str:
+    def add(
+        self,
+        structure: USIFStructure,
+        name: Optional[str] = None,
+        group: str = "/",
+        attributes: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """
         Add structure to container with optional naming and grouping
 
@@ -398,11 +426,13 @@ class StructureContainer:
             ...     attributes={"temperature": 300, "pressure": 0.0}
             ... )
         """
-        if self.mode == 'r':
+        if self.mode == "r":
             raise ValueError("Cannot add to read-only container")
 
         if not isinstance(structure, USIFStructure):
-            raise ValidationError(f"Expected USIFStructure, got {type(structure).__name__}")
+            raise ValidationError(
+                f"Expected USIFStructure, got {type(structure).__name__}"
+            )
 
         try:
             usif_data = self.encoder.encode(structure)
@@ -442,8 +472,13 @@ class StructureContainer:
             logger.error(f"Failed to add structure: {e}")
             raise StorageError(f"Failed to add structure: {e}") from e
 
-    def add_structure(self, structure: USIFStructure, name: Optional[str] = None,
-                     group: str = "/", attributes: Optional[Dict[str, Any]] = None) -> str:
+    def add_structure(
+        self,
+        structure: USIFStructure,
+        name: Optional[str] = None,
+        group: str = "/",
+        attributes: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """
         Add structure to container (alias for add, more explicit name)
 
@@ -481,7 +516,7 @@ class StructureContainer:
                 # Pad to the start of next chunk
                 padding_size = self.CHUNK_SIZE - (current_pos % self.CHUNK_SIZE)
                 if padding_size > 0:
-                    self._file.write(b'\x00' * padding_size)
+                    self._file.write(b"\x00" * padding_size)
                     self._file.flush()
 
         return chunk_id, chunk_offset
@@ -494,7 +529,7 @@ class StructureContainer:
             required_size = actual_offset + len(data)
             if required_size > self._mmap.size():
                 self._mmap.resize(required_size)
-            self._mmap[actual_offset:actual_offset + len(data)] = data
+            self._mmap[actual_offset : actual_offset + len(data)] = data
             self._mmap.flush()  # Ensure data is written
         else:
             # Get current file size
@@ -506,7 +541,7 @@ class StructureContainer:
             if required_size > file_size:
                 # Pad with zeros if there's a gap
                 if actual_offset > file_size:
-                    self._file.write(b'\x00' * (actual_offset - file_size))
+                    self._file.write(b"\x00" * (actual_offset - file_size))
 
             # Write the data
             self._file.seek(actual_offset)
@@ -518,7 +553,7 @@ class StructureContainer:
         if path == "/":
             return self.root_group
 
-        parts = [p for p in path.split('/') if p]
+        parts = [p for p in path.split("/") if p]
         current = self.root_group
 
         full_path = "/"
@@ -531,7 +566,9 @@ class StructureContainer:
 
         return current
 
-    def _update_secondary_indexes(self, structure: USIFStructure, struct_hash: str) -> None:
+    def _update_secondary_indexes(
+        self, structure: USIFStructure, struct_hash: str
+    ) -> None:
         """Update secondary indexes for a structure (thread-safe)"""
         with self._index_lock:  # FIXED: Thread-safe index updates
             self._formula_index[structure.formula].append(struct_hash)
@@ -593,7 +630,9 @@ class StructureContainer:
             logger.error(f"Error decoding structure {identifier}: {e}")
             return None
         except Exception as e:
-            logger.error(f"Unexpected error decoding structure {identifier}: {e}", exc_info=True)
+            logger.error(
+                f"Unexpected error decoding structure {identifier}: {e}", exc_info=True
+            )
             return None
 
     def _read_from_chunk(self, chunk_id: int, offset: int, size: int) -> bytes:
@@ -603,7 +642,7 @@ class StructureContainer:
         # FIXED: Thread-safe file I/O
         with self._file_lock:
             if self._mmap:
-                return bytes(self._mmap[actual_offset:actual_offset + size])
+                return bytes(self._mmap[actual_offset : actual_offset + size])
             else:
                 current_pos = self._file.tell()
                 self._file.seek(actual_offset)
@@ -611,11 +650,13 @@ class StructureContainer:
                 self._file.seek(current_pos)
                 return data
 
-    def query(self,
-              formula: Optional[str] = None,
-              properties: Optional[Dict[str, Any]] = None,
-              energy_range: Optional[Tuple[float, float]] = None,
-              group: Optional[str] = None) -> List[Tuple[str, USIFStructure]]:
+    def query(
+        self,
+        formula: Optional[str] = None,
+        properties: Optional[Dict[str, Any]] = None,
+        energy_range: Optional[Tuple[float, float]] = None,
+        group: Optional[str] = None,
+    ) -> List[Tuple[str, USIFStructure]]:
         """
         Query structures with multiple criteria
 
@@ -661,8 +702,14 @@ class StructureContainer:
                 for prop_name, prop_value in properties.items():
                     if prop_name in self._property_index:
                         if isinstance(prop_value, (int, float)):
-                            for bucket, hashes in self._property_index[prop_name].items():
-                                if isinstance(bucket, (int, float)) and abs(bucket - prop_value) < SymmetryConstants.PROPERTY_VALUE_TOLERANCE:
+                            for bucket, hashes in self._property_index[
+                                prop_name
+                            ].items():
+                                if (
+                                    isinstance(bucket, (int, float))
+                                    and abs(bucket - prop_value)
+                                    < SymmetryConstants.PROPERTY_VALUE_TOLERANCE
+                                ):
                                     candidate_hashes.intersection_update(hashes)
                         else:
                             if prop_value in self._property_index[prop_name]:
@@ -673,8 +720,11 @@ class StructureContainer:
             if energy_range:
                 min_energy, max_energy = energy_range
                 energy_hashes = set()
-                for bucket, hashes in self._property_index.get('energy', {}).items():
-                    if isinstance(bucket, (int, float)) and min_energy <= bucket <= max_energy:
+                for bucket, hashes in self._property_index.get("energy", {}).items():
+                    if (
+                        isinstance(bucket, (int, float))
+                        and min_energy <= bucket <= max_energy
+                    ):
                         energy_hashes.update(hashes)
                 candidate_hashes.intersection_update(energy_hashes)
 
@@ -733,7 +783,7 @@ class StructureContainer:
             >>> container.create_group("/crystals/NaCl")
             >>> container.create_group("/molecules/H2O")
         """
-        if self.mode == 'r':
+        if self.mode == "r":
             raise ValueError("Cannot create groups in read-only container")
         return self._get_or_create_group(path)
 
@@ -799,12 +849,14 @@ class StructureContainer:
         Example:
             >>> container.set_group_attribute("/crystals", "description", "Crystal structures")
         """
-        if self.mode == 'r':
+        if self.mode == "r":
             raise ValueError("Cannot set attributes in read-only container")
         group = self._get_or_create_group(group_path)
         group.set_attribute(name, value)
 
-    def get_group_attribute(self, group_path: str, name: str, default: Any = None) -> Any:
+    def get_group_attribute(
+        self, group_path: str, name: str, default: Any = None
+    ) -> Any:
         """
         Get attribute from a group (HDF5-like group attributes)
 
@@ -843,7 +895,9 @@ class StructureContainer:
         if self._prefetch_queue:
             self._prefetch_queue.put(identifiers)
 
-    def get_batch_parallel(self, identifiers: List[str]) -> List[Optional[USIFStructure]]:
+    def get_batch_parallel(
+        self, identifiers: List[str]
+    ) -> List[Optional[USIFStructure]]:
         """
         Batch read using multiple threads (optimized)
 
@@ -874,8 +928,7 @@ class StructureContainer:
 
         with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
             future_to_ident = {
-                executor.submit(self.get, ident): ident
-                for ident in identifiers
+                executor.submit(self.get, ident): ident for ident in identifiers
             }
 
             for future in as_completed(future_to_ident):
@@ -891,7 +944,7 @@ class StructureContainer:
 
     def _write_enhanced_index(self) -> None:
         """Write enhanced index to file (persist indexes for HDF5-like functionality)"""
-        if self.mode == 'r' or not self._file:
+        if self.mode == "r" or not self._file:
             return
 
         try:
@@ -918,7 +971,7 @@ class StructureContainer:
         for _ in range(num_hashes):
             hash_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
             hash_bytes = self._file.read(hash_len)
-            struct_hash = hash_bytes.decode('utf-8')
+            struct_hash = hash_bytes.decode("utf-8")
             chunk_id = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
             offset = struct.unpack(BinaryFormat.UINT64, self._file.read(8))[0]
             size = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
@@ -928,26 +981,30 @@ class StructureContainer:
         num_names = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
         for _ in range(num_names):
             name_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
-            name = self._file.read(name_len).decode('utf-8')
+            name = self._file.read(name_len).decode("utf-8")
             hash_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
-            struct_hash = self._file.read(hash_len).decode('utf-8')
+            struct_hash = self._file.read(hash_len).decode("utf-8")
             self._name_index[name] = struct_hash
 
         # Read structure attributes
         num_attrs = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
         for _ in range(num_attrs):
             name_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
-            name = self._file.read(name_len).decode('utf-8')
+            name = self._file.read(name_len).decode("utf-8")
             num_attr_pairs = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
             attrs = {}
             for _ in range(num_attr_pairs):
-                attr_name_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
-                attr_name = self._file.read(attr_name_len).decode('utf-8')
+                attr_name_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[
+                    0
+                ]
+                attr_name = self._file.read(attr_name_len).decode("utf-8")
                 value_len = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
-                value_str = self._file.read(value_len).decode('utf-8')
+                value_str = self._file.read(value_len).decode("utf-8")
                 # Try to parse as number, otherwise keep as string
                 try:
-                    attrs[attr_name] = float(value_str) if '.' in value_str else int(value_str)
+                    attrs[attr_name] = (
+                        float(value_str) if "." in value_str else int(value_str)
+                    )
                 except ValueError:
                     attrs[attr_name] = value_str
             self._structure_attributes[name] = attrs
@@ -960,11 +1017,14 @@ class StructureContainer:
 
     def _deserialize_group_hierarchy(self, data: bytes) -> None:
         """Deserialize group hierarchy from bytes"""
-        def deserialize_group(offset: int, parent_path: str = "/") -> Tuple[USIFGroup, int]:
+
+        def deserialize_group(
+            offset: int, parent_path: str = "/"
+        ) -> Tuple[USIFGroup, int]:
             # Group name
-            name_len = struct.unpack(BinaryFormat.UINT16, data[offset:offset+2])[0]
+            name_len = struct.unpack(BinaryFormat.UINT16, data[offset : offset + 2])[0]
             offset += 2
-            name = data[offset:offset+name_len].decode('utf-8')
+            name = data[offset : offset + name_len].decode("utf-8")
             offset += name_len
 
             group = USIFGroup(name)
@@ -980,39 +1040,53 @@ class StructureContainer:
                 self._group_index[full_path] = group
 
             # Structures in group
-            num_structs = struct.unpack(BinaryFormat.UINT32, data[offset:offset+4])[0]
+            num_structs = struct.unpack(BinaryFormat.UINT32, data[offset : offset + 4])[
+                0
+            ]
             offset += 4
             for _ in range(num_structs):
-                struct_name_len = struct.unpack(BinaryFormat.UINT16, data[offset:offset+2])[0]
+                struct_name_len = struct.unpack(
+                    BinaryFormat.UINT16, data[offset : offset + 2]
+                )[0]
                 offset += 2
-                struct_name = data[offset:offset+struct_name_len].decode('utf-8')
+                struct_name = data[offset : offset + struct_name_len].decode("utf-8")
                 offset += struct_name_len
-                hash_len = struct.unpack(BinaryFormat.UINT16, data[offset:offset+2])[0]
+                hash_len = struct.unpack(
+                    BinaryFormat.UINT16, data[offset : offset + 2]
+                )[0]
                 offset += 2
-                struct_hash = data[offset:offset+hash_len].decode('utf-8')
+                struct_hash = data[offset : offset + hash_len].decode("utf-8")
                 offset += hash_len
                 group.structures[struct_name] = struct_hash
 
             # Attributes
-            num_attrs = struct.unpack(BinaryFormat.UINT16, data[offset:offset+2])[0]
+            num_attrs = struct.unpack(BinaryFormat.UINT16, data[offset : offset + 2])[0]
             offset += 2
             for _ in range(num_attrs):
-                attr_name_len = struct.unpack(BinaryFormat.UINT16, data[offset:offset+2])[0]
+                attr_name_len = struct.unpack(
+                    BinaryFormat.UINT16, data[offset : offset + 2]
+                )[0]
                 offset += 2
-                attr_name = data[offset:offset+attr_name_len].decode('utf-8')
+                attr_name = data[offset : offset + attr_name_len].decode("utf-8")
                 offset += attr_name_len
-                value_len = struct.unpack(BinaryFormat.UINT32, data[offset:offset+4])[0]
+                value_len = struct.unpack(
+                    BinaryFormat.UINT32, data[offset : offset + 4]
+                )[0]
                 offset += 4
-                value_str = data[offset:offset+value_len].decode('utf-8')
+                value_str = data[offset : offset + value_len].decode("utf-8")
                 offset += value_len
                 # Try to parse as number
                 try:
-                    group.attributes[attr_name] = float(value_str) if '.' in value_str else int(value_str)
+                    group.attributes[attr_name] = (
+                        float(value_str) if "." in value_str else int(value_str)
+                    )
                 except ValueError:
                     group.attributes[attr_name] = value_str
 
             # Subgroups
-            num_subgroups = struct.unpack(BinaryFormat.UINT32, data[offset:offset+4])[0]
+            num_subgroups = struct.unpack(
+                BinaryFormat.UINT32, data[offset : offset + 4]
+            )[0]
             offset += 4
             for _ in range(num_subgroups):
                 subgroup, offset = deserialize_group(offset, full_path)
@@ -1029,7 +1103,7 @@ class StructureContainer:
         # Serialize hash index
         data.extend(struct.pack(BinaryFormat.UINT32, len(self._hash_index)))
         for struct_hash, (chunk_id, offset, size) in self._hash_index.items():
-            hash_bytes = struct_hash.encode('utf-8')
+            hash_bytes = struct_hash.encode("utf-8")
             data.extend(struct.pack(BinaryFormat.UINT16, len(hash_bytes)))
             data.extend(hash_bytes)
             data.extend(struct.pack(BinaryFormat.UINT32, chunk_id))
@@ -1039,26 +1113,26 @@ class StructureContainer:
         # Serialize name index
         data.extend(struct.pack(BinaryFormat.UINT32, len(self._name_index)))
         for name, struct_hash in self._name_index.items():
-            name_bytes = name.encode('utf-8')
+            name_bytes = name.encode("utf-8")
             data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
             data.extend(name_bytes)
-            hash_bytes = struct_hash.encode('utf-8')
+            hash_bytes = struct_hash.encode("utf-8")
             data.extend(struct.pack(BinaryFormat.UINT16, len(hash_bytes)))
             data.extend(hash_bytes)
 
         # Serialize structure attributes
         data.extend(struct.pack(BinaryFormat.UINT32, len(self._structure_attributes)))
         for name, attrs in self._structure_attributes.items():
-            name_bytes = name.encode('utf-8')
+            name_bytes = name.encode("utf-8")
             data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
             data.extend(name_bytes)
             data.extend(struct.pack(BinaryFormat.UINT16, len(attrs)))
             for attr_name, attr_value in attrs.items():
-                attr_name_bytes = attr_name.encode('utf-8')
+                attr_name_bytes = attr_name.encode("utf-8")
                 data.extend(struct.pack(BinaryFormat.UINT16, len(attr_name_bytes)))
                 data.extend(attr_name_bytes)
                 value_str = str(attr_value)
-                value_bytes = value_str.encode('utf-8')
+                value_bytes = value_str.encode("utf-8")
                 data.extend(struct.pack(BinaryFormat.UINT32, len(value_bytes)))
                 data.extend(value_bytes)
 
@@ -1071,32 +1145,33 @@ class StructureContainer:
 
     def _serialize_group_hierarchy(self) -> bytes:
         """Serialize group hierarchy to bytes (HDF5-like group structure)"""
+
         def serialize_group(group: USIFGroup) -> bytes:
             data = bytearray()
 
             # Group name
-            name_bytes = group.name.encode('utf-8')
+            name_bytes = group.name.encode("utf-8")
             data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
             data.extend(name_bytes)
 
             # Structures in group
             data.extend(struct.pack(BinaryFormat.UINT32, len(group.structures)))
             for struct_name, struct_hash in group.structures.items():
-                name_bytes = struct_name.encode('utf-8')
+                name_bytes = struct_name.encode("utf-8")
                 data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
                 data.extend(name_bytes)
-                hash_bytes = struct_hash.encode('utf-8')
+                hash_bytes = struct_hash.encode("utf-8")
                 data.extend(struct.pack(BinaryFormat.UINT16, len(hash_bytes)))
                 data.extend(hash_bytes)
 
             # Attributes
             data.extend(struct.pack(BinaryFormat.UINT16, len(group.attributes)))
             for attr_name, attr_value in group.attributes.items():
-                name_bytes = attr_name.encode('utf-8')
+                name_bytes = attr_name.encode("utf-8")
                 data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
                 data.extend(name_bytes)
                 value_str = str(attr_value)
-                value_bytes = value_str.encode('utf-8')
+                value_bytes = value_str.encode("utf-8")
                 data.extend(struct.pack(BinaryFormat.UINT32, len(value_bytes)))
                 data.extend(value_bytes)
 
@@ -1145,7 +1220,8 @@ class StructureContainer:
         secondary_index_size = sum(
             len(hashes) * 16 for hashes in self._formula_index.values()
         ) + sum(
-            len(bucket_hashes) * 16 for prop_dict in self._property_index.values()
+            len(bucket_hashes) * 16
+            for prop_dict in self._property_index.values()
             for bucket_hashes in prop_dict.values()
         )
 
@@ -1153,17 +1229,17 @@ class StructureContainer:
             cache_size = len(self._cache)
 
         return {
-            'total_structures': total_structures,
-            'total_groups': total_groups,
-            'total_size_bytes': total_size,
-            'average_structure_size': avg_size,
-            'hash_index_size': hash_index_size,
-            'secondary_index_size': secondary_index_size,
-            'cache_size': cache_size,
-            'cache_hit_ratio': 0.0,
-            'compression_enabled': self.encoder.compression != CompressionType.NONE,
-            'mmap_enabled': self.use_mmap,
-            'chunk_size': self.CHUNK_SIZE,
+            "total_structures": total_structures,
+            "total_groups": total_groups,
+            "total_size_bytes": total_size,
+            "average_structure_size": avg_size,
+            "hash_index_size": hash_index_size,
+            "secondary_index_size": secondary_index_size,
+            "cache_size": cache_size,
+            "cache_hit_ratio": 0.0,
+            "compression_enabled": self.encoder.compression != CompressionType.NONE,
+            "mmap_enabled": self.use_mmap,
+            "chunk_size": self.CHUNK_SIZE,
         }
 
     def close(self) -> None:
@@ -1188,14 +1264,17 @@ class StructureContainer:
             ...     structure = container.get("NaCl_001")
         """
         # Write indexes before closing if in write mode
-        if self.mode in ('w', 'a') and self._file:
+        if self.mode in ("w", "a") and self._file:
             try:
                 self._write_enhanced_index()
             except Exception as e:
                 logger.warning(f"Failed to write index on close: {e}")
 
-        if hasattr(self, '_prefetch_thread') and self._prefetch_thread and \
-           self._prefetch_thread.is_alive():
+        if (
+            hasattr(self, "_prefetch_thread")
+            and self._prefetch_thread
+            and self._prefetch_thread.is_alive()
+        ):
             self._prefetch_queue.put(None)
             self._prefetch_thread.join(timeout=5.0)
 
@@ -1252,7 +1331,9 @@ class StructureContainer:
         """List all groups in container"""
         return list(self._group_index.keys())
 
-    def get_structures_in_group(self, group_path: str) -> List[Tuple[str, USIFStructure]]:
+    def get_structures_in_group(
+        self, group_path: str
+    ) -> List[Tuple[str, USIFStructure]]:
         """Get all structures in a specific group"""
         group = self.get_group(group_path)
         if not group:

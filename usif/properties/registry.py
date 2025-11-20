@@ -65,22 +65,56 @@ class PropertyRegistry:
 
     _properties: Dict[str, PropertyDefinition] = {
         # Atomic properties
-        'force': PropertyDefinition('force', tuple, is_per_atom=True, dimensions=(3,),
-                                   description='Force on atom', units=Units.EV_PER_ANGSTROM),
-        'charge': PropertyDefinition('charge', float, is_per_atom=True,
-                                    description='Atomic charge', units=Units.ELEMENTARY_CHARGE),
-        'magmom': PropertyDefinition('magmom', float, is_per_atom=True,
-                                    description='Magnetic moment', units=Units.BOHR_MAGNETON),
-        'velocity': PropertyDefinition('velocity', tuple, is_per_atom=True, dimensions=(3,),
-                                      description='Atomic velocity', units=Units.ANGSTROM_PER_FS),
-
+        "force": PropertyDefinition(
+            "force",
+            tuple,
+            is_per_atom=True,
+            dimensions=(3,),
+            description="Force on atom",
+            units=Units.EV_PER_ANGSTROM,
+        ),
+        "charge": PropertyDefinition(
+            "charge",
+            float,
+            is_per_atom=True,
+            description="Atomic charge",
+            units=Units.ELEMENTARY_CHARGE,
+        ),
+        "magmom": PropertyDefinition(
+            "magmom",
+            float,
+            is_per_atom=True,
+            description="Magnetic moment",
+            units=Units.BOHR_MAGNETON,
+        ),
+        "velocity": PropertyDefinition(
+            "velocity",
+            tuple,
+            is_per_atom=True,
+            dimensions=(3,),
+            description="Atomic velocity",
+            units=Units.ANGSTROM_PER_FS,
+        ),
         # Structure properties
-        'energy': PropertyDefinition('energy', float, description='Total energy', units=Units.EV),
-        'stress': PropertyDefinition('stress', tuple, dimensions=(6,),
-                                    description='Stress tensor (Voigt)', units=Units.GPA),
-        'volume': PropertyDefinition('volume', float, description='Cell volume', units=Units.ANGSTROM_CUBED),
-        'pressure': PropertyDefinition('pressure', float, description='Pressure', units=Units.GPA),
-        'temperature': PropertyDefinition('temperature', float, description='Temperature', units=Units.KELVIN),
+        "energy": PropertyDefinition(
+            "energy", float, description="Total energy", units=Units.EV
+        ),
+        "stress": PropertyDefinition(
+            "stress",
+            tuple,
+            dimensions=(6,),
+            description="Stress tensor (Voigt)",
+            units=Units.GPA,
+        ),
+        "volume": PropertyDefinition(
+            "volume", float, description="Cell volume", units=Units.ANGSTROM_CUBED
+        ),
+        "pressure": PropertyDefinition(
+            "pressure", float, description="Pressure", units=Units.GPA
+        ),
+        "temperature": PropertyDefinition(
+            "temperature", float, description="Temperature", units=Units.KELVIN
+        ),
     }
 
     @classmethod
@@ -105,7 +139,10 @@ class PropertyRegistry:
             >>> PropertyRegistry.register(custom_prop)
         """
         if prop_def.name in cls._properties:
-            import logging; logger = logging.getLogger(__name__); logger.warning(f"Overwriting existing property definition: {prop_def.name}")
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Overwriting existing property definition: {prop_def.name}")
         cls._properties[prop_def.name] = prop_def
 
     @classmethod

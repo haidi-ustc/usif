@@ -48,7 +48,7 @@ class TestEncoderComprehensive(unittest.TestCase):
             spacegroup=227,
             wyckoff_sites=[WyckoffSite(14, 8, (0.0, 0.0, 0.0))],
             structure_properties=StructureProperties(energy=-10.5, volume=125.0),
-            formula="Si"
+            formula="Si",
         )
 
         self.periodic_atomic = USIFStructure(
@@ -58,10 +58,10 @@ class TestEncoderComprehensive(unittest.TestCase):
             spacegroup=1,
             atom_sites=[
                 AtomSite(14, (0.0, 0.0, 0.0), AtomicProperties()),
-                AtomSite(14, (2.5, 2.5, 2.5), AtomicProperties())
+                AtomSite(14, (2.5, 2.5, 2.5), AtomicProperties()),
             ],
             structure_properties=StructureProperties(energy=-20.0),
-            formula="Si2"
+            formula="Si2",
         )
 
         self.molecular_symmetric = USIFStructure(
@@ -70,10 +70,10 @@ class TestEncoderComprehensive(unittest.TestCase):
             point_group="C2v",
             point_group_sites=[
                 PointGroupSite(8, 1, (0.0, 0.0, 0.0), 1.0),
-                PointGroupSite(1, 2, (0.76, 0.59, 0.0), 1.0)
+                PointGroupSite(1, 2, (0.76, 0.59, 0.0), 1.0),
             ],
             structure_properties=StructureProperties(energy=-76.4),
-            formula="H2O"
+            formula="H2O",
         )
 
         self.molecular_atomic = USIFStructure(
@@ -82,10 +82,10 @@ class TestEncoderComprehensive(unittest.TestCase):
             atom_sites=[
                 AtomSite(8, (0.0, 0.0, 0.0), AtomicProperties(charge=-0.8)),
                 AtomSite(1, (0.76, 0.59, 0.0), AtomicProperties(charge=0.4)),
-                AtomSite(1, (-0.76, 0.59, 0.0), AtomicProperties(charge=0.4))
+                AtomSite(1, (-0.76, 0.59, 0.0), AtomicProperties(charge=0.4)),
             ],
             structure_properties=StructureProperties(energy=-76.4),
-            formula="H2O"
+            formula="H2O",
         )
 
     def test_encode_decode_periodic_symmetric(self):
@@ -96,7 +96,9 @@ class TestEncoderComprehensive(unittest.TestCase):
         self.assertEqual(self.periodic_symmetric, decoded)
         self.assertEqual(self.periodic_symmetric.formula, decoded.formula)
         self.assertEqual(self.periodic_symmetric.spacegroup, decoded.spacegroup)
-        self.assertTrue(np.allclose(self.periodic_symmetric.lattice_matrix, decoded.lattice_matrix))
+        self.assertTrue(
+            np.allclose(self.periodic_symmetric.lattice_matrix, decoded.lattice_matrix)
+        )
 
     def test_encode_decode_periodic_atomic(self):
         """Test encoding/decoding periodic full atomic structure"""
@@ -140,7 +142,7 @@ class TestEncoderComprehensive(unittest.TestCase):
 
     def test_save_load(self):
         """Test save and load functionality"""
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.usif') as f:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".usif") as f:
             temp_path = f.name
 
         try:
@@ -154,11 +156,11 @@ class TestEncoderComprehensive(unittest.TestCase):
     def test_decode_corrupted_data_too_short(self):
         """Test decoding with data too short"""
         with self.assertRaises(CorruptedDataError):
-            self.encoder.decode(b'USIF')
+            self.encoder.decode(b"USIF")
 
     def test_decode_corrupted_magic_bytes(self):
         """Test decoding with invalid magic bytes"""
-        corrupted = b'INVALID' + b'\x00' * 57
+        corrupted = b"INVALID" + b"\x00" * 57
         with self.assertRaises(CorruptedDataError):
             self.encoder.decode(corrupted)
 
@@ -166,12 +168,12 @@ class TestEncoderComprehensive(unittest.TestCase):
         """Test decoding with corrupted gzip data"""
         # Create valid header but corrupted compressed data
         header = bytearray(64)
-        header[0:7] = b'USIF\x00\x00\x00'
-        header[7:8] = b'\x04'  # version
-        header[8:12] = b'\x10\x00\x00\x00'  # raw size
-        header[12:16] = b'\x05\x00\x00\x00'  # compressed size
-        header[16:17] = b'\x01'  # GZIP compression
-        corrupted_data = bytes(header) + b'\x00\x01\x02\x03\x04'
+        header[0:7] = b"USIF\x00\x00\x00"
+        header[7:8] = b"\x04"  # version
+        header[8:12] = b"\x10\x00\x00\x00"  # raw size
+        header[12:16] = b"\x05\x00\x00\x00"  # compressed size
+        header[16:17] = b"\x01"  # GZIP compression
+        corrupted_data = bytes(header) + b"\x00\x01\x02\x03\x04"
 
         with self.assertRaises((CorruptedDataError, DecodingError)):
             self.encoder.decode(corrupted_data)
@@ -182,7 +184,7 @@ class TestEncoderComprehensive(unittest.TestCase):
         props = StructureProperties(
             energy=-10.5,
             volume=125.0,
-            stress=(1.0, 1.0, 1.0, 0.0, 0.0, 0.0)  # Voigt notation
+            stress=(1.0, 1.0, 1.0, 0.0, 0.0, 0.0),  # Voigt notation
         )
         structure = USIFStructure(
             structure_type=StructureType.CRYSTAL,
@@ -191,24 +193,32 @@ class TestEncoderComprehensive(unittest.TestCase):
             spacegroup=227,
             wyckoff_sites=[WyckoffSite(14, 8, (0.0, 0.0, 0.0))],
             structure_properties=props,
-            formula="Si"
+            formula="Si",
         )
 
         encoded = self.encoder.encode(structure)
         decoded, _ = self.encoder.decode(encoded)
 
-        self.assertAlmostEqual(structure.structure_properties.energy,
-                              decoded.structure_properties.energy)
-        self.assertAlmostEqual(structure.structure_properties.volume,
-                              decoded.structure_properties.volume)
+        self.assertAlmostEqual(
+            structure.structure_properties.energy, decoded.structure_properties.energy
+        )
+        self.assertAlmostEqual(
+            structure.structure_properties.volume, decoded.structure_properties.volume
+        )
 
     def test_encode_with_atomic_properties(self):
         """Test encoding with atomic properties"""
         atom_sites = [
-            AtomSite(14, (0.0, 0.0, 0.0),
-                    AtomicProperties(charge=0.5, force=np.array([0.1, 0.2, 0.3]))),
-            AtomSite(14, (2.5, 2.5, 2.5),
-                    AtomicProperties(charge=-0.5, force=np.array([-0.1, -0.2, -0.3])))
+            AtomSite(
+                14,
+                (0.0, 0.0, 0.0),
+                AtomicProperties(charge=0.5, force=np.array([0.1, 0.2, 0.3])),
+            ),
+            AtomSite(
+                14,
+                (2.5, 2.5, 2.5),
+                AtomicProperties(charge=-0.5, force=np.array([-0.1, -0.2, -0.3])),
+            ),
         ]
         structure = USIFStructure(
             structure_type=StructureType.CRYSTAL,
@@ -216,7 +226,7 @@ class TestEncoderComprehensive(unittest.TestCase):
             lattice_matrix=np.eye(3) * 5.0,
             spacegroup=1,
             atom_sites=atom_sites,
-            formula="Si2"
+            formula="Si2",
         )
 
         encoded = self.encoder.encode(structure)
@@ -224,8 +234,10 @@ class TestEncoderComprehensive(unittest.TestCase):
 
         self.assertEqual(len(structure.atom_sites), len(decoded.atom_sites))
         if decoded.atom_sites[0].properties.charge is not None:
-            self.assertAlmostEqual(structure.atom_sites[0].properties.charge,
-                                  decoded.atom_sites[0].properties.charge)
+            self.assertAlmostEqual(
+                structure.atom_sites[0].properties.charge,
+                decoded.atom_sites[0].properties.charge,
+            )
 
     def test_version_mismatch_warning(self):
         """Test version mismatch handling"""
@@ -251,7 +263,7 @@ class TestEncoderComprehensive(unittest.TestCase):
             lattice_matrix=np.eye(3) * 5.0,
             spacegroup=227,
             wyckoff_sites=[WyckoffSite(14, 8, (0.0, 0.0, 0.0))],
-            formula=""
+            formula="",
         )
         encoded = self.encoder.encode(structure)
         decoded, _ = self.encoder.decode(encoded)
@@ -266,7 +278,7 @@ class TestEncoderComprehensive(unittest.TestCase):
             lattice_matrix=np.eye(3) * 10.0,
             spacegroup=1,
             wyckoff_sites=wyckoff_sites,
-            formula="H1000"
+            formula="H1000",
         )
         encoded = self.encoder.encode(structure)
         decoded, _ = self.encoder.decode(encoded)
@@ -282,7 +294,7 @@ class TestEncoderComprehensive(unittest.TestCase):
                 lattice_matrix=np.eye(3) * 5.0,
                 spacegroup=227,
                 wyckoff_sites=[],  # Empty list should fail
-                formula=""
+                formula="",
             )
 
         # Empty atom_sites should fail validation
@@ -293,9 +305,9 @@ class TestEncoderComprehensive(unittest.TestCase):
                 lattice_matrix=np.eye(3) * 5.0,
                 spacegroup=1,
                 atom_sites=[],  # Empty list should fail
-                formula=""
+                formula="",
             )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

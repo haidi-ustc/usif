@@ -138,7 +138,8 @@ def download_mp_data(
 
             # Build search parameters
             search_kwargs = {
-                k: v for k, v in query.items()
+                k: v
+                for k, v in query.items()
                 if k in ["chemsys", "elements", "band_gap"]
             }
 
@@ -156,12 +157,14 @@ def download_mp_data(
 
             try:
                 # Query materials.summary.search
-                docs = list(mpr.materials.summary.search(
-                    **search_kwargs,
-                    fields=fields,
-                    num_chunks=None,  # Get all chunks
-                    chunk_size=1000,
-                ))
+                docs = list(
+                    mpr.materials.summary.search(
+                        **search_kwargs,
+                        fields=fields,
+                        num_chunks=None,  # Get all chunks
+                        chunk_size=1000,
+                    )
+                )
 
                 logger.info(f"  Found {len(docs)} materials")
 
@@ -174,13 +177,16 @@ def download_mp_data(
                         break
 
                     # Filter by energy_above_hull
-                    if hasattr(doc, 'energy_above_hull') and doc.energy_above_hull is not None:
+                    if (
+                        hasattr(doc, "energy_above_hull")
+                        and doc.energy_above_hull is not None
+                    ):
                         if doc.energy_above_hull > e_above_hull_max:
                             stats["total_filtered"] += 1
                             continue
 
                     # Check if structure exists
-                    if not hasattr(doc, 'structure') or doc.structure is None:
+                    if not hasattr(doc, "structure") or doc.structure is None:
                         stats["total_skipped"] += 1
                         continue
 
@@ -241,7 +247,7 @@ def create_mp_data_archive(data_dir: Union[str, Path]) -> Path:
     data_path = Path(data_dir)
     zip_path = data_path.parent / f"{data_path.name}.zip"
 
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
         # Add all group directories
         for group_dir in sorted(data_path.glob("group_*")):
             if group_dir.is_dir():
@@ -258,7 +264,9 @@ def create_mp_data_archive(data_dir: Union[str, Path]) -> Path:
     return zip_path
 
 
-def load_mp_data_from_archive(zip_path: Union[str, Path], extract_to: Optional[Union[str, Path]] = None) -> Path:
+def load_mp_data_from_archive(
+    zip_path: Union[str, Path], extract_to: Optional[Union[str, Path]] = None
+) -> Path:
     """
     Load MP data from zip archive
 
@@ -277,7 +285,7 @@ def load_mp_data_from_archive(zip_path: Union[str, Path], extract_to: Optional[U
 
     extract_to.mkdir(parents=True, exist_ok=True)
 
-    with zipfile.ZipFile(zip_path, 'r') as zipf:
+    with zipfile.ZipFile(zip_path, "r") as zipf:
         zipf.extractall(extract_to)
 
     return extract_to
@@ -318,7 +326,7 @@ def convert_mp_to_usif(doc: Union[Dict[str, Any], Any]) -> USIFStructure:
     # Handle both dict (from loaded JSON) and MPDataDoc object
     if isinstance(doc, dict):
         # Loaded from JSON - reconstruct structure
-        structure_dict = doc.get('structure')
+        structure_dict = doc.get("structure")
         if structure_dict is None:
             raise ValueError("Document does not contain 'structure' key")
 
@@ -332,84 +340,87 @@ def convert_mp_to_usif(doc: Union[Dict[str, Any], Any]) -> USIFStructure:
         # Extract properties from dict
         properties = {}
         # Energy (formation energy per atom * nsites)
-        formation_energy_per_atom = doc.get('formation_energy_per_atom')
-        nsites = doc.get('nsites')
+        formation_energy_per_atom = doc.get("formation_energy_per_atom")
+        nsites = doc.get("nsites")
         if formation_energy_per_atom is not None and nsites is not None:
-            properties['energy'] = formation_energy_per_atom * nsites
+            properties["energy"] = formation_energy_per_atom * nsites
 
         # Volume
-        if doc.get('volume') is not None:
-            properties['volume'] = doc['volume']
+        if doc.get("volume") is not None:
+            properties["volume"] = doc["volume"]
 
         # Store additional MP properties in custom dict
         # Note: Don't duplicate built-in properties (energy, volume) in custom
         custom_props = {}
-        if doc.get('band_gap') is not None:
-            custom_props['band_gap'] = doc['band_gap']
-        if doc.get('density') is not None:
-            custom_props['density'] = doc['density']
-        if doc.get('total_magnetization') is not None:
-            custom_props['total_magnetization'] = doc['total_magnetization']
-        if doc.get('is_magnetic') is not None:
-            custom_props['is_magnetic'] = doc['is_magnetic']
-        if doc.get('is_metal') is not None:
-            custom_props['is_metal'] = doc['is_metal']
-        if doc.get('is_stable') is not None:
-            custom_props['is_stable'] = doc['is_stable']
-        if doc.get('material_id') is not None:
-            custom_props['material_id'] = doc['material_id']
-        if doc.get('formula_pretty') is not None:
-            custom_props['formula_pretty'] = doc['formula_pretty']
+        if doc.get("band_gap") is not None:
+            custom_props["band_gap"] = doc["band_gap"]
+        if doc.get("density") is not None:
+            custom_props["density"] = doc["density"]
+        if doc.get("total_magnetization") is not None:
+            custom_props["total_magnetization"] = doc["total_magnetization"]
+        if doc.get("is_magnetic") is not None:
+            custom_props["is_magnetic"] = doc["is_magnetic"]
+        if doc.get("is_metal") is not None:
+            custom_props["is_metal"] = doc["is_metal"]
+        if doc.get("is_stable") is not None:
+            custom_props["is_stable"] = doc["is_stable"]
+        if doc.get("material_id") is not None:
+            custom_props["material_id"] = doc["material_id"]
+        if doc.get("formula_pretty") is not None:
+            custom_props["formula_pretty"] = doc["formula_pretty"]
 
         if custom_props:
-            properties['custom'] = custom_props
+            properties["custom"] = custom_props
     else:
         # MPDataDoc object - use attributes
-        if not hasattr(doc, 'structure') or doc.structure is None:
+        if not hasattr(doc, "structure") or doc.structure is None:
             raise ValueError("Document does not have 'structure' attribute")
         structure = doc.structure
 
         # Extract properties from object
         properties = {}
         # Energy (formation energy per atom * nsites)
-        if hasattr(doc, 'formation_energy_per_atom') and doc.formation_energy_per_atom is not None:
-            if hasattr(doc, 'nsites') and doc.nsites is not None:
-                properties['energy'] = doc.formation_energy_per_atom * doc.nsites
+        if (
+            hasattr(doc, "formation_energy_per_atom")
+            and doc.formation_energy_per_atom is not None
+        ):
+            if hasattr(doc, "nsites") and doc.nsites is not None:
+                properties["energy"] = doc.formation_energy_per_atom * doc.nsites
 
         # Volume
-        if hasattr(doc, 'volume') and doc.volume is not None:
-            properties['volume'] = doc.volume
+        if hasattr(doc, "volume") and doc.volume is not None:
+            properties["volume"] = doc.volume
 
         # Store additional MP properties in custom dict
         # Note: Don't duplicate built-in properties (energy, volume) in custom
         custom_props = {}
-        if hasattr(doc, 'band_gap') and doc.band_gap is not None:
-            custom_props['band_gap'] = doc.band_gap
-        if hasattr(doc, 'density') and doc.density is not None:
-            custom_props['density'] = doc.density
-        if hasattr(doc, 'total_magnetization') and doc.total_magnetization is not None:
-            custom_props['total_magnetization'] = doc.total_magnetization
-        if hasattr(doc, 'is_magnetic') and doc.is_magnetic is not None:
-            custom_props['is_magnetic'] = doc.is_magnetic
-        if hasattr(doc, 'is_metal') and doc.is_metal is not None:
-            custom_props['is_metal'] = doc.is_metal
-        if hasattr(doc, 'is_stable') and doc.is_stable is not None:
-            custom_props['is_stable'] = doc.is_stable
-        if hasattr(doc, 'material_id') and doc.material_id is not None:
-            custom_props['material_id'] = doc.material_id
-        if hasattr(doc, 'formula_pretty') and doc.formula_pretty is not None:
-            custom_props['formula_pretty'] = doc.formula_pretty
+        if hasattr(doc, "band_gap") and doc.band_gap is not None:
+            custom_props["band_gap"] = doc.band_gap
+        if hasattr(doc, "density") and doc.density is not None:
+            custom_props["density"] = doc.density
+        if hasattr(doc, "total_magnetization") and doc.total_magnetization is not None:
+            custom_props["total_magnetization"] = doc.total_magnetization
+        if hasattr(doc, "is_magnetic") and doc.is_magnetic is not None:
+            custom_props["is_magnetic"] = doc.is_magnetic
+        if hasattr(doc, "is_metal") and doc.is_metal is not None:
+            custom_props["is_metal"] = doc.is_metal
+        if hasattr(doc, "is_stable") and doc.is_stable is not None:
+            custom_props["is_stable"] = doc.is_stable
+        if hasattr(doc, "material_id") and doc.material_id is not None:
+            custom_props["material_id"] = doc.material_id
+        if hasattr(doc, "formula_pretty") and doc.formula_pretty is not None:
+            custom_props["formula_pretty"] = doc.formula_pretty
 
         if custom_props:
-            properties['custom'] = custom_props
+            properties["custom"] = custom_props
 
     # Convert using USIFStructure.from_pymatgen
     # Extract custom properties separately
-    custom_props = properties.pop('custom', {})
+    custom_props = properties.pop("custom", {})
 
     # Built-in properties that should not be passed as kwargs
     # (they're handled directly by from_pymatgen or set from structure)
-    built_in_props = {'energy', 'volume', 'stress', 'pressure', 'temperature'}
+    built_in_props = {"energy", "volume", "stress", "pressure", "temperature"}
 
     # Separate built-in properties from kwargs
     built_in_kwargs = {}
@@ -423,9 +434,11 @@ def convert_mp_to_usif(doc: Union[Dict[str, Any], Any]) -> USIFStructure:
     # Convert - pass built-in properties explicitly, others as kwargs
     usif_struct = USIFStructure.from_pymatgen(
         structure,
-        energy=built_in_kwargs.get('energy'),
-        volume=built_in_kwargs.get('volume'),  # Will override pymatgen volume if provided
-        **other_kwargs
+        energy=built_in_kwargs.get("energy"),
+        volume=built_in_kwargs.get(
+            "volume"
+        ),  # Will override pymatgen volume if provided
+        **other_kwargs,
     )
 
     # Add custom properties (MP-specific metadata)

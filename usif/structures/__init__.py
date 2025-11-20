@@ -50,8 +50,8 @@ from .sites import AtomSite, PointGroupSite, WyckoffSite
 from .structure import USIFStructure
 
 __all__ = [
-    'WyckoffSite',
-    'PointGroupSite',
-    'AtomSite',
-    'USIFStructure',
+    "WyckoffSite",
+    "PointGroupSite",
+    "AtomSite",
+    "USIFStructure",
 ]

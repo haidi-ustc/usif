@@ -67,8 +67,9 @@ class USIFOptimizer:
 
     @staticmethod
     def optimize_structure(
-            structure: USIFStructure,
-            tolerance: float = SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE) -> USIFStructure:
+        structure: USIFStructure,
+        tolerance: float = SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE,
+    ) -> USIFStructure:
         """
         Optimize structure for maximum compression
 
@@ -129,16 +130,20 @@ class USIFOptimizer:
                 spacegroup=sga.get_space_group_number(),
                 wyckoff_sites=wyckoff_sites,
                 structure_properties=structure.structure_properties,
-                formula=structure.formula
+                formula=structure.formula,
             )
         except (ValueError, RuntimeError) as e:
-            logger.debug(f"Crystal optimization failed due to symmetry analysis error: {e}")
+            logger.debug(
+                f"Crystal optimization failed due to symmetry analysis error: {e}"
+            )
             return structure
         except ValidationError as e:
             logger.warning(f"Crystal optimization failed due to validation error: {e}")
             return structure
         except Exception as e:
-            logger.error(f"Unexpected error during crystal optimization: {e}", exc_info=True)
+            logger.error(
+                f"Unexpected error during crystal optimization: {e}", exc_info=True
+            )
             return structure
 
     @staticmethod
@@ -174,7 +179,7 @@ class USIFOptimizer:
                         if other_idx in used:
                             continue
 
-                        min_dist = float('inf')
+                        min_dist = float("inf")
                         for sym_op in pga.get_symmetry_operations():
                             transformed = sym_op.operate(coords)
                             dist = np.linalg.norm(transformed - other_coords)
@@ -189,21 +194,26 @@ class USIFOptimizer:
                     )
 
             total_multiplicity = sum(s.multiplicity for s in point_group_sites)
-            if total_multiplicity == len(pmg_molecule) and \
-               len(point_group_sites) < len(pmg_molecule):
+            if total_multiplicity == len(pmg_molecule) and len(point_group_sites) < len(
+                pmg_molecule
+            ):
                 return USIFStructure(
                     structure_type=StructureType.MOLECULE,
                     storage_mode=StorageMode.SYMMETRIC,
                     point_group=point_group,
                     point_group_sites=point_group_sites,
                     structure_properties=structure.structure_properties,
-                    formula=structure.formula
+                    formula=structure.formula,
                 )
         except (ValueError, RuntimeError) as e:
-            logger.debug(f"Molecule optimization failed due to symmetry analysis error: {e}")
+            logger.debug(
+                f"Molecule optimization failed due to symmetry analysis error: {e}"
+            )
         except ValidationError as e:
             logger.warning(f"Molecule optimization failed due to validation error: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error during molecule optimization: {e}", exc_info=True)
+            logger.error(
+                f"Unexpected error during molecule optimization: {e}", exc_info=True
+            )
 
         return structure

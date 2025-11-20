@@ -33,7 +33,7 @@ class TestContainerThreadSafety(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        self.temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.usifc')
+        self.temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".usifc")
         self.temp_path = self.temp_file.name
         self.temp_file.close()
 
@@ -42,7 +42,9 @@ class TestContainerThreadSafety(unittest.TestCase):
         if os.path.exists(self.temp_path):
             os.unlink(self.temp_path)
 
-    def _create_test_structure(self, element: int = 14, energy: float = -10.0) -> USIFStructure:
+    def _create_test_structure(
+        self, element: int = 14, energy: float = -10.0
+    ) -> USIFStructure:
         """Create a test structure"""
         return USIFStructure(
             structure_type=StructureType.CRYSTAL,
@@ -51,7 +53,7 @@ class TestContainerThreadSafety(unittest.TestCase):
             spacegroup=227,
             wyckoff_sites=[WyckoffSite(element, 8, (0.0, 0.0, 0.0))],
             structure_properties=StructureProperties(energy=energy),
-            formula=f"Element{element}"
+            formula=f"Element{element}",
         )
 
     def test_concurrent_add_operations(self):
@@ -59,14 +61,15 @@ class TestContainerThreadSafety(unittest.TestCase):
         num_threads = 10
         structures_per_thread = 5
 
-        with StructureContainer(self.temp_path, mode='w') as container:
+        with StructureContainer(self.temp_path, mode="w") as container:
+
             def add_structures(thread_id: int):
                 """Add structures from a thread"""
                 hashes = []
                 for i in range(structures_per_thread):
                     structure = self._create_test_structure(
                         element=14 + thread_id * 10 + i,
-                        energy=-10.0 - thread_id - i * 0.1
+                        energy=-10.0 - thread_id - i * 0.1,
                     )
                     name = f"structure_t{thread_id}_s{i}"
                     hash_val = container.add(structure, name=name)
@@ -75,7 +78,9 @@ class TestContainerThreadSafety(unittest.TestCase):
 
             # Execute concurrent additions
             with ThreadPoolExecutor(max_workers=num_threads) as executor:
-                futures = [executor.submit(add_structures, i) for i in range(num_threads)]
+                futures = [
+                    executor.submit(add_structures, i) for i in range(num_threads)
+                ]
                 all_hashes = []
                 for future in as_completed(futures):
                     hashes = future.result()
@@ -97,22 +102,25 @@ class TestContainerThreadSafety(unittest.TestCase):
         reads_per_thread = 50
 
         # First, populate container
-        with StructureContainer(self.temp_path, mode='w') as container:
+        with StructureContainer(self.temp_path, mode="w") as container:
             hashes = []
             for i in range(num_structures):
-                structure = self._create_test_structure(element=14 + i, energy=-10.0 - i)
+                structure = self._create_test_structure(
+                    element=14 + i, energy=-10.0 - i
+                )
                 name = f"structure_{i}"
                 hash_val = container.add(structure, name=name)
                 hashes.append(hash_val)
 
         # Now test concurrent reads
-        with StructureContainer(self.temp_path, mode='r') as container:
+        with StructureContainer(self.temp_path, mode="r") as container:
             successful_reads = [0] * num_readers
             errors = [[] for _ in range(num_readers)]
 
             def read_structures(thread_id: int):
                 """Read structures from a thread"""
                 import random
+
                 for _ in range(reads_per_thread):
                     try:
                         # Randomly pick a structure to read
@@ -125,7 +133,9 @@ class TestContainerThreadSafety(unittest.TestCase):
 
             # Execute concurrent reads
             with ThreadPoolExecutor(max_workers=num_readers) as executor:
-                futures = [executor.submit(read_structures, i) for i in range(num_readers)]
+                futures = [
+                    executor.submit(read_structures, i) for i in range(num_readers)
+                ]
                 for future in as_completed(futures):
                     future.result()
 
@@ -144,16 +154,15 @@ class TestContainerThreadSafety(unittest.TestCase):
         queries_per_thread = 20
 
         # Populate container with varied structures
-        with StructureContainer(self.temp_path, mode='w') as container:
+        with StructureContainer(self.temp_path, mode="w") as container:
             for i in range(num_structures):
                 structure = self._create_test_structure(
-                    element=14 + (i % 5),
-                    energy=-10.0 - (i % 10)
+                    element=14 + (i % 5), energy=-10.0 - (i % 10)
                 )
                 container.add(structure, name=f"structure_{i}")
 
         # Test concurrent queries
-        with StructureContainer(self.temp_path, mode='r') as container:
+        with StructureContainer(self.temp_path, mode="r") as container:
             query_results = [[] for _ in range(num_queriers)]
 
             def query_structures(thread_id: int):
@@ -170,7 +179,9 @@ class TestContainerThreadSafety(unittest.TestCase):
 
             # Execute concurrent queries
             with ThreadPoolExecutor(max_workers=num_queriers) as executor:
-                futures = [executor.submit(query_structures, i) for i in range(num_queriers)]
+                futures = [
+                    executor.submit(query_structures, i) for i in range(num_queriers)
+                ]
                 for future in as_completed(futures):
                     future.result()
 
@@ -186,15 +197,17 @@ class TestContainerThreadSafety(unittest.TestCase):
         operations_per_thread = 10
 
         # Create initial container
-        with StructureContainer(self.temp_path, mode='w') as container:
+        with StructureContainer(self.temp_path, mode="w") as container:
             initial_hashes = []
             for i in range(num_initial):
-                structure = self._create_test_structure(element=14 + i, energy=-10.0 - i)
+                structure = self._create_test_structure(
+                    element=14 + i, energy=-10.0 - i
+                )
                 hash_val = container.add(structure, name=f"initial_{i}")
                 initial_hashes.append(hash_val)
 
         # Test mixed operations in append mode
-        with StructureContainer(self.temp_path, mode='a') as container:
+        with StructureContainer(self.temp_path, mode="a") as container:
             write_counts = [0] * num_writers
             read_counts = [0] * num_readers
 
@@ -203,7 +216,7 @@ class TestContainerThreadSafety(unittest.TestCase):
                 for i in range(operations_per_thread):
                     structure = self._create_test_structure(
                         element=100 + thread_id * 10 + i,
-                        energy=-20.0 - thread_id - i * 0.1
+                        energy=-20.0 - thread_id - i * 0.1,
                     )
                     name = f"added_t{thread_id}_s{i}"
                     container.add(structure, name=name)
@@ -213,6 +226,7 @@ class TestContainerThreadSafety(unittest.TestCase):
             def read_operations(thread_id: int):
                 """Read structures"""
                 import random
+
                 for _ in range(operations_per_thread):
                     if initial_hashes:
                         hash_val = random.choice(initial_hashes)
@@ -223,8 +237,12 @@ class TestContainerThreadSafety(unittest.TestCase):
 
             # Execute mixed operations
             with ThreadPoolExecutor(max_workers=num_writers + num_readers) as executor:
-                write_futures = [executor.submit(write_operations, i) for i in range(num_writers)]
-                read_futures = [executor.submit(read_operations, i) for i in range(num_readers)]
+                write_futures = [
+                    executor.submit(write_operations, i) for i in range(num_writers)
+                ]
+                read_futures = [
+                    executor.submit(read_operations, i) for i in range(num_readers)
+                ]
 
                 for future in as_completed(write_futures + read_futures):
                     future.result()
@@ -237,15 +255,14 @@ class TestContainerThreadSafety(unittest.TestCase):
         """Test that secondary indexes are consistent after concurrent additions"""
         num_structures = 100
 
-        with StructureContainer(self.temp_path, mode='w') as container:
+        with StructureContainer(self.temp_path, mode="w") as container:
             # Add structures concurrently
             def add_batch(start_idx: int, count: int):
                 """Add a batch of structures"""
                 for i in range(count):
                     idx = start_idx + i
                     structure = self._create_test_structure(
-                        element=14 + (idx % 10),
-                        energy=-10.0 - (idx % 5)
+                        element=14 + (idx % 10), energy=-10.0 - (idx % 5)
                     )
                     container.add(structure, name=f"structure_{idx}")
 
@@ -271,7 +288,7 @@ class TestContainerThreadSafety(unittest.TestCase):
         # Create a structure
         structure = self._create_test_structure(element=14, energy=-10.0)
 
-        with StructureContainer(self.temp_path, mode='w') as container:
+        with StructureContainer(self.temp_path, mode="w") as container:
             # Try to add the same structure from multiple threads
             num_threads = 10
             hashes = [None] * num_threads
@@ -282,15 +299,20 @@ class TestContainerThreadSafety(unittest.TestCase):
                 hashes[thread_id] = hash_val
 
             with ThreadPoolExecutor(max_workers=num_threads) as executor:
-                futures = [executor.submit(add_same_structure, i) for i in range(num_threads)]
+                futures = [
+                    executor.submit(add_same_structure, i) for i in range(num_threads)
+                ]
                 for future in as_completed(futures):
                     future.result()
 
             # All hashes should be the same (same structure)
             unique_hashes = set(hashes)
-            self.assertEqual(len(unique_hashes), 1,
-                           f"Expected 1 unique hash, got {len(unique_hashes)}: {unique_hashes}")
+            self.assertEqual(
+                len(unique_hashes),
+                1,
+                f"Expected 1 unique hash, got {len(unique_hashes)}: {unique_hashes}",
+            )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

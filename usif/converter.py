@@ -76,23 +76,27 @@ logger = logging.getLogger(__name__)
 # Try to import ASE (optional dependency)
 try:
     from ase import Atoms as ASEAtoms
+
     HAS_ASE = True
 except ImportError:
     HAS_ASE = False
     ASEAtoms = None
 
+
 class StructureConverter:
     """Conversion between USIF and various structure formats (pymatgen, ASE)"""
 
     @staticmethod
-    def from_pymatgen(pmg_obj: Union[PMGStructure, PMGMolecule],
-                     forces: Optional[np.ndarray] = None,
-                     stress: Optional[np.ndarray] = None,
-                     energy: Optional[float] = None,
-                     charges: Optional[np.ndarray] = None,
-                     magmoms: Optional[np.ndarray] = None,
-                     force_symmetric: bool = False,
-                     **kwargs) -> USIFStructure:
+    def from_pymatgen(
+        pmg_obj: Union[PMGStructure, PMGMolecule],
+        forces: Optional[np.ndarray] = None,
+        stress: Optional[np.ndarray] = None,
+        energy: Optional[float] = None,
+        charges: Optional[np.ndarray] = None,
+        magmoms: Optional[np.ndarray] = None,
+        force_symmetric: bool = False,
+        **kwargs,
+    ) -> USIFStructure:
         """
         Convert pymatgen Structure or Molecule to USIF format
 
@@ -135,16 +139,25 @@ class StructureConverter:
             )
         else:
             return StructureConverter._from_crystal(
-                pmg_obj, forces, stress, energy, charges, magmoms, force_symmetric, **kwargs
+                pmg_obj,
+                forces,
+                stress,
+                energy,
+                charges,
+                magmoms,
+                force_symmetric,
+                **kwargs,
             )
 
     @staticmethod
-    def _from_molecule(pmg_molecule: PMGMolecule,
-                      forces: Optional[np.ndarray] = None,
-                      charges: Optional[np.ndarray] = None,
-                      energy: Optional[float] = None,
-                      force_symmetric: bool = False,
-                      **kwargs) -> USIFStructure:
+    def _from_molecule(
+        pmg_molecule: PMGMolecule,
+        forces: Optional[np.ndarray] = None,
+        charges: Optional[np.ndarray] = None,
+        energy: Optional[float] = None,
+        force_symmetric: bool = False,
+        **kwargs,
+    ) -> USIFStructure:
         """Convert pymatgen Molecule to USIF"""
         has_atomic_properties = forces is not None or charges is not None
 
@@ -174,13 +187,16 @@ class StructureConverter:
                             if other_idx in used:
                                 continue
 
-                            min_dist = float('inf')
+                            min_dist = float("inf")
                             for sym_op in pga.get_symmetry_operations():
                                 transformed = sym_op.operate(coords)
                                 dist = np.linalg.norm(transformed - other_coords)
                                 min_dist = min(min_dist, dist)
 
-                            if min_dist < SymmetryConstants.MOLECULAR_EQUIVALENCE_THRESHOLD:
+                            if (
+                                min_dist
+                                < SymmetryConstants.MOLECULAR_EQUIVALENCE_THRESHOLD
+                            ):
                                 equiv_count += 1
                                 used.add(other_idx)
 
@@ -189,8 +205,9 @@ class StructureConverter:
                         )
 
                 total_multiplicity = sum(s.multiplicity for s in point_group_sites)
-                if total_multiplicity == len(pmg_molecule) and \
-                   len(point_group_sites) < len(pmg_molecule):
+                if total_multiplicity == len(pmg_molecule) and len(
+                    point_group_sites
+                ) < len(pmg_molecule):
                     struct_props = StructureProperties()
                     if energy is not None:
                         struct_props.energy = energy
@@ -206,12 +223,16 @@ class StructureConverter:
                         point_group=point_group,
                         point_group_sites=point_group_sites,
                         structure_properties=struct_props,
-                        formula=formula
+                        formula=formula,
                     )
             except (ValueError, RuntimeError) as e:
-                logger.debug(f"Symmetric molecule conversion failed due to symmetry analysis error: {e}")
+                logger.debug(
+                    f"Symmetric molecule conversion failed due to symmetry analysis error: {e}"
+                )
             except ValidationError as e:
-                logger.warning(f"Symmetric molecule conversion failed due to validation error: {e}")
+                logger.warning(
+                    f"Symmetric molecule conversion failed due to validation error: {e}"
+                )
 
         atom_sites = []
         for i, site in enumerate(pmg_molecule):
@@ -239,18 +260,20 @@ class StructureConverter:
             storage_mode=StorageMode.FULL_ATOMIC,
             atom_sites=atom_sites,
             structure_properties=struct_props,
-            formula=formula
+            formula=formula,
         )
 
     @staticmethod
-    def _from_crystal(pmg_structure: PMGStructure,
-                     forces: Optional[np.ndarray] = None,
-                     stress: Optional[np.ndarray] = None,
-                     energy: Optional[float] = None,
-                     charges: Optional[np.ndarray] = None,
-                     magmoms: Optional[np.ndarray] = None,
-                     force_symmetric: bool = False,
-                     **kwargs) -> USIFStructure:
+    def _from_crystal(
+        pmg_structure: PMGStructure,
+        forces: Optional[np.ndarray] = None,
+        stress: Optional[np.ndarray] = None,
+        energy: Optional[float] = None,
+        charges: Optional[np.ndarray] = None,
+        magmoms: Optional[np.ndarray] = None,
+        force_symmetric: bool = False,
+        **kwargs,
+    ) -> USIFStructure:
         """Convert pymatgen Structure to USIF"""
         lattice_matrix = pmg_structure.lattice.matrix.copy()
 
@@ -261,7 +284,11 @@ class StructureConverter:
         if force_symmetric:
             storage_mode = StorageMode.SYMMETRIC
         else:
-            storage_mode = StorageMode.FULL_ATOMIC if has_atomic_properties else StorageMode.SYMMETRIC
+            storage_mode = (
+                StorageMode.FULL_ATOMIC
+                if has_atomic_properties
+                else StorageMode.SYMMETRIC
+            )
 
         wyckoff_sites = None
         atom_sites = None
@@ -269,7 +296,9 @@ class StructureConverter:
 
         if storage_mode == StorageMode.SYMMETRIC:
             try:
-                sga = SpacegroupAnalyzer(pmg_structure, symprec=SymmetryConstants.DEFAULT_SYMMETRY_PRECISION)
+                sga = SpacegroupAnalyzer(
+                    pmg_structure, symprec=SymmetryConstants.DEFAULT_SYMMETRY_PRECISION
+                )
                 spacegroup_number = sga.get_space_group_number()
                 symmetrized = sga.get_symmetrized_structure()
 
@@ -278,7 +307,9 @@ class StructureConverter:
                     rep = equiv_sites[0]
                     atomic_num = rep.specie.Z
                     wyckoff_sites.append(
-                        WyckoffSite(atomic_num, len(equiv_sites), tuple(rep.frac_coords))
+                        WyckoffSite(
+                            atomic_num, len(equiv_sites), tuple(rep.frac_coords)
+                        )
                     )
             except ValueError as e:
                 logger.warning(f"Symmetry analysis failed, using full atomic: {e}")
@@ -289,7 +320,9 @@ class StructureConverter:
 
         if storage_mode == StorageMode.FULL_ATOMIC:
             try:
-                sga = SpacegroupAnalyzer(pmg_structure, symprec=SymmetryConstants.DEFAULT_SYMMETRY_PRECISION)
+                sga = SpacegroupAnalyzer(
+                    pmg_structure, symprec=SymmetryConstants.DEFAULT_SYMMETRY_PRECISION
+                )
                 spacegroup_number = sga.get_space_group_number()
             except (ValueError, RuntimeError) as e:
                 logger.warning(f"Failed to determine spacegroup: {e}")
@@ -307,7 +340,9 @@ class StructureConverter:
                 if magmoms is not None and i < len(magmoms):
                     atom_props.magmom = float(magmoms[i])
 
-                atom_sites.append(AtomSite(atomic_num, tuple(site.frac_coords), atom_props))
+                atom_sites.append(
+                    AtomSite(atomic_num, tuple(site.frac_coords), atom_props)
+                )
 
         struct_props = StructureProperties()
 
@@ -317,15 +352,19 @@ class StructureConverter:
         if stress is not None:
             if stress.shape == (3, 3):
                 struct_props.stress = (
-                    stress[0, 0], stress[1, 1], stress[2, 2],
-                    stress[0, 1], stress[1, 2], stress[0, 2]
+                    stress[0, 0],
+                    stress[1, 1],
+                    stress[2, 2],
+                    stress[0, 1],
+                    stress[1, 2],
+                    stress[0, 2],
                 )
             else:
                 struct_props.stress = tuple(stress[:6])
 
         # Set volume - use provided volume if given, otherwise use pymatgen structure volume
-        if 'volume' in kwargs:
-            struct_props.volume = kwargs.pop('volume')
+        if "volume" in kwargs:
+            struct_props.volume = kwargs.pop("volume")
         else:
             struct_props.volume = pmg_structure.volume
 
@@ -344,7 +383,7 @@ class StructureConverter:
             wyckoff_sites=wyckoff_sites,
             atom_sites=atom_sites,
             structure_properties=struct_props,
-            formula=formula
+            formula=formula,
         )
 
     @staticmethod
@@ -404,12 +443,15 @@ class StructureConverter:
                     charges.append(atom.properties.charge)
 
         if forces:
-            site_properties['forces'] = forces
+            site_properties["forces"] = forces
         if charges:
-            site_properties['charges'] = charges
+            site_properties["charges"] = charges
 
-        return PMGMolecule(species, coords,
-                          site_properties=site_properties if site_properties else None)
+        return PMGMolecule(
+            species,
+            coords,
+            site_properties=site_properties if site_properties else None,
+        )
 
     @staticmethod
     def _to_crystal(usif_structure: USIFStructure) -> PMGStructure:
@@ -445,26 +487,31 @@ class StructureConverter:
                     magmoms.append(site.properties.magmom)
 
             if forces:
-                site_properties['forces'] = forces
+                site_properties["forces"] = forces
             if charges:
-                site_properties['charges'] = charges
+                site_properties["charges"] = charges
             if magmoms:
-                site_properties['magmoms'] = magmoms
+                site_properties["magmoms"] = magmoms
 
         return PMGStructure(
-            lattice, species, coords, coords_are_cartesian=False,
-            site_properties=site_properties if site_properties else None
+            lattice,
+            species,
+            coords,
+            coords_are_cartesian=False,
+            site_properties=site_properties if site_properties else None,
         )
 
     @staticmethod
-    def from_ase(ase_atoms: 'ASEAtoms',
-                 forces: Optional[np.ndarray] = None,
-                 stress: Optional[np.ndarray] = None,
-                 energy: Optional[float] = None,
-                 charges: Optional[np.ndarray] = None,
-                 magmoms: Optional[np.ndarray] = None,
-                 force_symmetric: bool = False,
-                 **kwargs) -> USIFStructure:
+    def from_ase(
+        ase_atoms: "ASEAtoms",
+        forces: Optional[np.ndarray] = None,
+        stress: Optional[np.ndarray] = None,
+        energy: Optional[float] = None,
+        charges: Optional[np.ndarray] = None,
+        magmoms: Optional[np.ndarray] = None,
+        force_symmetric: bool = False,
+        **kwargs,
+    ) -> USIFStructure:
         """
         Convert ASE Atoms object to USIF format
 
@@ -507,9 +554,7 @@ class StructureConverter:
             ... )
         """
         if not HAS_ASE:
-            raise ImportError(
-                "ASE is not installed. Install it with: pip install ase"
-            )
+            raise ImportError("ASE is not installed. Install it with: pip install ase")
 
         if not isinstance(ase_atoms, ASEAtoms):
             raise TypeError(f"Expected ASE Atoms object, got {type(ase_atoms)}")
@@ -548,15 +593,18 @@ class StructureConverter:
         # Convert ASE Atoms to pymatgen Structure/Molecule
         # Check if it's periodic (has cell)
         try:
-            has_cell = (ase_atoms.cell is not None and
-                       len(ase_atoms.cell) > 0 and
-                       np.any(np.linalg.norm(ase_atoms.cell, axis=1) > 1e-10))
+            has_cell = (
+                ase_atoms.cell is not None
+                and len(ase_atoms.cell) > 0
+                and np.any(np.linalg.norm(ase_atoms.cell, axis=1) > 1e-10)
+            )
         except (AttributeError, TypeError):
             has_cell = False
 
         if has_cell:
             # Convert to pymatgen Structure
             from pymatgen.io.ase import AseAtomsAdaptor
+
             adaptor = AseAtomsAdaptor()
             pmg_structure = adaptor.get_structure(ase_atoms)
             return StructureConverter.from_pymatgen(
@@ -567,11 +615,12 @@ class StructureConverter:
                 charges=charges,
                 magmoms=magmoms,
                 force_symmetric=force_symmetric,
-                **kwargs
+                **kwargs,
             )
         else:
             # Convert to pymatgen Molecule
             from pymatgen.io.ase import AseAtomsAdaptor
+
             adaptor = AseAtomsAdaptor()
             pmg_molecule = adaptor.get_molecule(ase_atoms)
             return StructureConverter.from_pymatgen(
@@ -580,11 +629,11 @@ class StructureConverter:
                 energy=energy,
                 charges=charges,
                 force_symmetric=force_symmetric,
-                **kwargs
+                **kwargs,
             )
 
     @staticmethod
-    def to_ase(usif_structure: USIFStructure) -> 'ASEAtoms':
+    def to_ase(usif_structure: USIFStructure) -> "ASEAtoms":
         """
         Convert USIFStructure to ASE Atoms format
 
@@ -608,14 +657,13 @@ class StructureConverter:
             >>> ase_atoms.write('structure.xyz')
         """
         if not HAS_ASE:
-            raise ImportError(
-                "ASE is not installed. Install it with: pip install ase"
-            )
+            raise ImportError("ASE is not installed. Install it with: pip install ase")
 
         # First convert to pymatgen, then to ASE
         pmg_obj = StructureConverter.to_pymatgen(usif_structure)
 
         from pymatgen.io.ase import AseAtomsAdaptor
+
         adaptor = AseAtomsAdaptor()
 
         if isinstance(pmg_obj, PMGMolecule):
@@ -627,7 +675,7 @@ class StructureConverter:
         if usif_structure.structure_properties.energy is not None:
             ase_atoms.calc = None  # Will be set by calculator if needed
             # Store energy in info dict
-            ase_atoms.info['energy'] = usif_structure.structure_properties.energy
+            ase_atoms.info["energy"] = usif_structure.structure_properties.energy
 
         # Add forces if available (from atomic properties)
         if usif_structure.storage_mode == StorageMode.FULL_ATOMIC:
@@ -639,7 +687,7 @@ class StructureConverter:
                     forces.append([0.0, 0.0, 0.0])
 
             if forces and any(any(f != 0.0 for f in force) for force in forces):
-                ase_atoms.set_array('forces', np.array(forces))
+                ase_atoms.set_array("forces", np.array(forces))
 
         # Add charges if available
         if usif_structure.storage_mode == StorageMode.FULL_ATOMIC:

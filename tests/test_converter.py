@@ -50,13 +50,12 @@ class TestStructureConverter(unittest.TestCase):
         energy = -10.5
 
         usif_structure = StructureConverter.from_pymatgen(
-            structure,
-            forces=forces,
-            energy=energy,
-            calculator="VASP"
+            structure, forces=forces, energy=energy, calculator="VASP"
         )
-        self.assertAlmostEqual(usif_structure.structure_properties.energy, energy, places=5)
-        self.assertIn('calculator', usif_structure.structure_properties.custom)
+        self.assertAlmostEqual(
+            usif_structure.structure_properties.energy, energy, places=5
+        )
+        self.assertIn("calculator", usif_structure.structure_properties.custom)
 
     def test_to_pymatgen_structure(self):
         """Test converting to pymatgen Structure"""
@@ -73,7 +72,7 @@ class TestStructureConverter(unittest.TestCase):
             lattice_matrix=lattice_matrix,
             spacegroup=227,
             wyckoff_sites=wyckoff_sites,
-            formula="Si"
+            formula="Si",
         )
 
         pmg_structure = StructureConverter.to_pymatgen(usif_structure)
@@ -87,14 +86,14 @@ class TestStructureConverter(unittest.TestCase):
         atom_sites = [
             AtomSite(8, (0.0, 0.0, 0.0)),
             AtomSite(1, (0.76, 0.59, 0.0)),
-            AtomSite(1, (-0.76, 0.59, 0.0))
+            AtomSite(1, (-0.76, 0.59, 0.0)),
         ]
 
         usif_structure = USIFStructure(
             structure_type=StructureType.MOLECULE,
             storage_mode=StorageMode.FULL_ATOMIC,
             atom_sites=atom_sites,
-            formula="H2O"
+            formula="H2O",
         )
 
         pmg_molecule = StructureConverter.to_pymatgen(usif_structure)
@@ -142,7 +141,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
             lattice_matrix=self.lattice_matrix,
             spacegroup=227,
             wyckoff_sites=self.wyckoff_sites,
-            formula="Si"
+            formula="Si",
         )
 
     def test_to_usif_format(self):
@@ -150,7 +149,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
         import os
         import tempfile
 
-        with tempfile.NamedTemporaryFile(suffix='.usif', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".usif", delete=False) as tmp:
             tmp_path = tmp.name
 
         try:
@@ -159,7 +158,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
             self.assertTrue(os.path.exists(tmp_path))
 
             # Test with explicit format
-            with tempfile.NamedTemporaryFile(suffix='.usif', delete=False) as tmp2:
+            with tempfile.NamedTemporaryFile(suffix=".usif", delete=False) as tmp2:
                 tmp_path2 = tmp2.name
             self.usif_structure.to(tmp_path2, "usif")
             self.assertTrue(os.path.exists(tmp_path2))
@@ -184,6 +183,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
         pmg_structure = self.usif_structure.to(fmt="pymatgen")
 
         from pymatgen.core import Structure
+
         self.assertIsInstance(pmg_structure, Structure)
         self.assertEqual(len(pmg_structure), 2)  # 2 Si atoms
         self.assertAlmostEqual(pmg_structure.volume, 125.0, places=1)
@@ -194,7 +194,8 @@ class TestUSIFStructureToMethod(unittest.TestCase):
 
         # Test that providing filename with pymatgen raises error
         import tempfile
-        with tempfile.NamedTemporaryFile(suffix='.tmp', delete=False) as tmp:
+
+        with tempfile.NamedTemporaryFile(suffix=".tmp", delete=False) as tmp:
             tmp_path = tmp.name
         try:
             with self.assertRaises(ValueError) as context:
@@ -202,6 +203,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
             self.assertIn("filename should not be provided", str(context.exception))
         finally:
             import os
+
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
@@ -211,6 +213,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
             ase_atoms = self.usif_structure.to(fmt="ase")
 
             from ase import Atoms
+
             self.assertIsInstance(ase_atoms, Atoms)
             self.assertEqual(len(ase_atoms), 2)  # 2 Si atoms
 
@@ -219,7 +222,8 @@ class TestUSIFStructureToMethod(unittest.TestCase):
 
             # Test that providing filename with ase raises error
             import tempfile
-            with tempfile.NamedTemporaryFile(suffix='.tmp', delete=False) as tmp:
+
+            with tempfile.NamedTemporaryFile(suffix=".tmp", delete=False) as tmp:
                 tmp_path = tmp.name
             try:
                 with self.assertRaises(ValueError) as context:
@@ -227,6 +231,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
                 self.assertIn("filename should not be provided", str(context.exception))
             finally:
                 import os
+
                 if os.path.exists(tmp_path):
                     os.unlink(tmp_path)
         except ImportError:
@@ -237,7 +242,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
         import os
         import tempfile
 
-        with tempfile.NamedTemporaryFile(suffix='.cif', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".cif", delete=False) as tmp:
             tmp_path = tmp.name
 
         try:
@@ -246,14 +251,14 @@ class TestUSIFStructureToMethod(unittest.TestCase):
             self.assertTrue(os.path.exists(tmp_path))
 
             # Test explicit format
-            with tempfile.NamedTemporaryFile(suffix='.cif', delete=False) as tmp2:
+            with tempfile.NamedTemporaryFile(suffix=".cif", delete=False) as tmp2:
                 tmp_path2 = tmp2.name
             self.usif_structure.to(tmp_path2, "cif")
             self.assertTrue(os.path.exists(tmp_path2))
             os.unlink(tmp_path2)
 
             # Verify it's a valid CIF file
-            with open(tmp_path, 'r') as f:
+            with open(tmp_path, "r") as f:
                 content = f.read()
                 self.assertIn("data_", content.lower())
                 self.assertIn("Si", content)
@@ -266,7 +271,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
         import os
         import tempfile
 
-        with tempfile.NamedTemporaryFile(suffix='.poscar', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".poscar", delete=False) as tmp:
             tmp_path = tmp.name
 
         try:
@@ -275,7 +280,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
             self.assertTrue(os.path.exists(tmp_path))
 
             # Verify it's a valid POSCAR file
-            with open(tmp_path, 'r') as f:
+            with open(tmp_path, "r") as f:
                 content = f.read()
                 self.assertIn("Si", content)
         finally:
@@ -287,7 +292,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
         import os
         import tempfile
 
-        with tempfile.NamedTemporaryFile(suffix='.xyz', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".xyz", delete=False) as tmp:
             tmp_path = tmp.name
 
         try:
@@ -296,7 +301,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
             self.assertTrue(os.path.exists(tmp_path))
 
             # Verify it's a valid XYZ file
-            with open(tmp_path, 'r') as f:
+            with open(tmp_path, "r") as f:
                 lines = f.readlines()
                 self.assertGreaterEqual(len(lines), 2)
                 # First line should be number of atoms
@@ -352,19 +357,20 @@ class TestUSIFStructureToMethod(unittest.TestCase):
         atom_sites = [
             AtomSite(8, (0.0, 0.0, 0.0)),
             AtomSite(1, (0.76, 0.59, 0.0)),
-            AtomSite(1, (-0.76, 0.59, 0.0))
+            AtomSite(1, (-0.76, 0.59, 0.0)),
         ]
 
         usif_molecule = USIFStructure(
             structure_type=StructureType.MOLECULE,
             storage_mode=StorageMode.FULL_ATOMIC,
             atom_sites=atom_sites,
-            formula="H2O"
+            formula="H2O",
         )
 
         # Test to pymatgen
         pmg_molecule = usif_molecule.to(fmt="pymatgen")
         from pymatgen.core import Molecule
+
         self.assertIsInstance(pmg_molecule, Molecule)
         self.assertEqual(len(pmg_molecule), 3)
 
@@ -372,6 +378,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
         try:
             ase_atoms = usif_molecule.to(fmt="ase")
             from ase import Atoms
+
             self.assertIsInstance(ase_atoms, Atoms)
             self.assertEqual(len(ase_atoms), 3)
         except ImportError:
@@ -381,7 +388,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
         import os
         import tempfile
 
-        with tempfile.NamedTemporaryFile(suffix='.xyz', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".xyz", delete=False) as tmp:
             tmp_path = tmp.name
 
         try:
@@ -392,5 +399,5 @@ class TestUSIFStructureToMethod(unittest.TestCase):
                 os.unlink(tmp_path)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

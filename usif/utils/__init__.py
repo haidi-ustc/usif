@@ -55,13 +55,13 @@ from .mp_downloader import (
 from .optimizer import USIFOptimizer
 
 __all__ = [
-    'USIFOptimizer',
-    'optimize_structure',
-    'USIFBenchmark',
-    'benchmark_compression',
-    'download_mp_data',
-    'load_mp_group',
-    'convert_mp_to_usif',
-    'create_mp_data_archive',
-    'load_mp_data_from_archive',
+    "USIFOptimizer",
+    "optimize_structure",
+    "USIFBenchmark",
+    "benchmark_compression",
+    "download_mp_data",
+    "load_mp_group",
+    "convert_mp_to_usif",
+    "create_mp_data_archive",
+    "load_mp_data_from_archive",
 ]

@@ -50,6 +50,7 @@ from usif.structures.structure import USIFStructure
 
 logger = logging.getLogger(__name__)
 
+
 class USIFBenchmark:
     """Benchmarking utilities for USIF performance"""
 
@@ -105,17 +106,24 @@ class USIFBenchmark:
                 logger.error(f"Benchmark error for structure: {e}")
                 continue
 
-        avg_compression_ratio = total_compressed_size / total_original_size \
-                               if total_original_size > 0 else 0
+        avg_compression_ratio = (
+            total_compressed_size / total_original_size
+            if total_original_size > 0
+            else 0
+        )
         avg_compression_time = np.mean(compression_times) if compression_times else 0
-        avg_decompression_time = np.mean(decompression_times) if decompression_times else 0
+        avg_decompression_time = (
+            np.mean(decompression_times) if decompression_times else 0
+        )
 
         return {
-            'num_structures': len(structures),
-            'total_original_size': total_original_size,
-            'total_compressed_size': total_compressed_size,
-            'average_compression_ratio': avg_compression_ratio,
-            'average_compression_time': avg_compression_time,
-            'average_decompression_time': avg_decompression_time,
-            'compression_speedup': 1.0 / avg_compression_ratio if avg_compression_ratio > 0 else 0
+            "num_structures": len(structures),
+            "total_original_size": total_original_size,
+            "total_compressed_size": total_compressed_size,
+            "average_compression_ratio": avg_compression_ratio,
+            "average_compression_time": avg_compression_time,
+            "average_decompression_time": avg_decompression_time,
+            "compression_speedup": (
+                1.0 / avg_compression_ratio if avg_compression_ratio > 0 else 0
+            ),
         }

@@ -53,7 +53,8 @@ See Also:
 from dataclasses import dataclass
 from typing import Any, Generic, List, Optional, Tuple, TypeVar
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 @dataclass
 class PropertyDefinition(Generic[T]):
@@ -76,7 +77,9 @@ class PropertyDefinition(Generic[T]):
     def is_scalar(self) -> bool:
         return len(self.dimensions) == 0
 
-    def validate_value(self, value: Any, num_atoms: Optional[int] = None) -> Tuple[bool, str]:
+    def validate_value(
+        self, value: Any, num_atoms: Optional[int] = None
+    ) -> Tuple[bool, str]:
         """Enhanced validation with range and value checks"""
 
         # Basic validation
@@ -93,11 +96,16 @@ class PropertyDefinition(Generic[T]):
         # Allowed values validation
         if self.allowed_values is not None:
             if value not in self.allowed_values:
-                return False, f"Value {value} not in allowed values {self.allowed_values}"
+                return (
+                    False,
+                    f"Value {value} not in allowed values {self.allowed_values}",
+                )
 
         return True, "Validation passed"
 
-    def _basic_validation(self, value: Any, num_atoms: Optional[int] = None) -> Tuple[bool, str]:
+    def _basic_validation(
+        self, value: Any, num_atoms: Optional[int] = None
+    ) -> Tuple[bool, str]:
         """Perform basic type and shape validation"""
         if value is None:
             if self.required:
@@ -125,7 +133,7 @@ class PropertyDefinition(Generic[T]):
                 return f"Value {value} above maximum {self.max_value}"
 
         # For arrays, validate each element
-        elif hasattr(value, '__iter__') and not isinstance(value, str):
+        elif hasattr(value, "__iter__") and not isinstance(value, str):
             for i, elem in enumerate(value):
                 elem_error = self._validate_range(elem)
                 if elem_error:
@@ -133,16 +141,18 @@ class PropertyDefinition(Generic[T]):
 
         return None
 
-    def _validate_shape(self, value: Any, expected_shape: Tuple[int, ...]) -> Optional[str]:
+    def _validate_shape(
+        self, value: Any, expected_shape: Tuple[int, ...]
+    ) -> Optional[str]:
         """Validate array shape"""
-        if hasattr(value, 'shape'):  # numpy array
+        if hasattr(value, "shape"):  # numpy array
             if value.shape != expected_shape:
                 return f"Expected shape {expected_shape}, got {value.shape}"
-        elif hasattr(value, '__len__'):
+        elif hasattr(value, "__len__"):
             if len(value) != expected_shape[0]:
                 return f"Expected length {expected_shape[0]}, got {len(value)}"
             # Recursively check nested dimensions
-            if len(expected_shape) > 1 and hasattr(value[0], '__len__'):
+            if len(expected_shape) > 1 and hasattr(value[0], "__len__"):
                 for i, elem in enumerate(value):
                     elem_error = self._validate_shape(elem, expected_shape[1:])
                     if elem_error:

@@ -56,9 +56,9 @@ from .serializer import PropertySerializer
 from .structure import StructureProperties
 
 __all__ = [
-    'PropertyDefinition',
-    'PropertySerializer',
-    'PropertyRegistry',
-    'AtomicProperties',
-    'StructureProperties',
+    "PropertyDefinition",
+    "PropertySerializer",
+    "PropertyRegistry",
+    "AtomicProperties",
+    "StructureProperties",
 ]
