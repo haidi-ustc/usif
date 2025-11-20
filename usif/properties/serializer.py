@@ -291,9 +291,9 @@ class PropertySerializer:
                 raise EncodingError(f"Expected string, got {type(value).__name__}")
             return PropertySerializer._serialize_string(value)
 
-        # For scalar values, prefer element_format (space-efficient) when available,
-        # fallback to single_value_format (higher precision)
-        fmt = handler.get("element_format") or handler.get("single_value_format")
+        # For scalar values, prefer single_value_format (higher precision) for better accuracy,
+        # fallback to element_format (space-efficient) if single_value_format not available
+        fmt = handler.get("single_value_format") or handler.get("element_format")
         if fmt:
             try:
                 return struct.pack(fmt, value)
@@ -514,9 +514,9 @@ class PropertySerializer:
         if prop_def.data_type == str:
             return PropertySerializer._deserialize_string(data, offset)
 
-        # For scalar values, prefer element_format (space-efficient) when available,
-        # fallback to single_value_format (higher precision)
-        fmt = handler.get("element_format") or handler.get("single_value_format")
+        # For scalar values, prefer single_value_format (higher precision) for better accuracy,
+        # fallback to element_format (space-efficient) if single_value_format not available
+        fmt = handler.get("single_value_format") or handler.get("element_format")
         if fmt:
             size = struct.calcsize(fmt)
             if offset + size > len(data):

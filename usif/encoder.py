@@ -179,10 +179,8 @@ class USIF:
         data = bytearray()
 
         all_props = props.get_all_properties()
-        built_in_props = list(PropertyRegistry._properties.keys())
-        atomic_props = [
-            p for p in built_in_props if PropertyRegistry.is_atomic_property(p)
-        ]
+        # Use public API to get atomic properties (ensures initialization internally)
+        atomic_props = PropertyRegistry.list_properties(atomic_only=True)
 
         present_props = [p for p in atomic_props if p in all_props]
         data.extend(struct.pack(BinaryFormat.UINT8, len(present_props)))
@@ -203,6 +201,8 @@ class USIF:
             data.extend(struct.pack(BinaryFormat.UINT32, len(prop_data)))
             data.extend(prop_data)
 
+        # Filter out built-in properties to get custom ones
+        built_in_props = set(PropertyRegistry.list_properties())
         custom_props = {k: v for k, v in all_props.items() if k not in built_in_props}
         data.extend(struct.pack(BinaryFormat.UINT8, len(custom_props)))
 
@@ -287,10 +287,8 @@ class USIF:
         data = bytearray()
 
         all_props = props.get_all_properties()
-        built_in_props = list(PropertyRegistry._properties.keys())
-        struct_props = [
-            p for p in built_in_props if PropertyRegistry.is_structure_property(p)
-        ]
+        # Use public API to get structure properties (ensures initialization internally)
+        struct_props = PropertyRegistry.list_properties(structure_only=True)
 
         present_props = [p for p in struct_props if p in all_props]
         data.extend(struct.pack(BinaryFormat.UINT8, len(present_props)))
@@ -309,6 +307,8 @@ class USIF:
             data.extend(struct.pack(BinaryFormat.UINT32, len(prop_data)))
             data.extend(prop_data)
 
+        # Filter out built-in properties to get custom ones
+        built_in_props = set(PropertyRegistry.list_properties())
         custom_props = {k: v for k, v in all_props.items() if k not in built_in_props}
         data.extend(struct.pack(BinaryFormat.UINT8, len(custom_props)))
 
