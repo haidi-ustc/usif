@@ -13,7 +13,7 @@ Features:
     - Unified handling for scalar and multi-dimensional properties
     - Efficient encoding for atomic properties (count encoding)
     - Support for float, int, bool, str, tuple types
-    - Space-efficient formats (FLOAT32 for arrays, FLOAT64 for scalars)
+    - Consistent formats (FLOAT64 for floats, INT64 for ints) for both scalars and arrays
     - String encoding with variable-length support
     - Validation of property values
 
@@ -61,40 +61,29 @@ class PropertySerializer:
 
     # Type handlers for serialization
     # Both atomic and structure-level properties can be scalar (no dimensions) or multi-dimensional (with dimensions)
-    # - single_value_format: Format for serializing a single scalar value (higher precision, e.g., FLOAT64)
-    # - element_format: Format for serializing each element in a multi-dimensional value (space-efficient, e.g., FLOAT32)
-    # - single_value_size: Size in bytes for a single scalar value
-    # - element_size: Size in bytes for each element in a multi-dimensional value
+    # - format: Format for serializing values (consistent for both scalars and array elements)
+    # - size: Size in bytes for a single value
+    # Note: Using consistent format (FLOAT64/INT64) for both scalars and arrays for consistency and precision
     TYPE_HANDLERS = {
         float: {
-            "single_value_format": BinaryFormat.FLOAT64,  # Higher precision for single values
-            "element_format": BinaryFormat.FLOAT32,  # Space-efficient for array elements
-            "single_value_size": 8,
-            "element_size": 4,
+            "format": BinaryFormat.FLOAT64,  # Consistent format for scalars and array elements
+            "size": 8,
         },
         int: {
-            "single_value_format": BinaryFormat.INT64,  # Higher precision for single values
-            "element_format": BinaryFormat.INT32,  # Space-efficient for array elements
-            "single_value_size": 8,
-            "element_size": 4,
+            "format": BinaryFormat.INT64,  # Consistent format for scalars and array elements
+            "size": 8,
         },
         bool: {
-            "single_value_format": BinaryFormat.BOOL,
-            "element_format": BinaryFormat.BOOL,
-            "single_value_size": 1,
-            "element_size": 1,
+            "format": BinaryFormat.BOOL,
+            "size": 1,
         },
         str: {
-            "single_value_format": None,  # Strings use custom encoding
-            "element_format": None,  # Strings use custom encoding
-            "single_value_size": lambda x: PropertySerializer._get_string_size(x),
-            "element_size": lambda x: PropertySerializer._get_string_size(x),
+            "format": None,  # Strings use custom encoding
+            "size": lambda x: PropertySerializer._get_string_size(x),
         },
         tuple: {
-            "single_value_format": None,  # Tuples are always multi-dimensional
-            "element_format": BinaryFormat.FLOAT32,  # Format for each element in tuple
-            "single_value_size": lambda dim: dim * 4,
-            "element_size": lambda dim: dim * 4,
+            "format": BinaryFormat.FLOAT64,  # Consistent format for tuple elements
+            "size": lambda dim: dim * 8,  # FLOAT64 is 8 bytes per element
         },
     }
 
@@ -266,18 +255,21 @@ class PropertySerializer:
                 "All elements must be numeric (int or float), got mixed types"
             )
 
-        # Serialize based on data type
-        if prop_def.data_type in (float, tuple):
-            return struct.pack(BinaryFormat.array(BinaryFormat.FLOAT32, dim), *value)
-        elif prop_def.data_type == int:
-            return struct.pack(BinaryFormat.array(BinaryFormat.INT32, dim), *value)
-        elif prop_def.data_type == bool:
+        # Serialize based on data type using consistent format from TYPE_HANDLERS
+        handler = PropertySerializer.TYPE_HANDLERS.get(prop_def.data_type)
+        if not handler:
+            raise EncodingError(f"Unsupported multi-dimensional type: {prop_def.data_type}")
+        
+        fmt = handler.get("format")
+        if fmt is None:
+            raise EncodingError(f"Format not defined for {prop_def.data_type}")
+        
+        if prop_def.data_type == bool:
             bool_bytes = [1 if x else 0 for x in value]
             return struct.pack(BinaryFormat.array(BinaryFormat.UINT8, dim), *bool_bytes)
         else:
-            raise EncodingError(
-                f"Unsupported multi-dimensional type: {prop_def.data_type}"
-            )
+            # For floats, ints, and tuples, use the format from handler
+            return struct.pack(BinaryFormat.array(fmt, dim), *value)
 
     @staticmethod
     def _serialize_scalar_value(value: Any, prop_def: PropertyDefinition) -> bytes:
@@ -291,9 +283,8 @@ class PropertySerializer:
                 raise EncodingError(f"Expected string, got {type(value).__name__}")
             return PropertySerializer._serialize_string(value)
 
-        # For scalar values, prefer single_value_format (higher precision) for better accuracy,
-        # fallback to element_format (space-efficient) if single_value_format not available
-        fmt = handler.get("single_value_format") or handler.get("element_format")
+        # Use consistent format for scalar values
+        fmt = handler.get("format")
         if fmt:
             try:
                 return struct.pack(fmt, value)
@@ -451,30 +442,30 @@ class PropertySerializer:
         """Deserialize multi-dimensional array element"""
         dim = prop_def.dimensions[0]
 
-        # Calculate required size and check bounds
-        if prop_def.data_type in (float, tuple):
-            size = dim * 4
-            if offset + size > len(data):
-                raise DecodingError(
-                    f"Insufficient data for multi-dimensional value: need {size} bytes at offset {offset}"
-                )
-            values = struct.unpack(
-                BinaryFormat.array(BinaryFormat.FLOAT32, dim),
-                data[offset : offset + size],
+        # Calculate required size and check bounds using consistent format from TYPE_HANDLERS
+        handler = PropertySerializer.TYPE_HANDLERS.get(prop_def.data_type)
+        if not handler:
+            raise DecodingError(f"Unsupported multi-dimensional type: {prop_def.data_type}")
+        
+        fmt = handler.get("format")
+        if fmt is None:
+            raise DecodingError(f"Format not defined for {prop_def.data_type}")
+        
+        # Calculate size based on format
+        element_size = handler.get("size")
+        if callable(element_size):
+            # For tuples, size is a function of dimensions
+            size = element_size(dim)
+        else:
+            size = element_size * dim
+        
+        if offset + size > len(data):
+            raise DecodingError(
+                f"Insufficient data for multi-dimensional value: need {size} bytes at offset {offset}"
             )
-            return tuple(values), offset + size
-        elif prop_def.data_type == int:
-            size = dim * 4
-            if offset + size > len(data):
-                raise DecodingError(
-                    f"Insufficient data for multi-dimensional value: need {size} bytes at offset {offset}"
-                )
-            values = struct.unpack(
-                BinaryFormat.array(BinaryFormat.INT32, dim),
-                data[offset : offset + size],
-            )
-            return tuple(values), offset + size
-        elif prop_def.data_type == bool:
+        
+        if prop_def.data_type == bool:
+            # Bool arrays use UINT8
             if offset + dim > len(data):
                 raise DecodingError(
                     f"Insufficient data for multi-dimensional value: need {dim} bytes at offset {offset}"
@@ -484,9 +475,12 @@ class PropertySerializer:
             )
             return tuple(bool(x) for x in bool_values), offset + dim
         else:
-            raise DecodingError(
-                f"Unsupported multi-dimensional type: {prop_def.data_type}"
+            # For floats, ints, and tuples, use the format from handler
+            values = struct.unpack(
+                BinaryFormat.array(fmt, dim),
+                data[offset : offset + size],
             )
+            return tuple(values), offset + size
 
     @staticmethod
     def _deserialize_element(
@@ -514,9 +508,8 @@ class PropertySerializer:
         if prop_def.data_type == str:
             return PropertySerializer._deserialize_string(data, offset)
 
-        # For scalar values, prefer single_value_format (higher precision) for better accuracy,
-        # fallback to element_format (space-efficient) if single_value_format not available
-        fmt = handler.get("single_value_format") or handler.get("element_format")
+        # Use consistent format for scalar values
+        fmt = handler.get("format")
         if fmt:
             size = struct.calcsize(fmt)
             if offset + size > len(data):
@@ -742,8 +735,14 @@ class PropertySerializer:
             if prop_def.data_type == str:
                 if not isinstance(value, str):
                     return 0
-                return handler["single_value_size"](value)
-            return handler["single_value_size"]
+                size_func = handler.get("size")
+                if callable(size_func):
+                    return size_func(value)
+                return size_func
+            size = handler.get("size")
+            if callable(size):
+                return size(value) if value is not None else 0
+            return size
         else:
             if prop_def.is_per_atom:  # Atomic property
                 # Check if this is a single multi-dimensional element
@@ -766,42 +765,49 @@ class PropertySerializer:
                 # Calculate element size
                 if prop_def.dimensions:
                     dim = prop_def.dimensions[0]
-                    if prop_def.data_type in (float, tuple):
-                        element_size = dim * 4
-                    elif prop_def.data_type == int:
-                        element_size = dim * 4
-                    elif prop_def.data_type == bool:
-                        element_size = dim
+                    element_size_val = handler.get("size")
+                    if callable(element_size_val):
+                        element_size = element_size_val(dim)
                     else:
-                        element_size = 0
+                        element_size = element_size_val * dim
                 else:
                     if prop_def.data_type == str:
                         # Estimate average string size
                         if hasattr(value, "__getitem__") and value:
                             try:
-                                element_size = handler["element_size"](value[0])
+                                size_func = handler.get("size")
+                                if callable(size_func):
+                                    element_size = size_func(value[0])
+                                else:
+                                    element_size = size_func
                             except (IndexError, TypeError, ValueError):
                                 element_size = 50  # Default estimate
                         else:
                             element_size = 50  # Default estimate
                     else:
-                        element_size = handler["element_size"]
+                        element_size = handler.get("size")
+                        if callable(element_size):
+                            element_size = element_size(value) if value is not None else 0
 
                 return count_size + (actual_count * element_size)
             else:
                 if prop_def.dimensions:
                     dim = prop_def.dimensions[0]
-                    if prop_def.data_type in (float, tuple):
-                        return dim * 4
-                    elif prop_def.data_type == int:
-                        return dim * 4
-                    elif prop_def.data_type == bool:
-                        return dim
+                    size_val = handler.get("size")
+                    if callable(size_val):
+                        return size_val(dim)
+                    return size_val * dim
                 else:
                     if prop_def.data_type == str:
                         if not isinstance(value, str):
                             return 0
-                        return handler["element_size"](value)
-                    return handler["element_size"]
+                        size_func = handler.get("size")
+                        if callable(size_func):
+                            return size_func(value)
+                        return size_func
+                    size = handler.get("size")
+                    if callable(size):
+                        return size(value) if value is not None else 0
+                    return size
 
         return 0
