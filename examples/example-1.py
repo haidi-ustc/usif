@@ -84,21 +84,21 @@ def test_examples():
 
     encoded_nacl = encoder.encode(nacl_crystal)
     decoded_nacl, _ = encoder.decode(encoded_nacl)
-    
+
     print(f"  Formula: {nacl_crystal.formula}")
     print(f"  Atoms: {nacl_crystal.num_atoms()}")
     print(f"  Energy: {nacl_crystal.structure_properties.energy} eV")
-    
+
     original_forces = [atom.properties.force for atom in nacl_crystal.atom_sites]
     decoded_forces = [atom.properties.force for atom in decoded_nacl.atom_sites]
     print(f"  Original forces type: {[type(f) for f in original_forces]}")
     print(f"  Decoded forces type: {[type(f) for f in decoded_forces]}")
     print(f"  Original forces: {original_forces}")
     print(f"  Decoded forces: {decoded_forces}")
-    
+
     print(f"  Has forces: {all(atom.properties.force is not None for atom in nacl_crystal.atom_sites)}")
     print(f"  Size: {len(encoded_nacl)} bytes")
-    
+
     basic_match = (nacl_crystal.formula == decoded_nacl.formula and
                   nacl_crystal.num_atoms() == decoded_nacl.num_atoms() and
                   abs(nacl_crystal.structure_properties.energy - decoded_nacl.structure_properties.energy) < 1e-6)
@@ -123,13 +123,13 @@ def test_examples():
 
     encoded_water = encoder.encode(water_molecule)
     decoded_water, _ = encoder.decode(encoded_water)
-    
+
     print(f"  Formula: {water_molecule.formula}")
     print(f"  Point group: {water_molecule.point_group}")
     print(f"  Atoms: {water_molecule.num_atoms()}")
     print(f"  Symmetric sites: {len(water_molecule.point_group_sites)}")
     print(f"  Size: {len(encoded_water)} bytes")
-    
+
     # 简化比较
     water_match = (water_molecule.formula == decoded_water.formula and
                    water_molecule.num_atoms() == decoded_water.num_atoms() and
@@ -166,11 +166,11 @@ def test_examples():
 
     encoded_benzene = encoder.encode(benzene)
     decoded_benzene, _ = encoder.decode(encoded_benzene)
-    
+
     print(f"  Formula: {benzene.formula}")
     print(f"  Atoms: {benzene.num_atoms()}")
     print(f"  Size: {len(encoded_benzene)} bytes")
-    
+
     benzene_match = (benzene.formula == decoded_benzene.formula and
                      benzene.num_atoms() == decoded_benzene.num_atoms() and
                      abs(benzene.structure_properties.energy - decoded_benzene.structure_properties.energy) < 1e-6)
@@ -232,10 +232,10 @@ def test_examples():
 
     # Test 7: Performance Benchmark
     print("\n7. Testing Performance Benchmark")
-    
-    structures = [silicon_crystal, water_molecule, benzene] 
+
+    structures = [silicon_crystal, water_molecule, benzene]
     benchmark_results = USIFBenchmark.benchmark_compression(structures)
-    
+
     print(f"  Number of structures: {benchmark_results['num_structures']}")
     print(f"  Average compression ratio: {benchmark_results['average_compression_ratio']:.3f}")
     print(f"  Compression speedup: {benchmark_results['compression_speedup']:.1f}x")
@@ -254,9 +254,9 @@ def test_edge_cases():
     """Test edge cases and error conditions"""
     print("\nTesting Edge Cases")
     print("=" * 50)
-    
+
     encoder = USIF()
-    
+
     # Test 1: Empty structure - should fail validation
     print("\n1. Testing Error Conditions")
     try:
@@ -271,7 +271,7 @@ def test_edge_cases():
         print("  Empty structure created (should fail validation)")
     except Exception as e:
         print(f"  Empty structure correctly rejected: {e}")
-    
+
     # Test 2: Invalid molecular structure with lattice
     try:
         invalid_mol = USIFStructure(
@@ -285,7 +285,7 @@ def test_edge_cases():
         print("  Invalid molecular structure created (should fail)")
     except Exception as e:
         print(f"  Invalid structure correctly rejected: {e}")
-    
+
     # Test 3: Large structure
     print("\n2. Testing Large Structure")
     large_wyckoff = [WyckoffSite(1, 1000, (0,0,0))]  # 1000 hydrogen atoms
@@ -297,7 +297,7 @@ def test_edge_cases():
         wyckoff_sites=large_wyckoff,
         formula="H1000"
     )
-    
+
     encoded_large = encoder.encode(large_structure)
     decoded_large, _ = encoder.decode(encoded_large)
     print(f"  Large structure: {large_structure.num_atoms()} atoms")
@@ -305,7 +305,7 @@ def test_edge_cases():
     print(f"  Multiplicity preserved: {large_structure.wyckoff_sites[0].multiplicity == decoded_large.wyckoff_sites[0].multiplicity}")
     print(f"  Encoded size: {len(encoded_large)} bytes")
     print(f"  Bytes per atom: {len(encoded_large)/large_structure.num_atoms():.3f}")
-    
+
     # Test 4: Simple structure without complex properties
     print("\n3. Testing Simple Structure with Basic Properties")
     simple_atoms = [
@@ -314,7 +314,7 @@ def test_edge_cases():
             magmom=2.2
         ))
     ]
-    
+
     simple_structure = USIFStructure(
         structure_type=StructureType.CRYSTAL,
         storage_mode=StorageMode.FULL_ATOMIC,
@@ -328,16 +328,16 @@ def test_edge_cases():
         ),
         formula="Fe"
     )
-    
+
     encoded_simple = encoder.encode(simple_structure)
     decoded_simple, _ = encoder.decode(encoded_simple)
-    
+
     print(f"  Simple structure: {simple_structure.formula}")
     print(f"  Has energy: {decoded_simple.structure_properties.energy is not None}")
     print(f"  Has charge: {decoded_simple.atom_sites[0].properties.charge is not None}")
     print(f"  Has magmom: {decoded_simple.atom_sites[0].properties.magmom is not None}")
     print(f"  Encoded size: {len(encoded_simple)} bytes")
-    
+
     # Test 5: Very large multiplicity (edge case)
     print("\n4. Testing Very Large Multiplicity")
     huge_wyckoff = [WyckoffSite(1, 65535, (0,0,0))]  # Maximum for 2 bytes
@@ -349,13 +349,13 @@ def test_edge_cases():
         wyckoff_sites=huge_wyckoff,
         formula="H65535"
     )
-    
+
     encoded_huge = encoder.encode(huge_structure)
     decoded_huge, _ = encoder.decode(encoded_huge)
     print(f"  Huge structure: {huge_structure.num_atoms()} atoms")
     print(f"  Multiplicity: {huge_structure.wyckoff_sites[0].multiplicity}")
     print(f"  Round-trip successful: {huge_structure.wyckoff_sites[0].multiplicity == decoded_huge.wyckoff_sites[0].multiplicity}")
-    
+
     print("\nEdge case tests completed!")
 
 
@@ -363,10 +363,10 @@ def test_property_system():
     """Test the modular property system"""
     print("\nTesting Property System")
     print("=" * 50)
-    
+
     # Test 1: Custom property registration
     print("\n1. Testing Custom Property Registration")
-    
+
     custom_prop = PropertyDefinition(
         name="band_gap",
         data_type=float,
@@ -375,34 +375,34 @@ def test_property_system():
         units="eV"
     )
     PropertyRegistry.register(custom_prop)
-    
+
     # Test if property is registered
     retrieved_prop = PropertyRegistry.get("band_gap")
     print(f"  Custom property registered: {retrieved_prop is not None}")
     print(f"  Property name: {retrieved_prop.name if retrieved_prop else 'None'}")
     print(f"  Property units: {retrieved_prop.units if retrieved_prop else 'None'}")
-    
+
     # Test 2: Property validation
     print("\n2. Testing Property Validation")
-    
+
     is_valid = PropertySerializer.validate_value(1.5, custom_prop)
     print(f"  Valid float value: {is_valid}")
-    
+
     is_valid = PropertySerializer.validate_value("invalid", custom_prop)
     print(f"  Invalid string value: {not is_valid}")
-    
+
     # Test 3: Property serialization
     print("\n3. Testing Property Serialization")
-    
+
     serialized = PropertySerializer.serialize_value(2.1, custom_prop)
     print(f"  Serialized size: {len(serialized)} bytes")
-    
+
     deserialized, offset = PropertySerializer.deserialize_value(custom_prop, serialized, 0)
     print(f"  Deserialized value: {deserialized}")
     print(f"  Round-trip successful: {abs(deserialized - 2.1) < 1e-6}")
-    
+
     print("\n4. Testing Custom Property in Structure")
-    
+
     band_gap_prop = PropertyDefinition(
         name="band_gap",
         data_type=float,
@@ -411,7 +411,7 @@ def test_property_system():
         units="eV"
     )
     PropertyRegistry.register(band_gap_prop)
-    
+
     structure_with_custom = USIFStructure(
         structure_type=StructureType.CRYSTAL,
         storage_mode=StorageMode.SYMMETRIC,
@@ -424,20 +424,20 @@ def test_property_system():
         ),
         formula="Si"
     )
-    
+
     encoder = USIF()
     encoded = encoder.encode(structure_with_custom)
     decoded, _ = encoder.decode(encoded)
-    
+
     custom_value = decoded.structure_properties.custom.get("band_gap")
     print(f"  Custom property in structure: {custom_value}")
-    
+
     if custom_value is not None:
         print(f"  Property preserved: {abs(custom_value - 1.12) < 1e-6}")
     else:
         print(f"  Property preserved: False (custom value is None)")
         print(f"  All custom properties: {decoded.structure_properties.custom}")
-    
+
     print("\nProperty system tests completed!")
 
 # Run the tests

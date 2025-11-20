@@ -16,7 +16,7 @@ Exception Hierarchy:
 
 Usage:
     >>> from usif import USIFError, EncodingError, DecodingError
-    >>> 
+    >>>
     >>> try:
     ...     structure.save('file.usif')
     ... except EncodingError as e:
@@ -64,4 +64,3 @@ class SymmetryAnalysisError(USIFError):
 class StorageError(USIFError):
     """Storage error"""
     pass
-

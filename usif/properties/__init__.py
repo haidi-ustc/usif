@@ -18,10 +18,10 @@ Property Types:
 
 Usage:
     >>> from usif import PropertyDefinition, PropertyRegistry, AtomicProperties
-    >>> 
+    >>>
     >>> # Use built-in properties
     >>> force_def = PropertyRegistry.get('force')
-    >>> 
+    >>>
     >>> # Create custom property
     >>> custom_prop = PropertyDefinition(
     ...     name='band_gap',
@@ -30,13 +30,13 @@ Usage:
     ...     units='eV'
     ... )
     >>> PropertyRegistry.register(custom_prop)
-    >>> 
+    >>>
     >>> # Use atomic properties
     >>> atom_props = AtomicProperties(
     ...     force=(0.1, 0.2, 0.3),
     ...     charge=0.5
     ... )
-    >>> 
+    >>>
     >>> # Use structure properties
     >>> from usif import StructureProperties
     >>> struct_props = StructureProperties(
@@ -62,4 +62,3 @@ __all__ = [
     'AtomicProperties',
     'StructureProperties',
 ]
-

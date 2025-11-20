@@ -24,16 +24,16 @@ Features:
 
 Usage:
     >>> from usif import USIFOptimizer, USIFStructure
-    >>> 
+    >>>
     >>> # Optimize structure for compression
     >>> optimizer = USIFOptimizer()
     >>> optimized = optimizer.optimize_structure(structure)
-    >>> 
+    >>>
     >>> # Benchmark compression
     >>> from usif import USIFBenchmark
     >>> benchmark = USIFBenchmark()
     >>> results = benchmark.benchmark_compression(structure)
-    >>> 
+    >>>
     >>> # Download and convert MP data
     >>> from usif.utils import download_mp_data, convert_mp_to_usif
     >>> stats = download_mp_data(api_key="YOUR_KEY")
@@ -65,4 +65,3 @@ __all__ = [
     'create_mp_data_archive',
     'load_mp_data_from_archive',
 ]
-

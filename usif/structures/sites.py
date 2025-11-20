@@ -15,11 +15,11 @@ Site Types:
     - WyckoffSite: For CRYSTAL + SYMMETRIC mode
         - Stores atomic number, multiplicity, fractional coordinates, occupancy
         - Used for periodic structures with symmetry
-    
+
     - PointGroupSite: For MOLECULE + SYMMETRIC mode
         - Stores atomic number, multiplicity, Cartesian coordinates, occupancy
         - Used for molecular structures with point group symmetry
-    
+
     - AtomSite: For FULL_ATOMIC mode (both crystals and molecules)
         - Stores atomic number, coordinates, and atomic properties
         - Supports per-atom properties (forces, charges, etc.)
@@ -27,7 +27,7 @@ Site Types:
 Usage:
     >>> from usif.structures.sites import WyckoffSite, PointGroupSite, AtomSite
     >>> from usif import AtomicProperties
-    >>> 
+    >>>
     >>> # Wyckoff site for crystal
     >>> wyckoff = WyckoffSite(
     ...     atomic_number=14,
@@ -35,7 +35,7 @@ Usage:
     ...     coords=(0.0, 0.0, 0.0),
     ...     occupancy=1.0
     ... )
-    >>> 
+    >>>
     >>> # Point group site for molecule
     >>> pg_site = PointGroupSite(
     ...     atomic_number=8,
@@ -43,7 +43,7 @@ Usage:
     ...     coords=(0.0, 0.0, 0.76),
     ...     occupancy=1.0
     ... )
-    >>> 
+    >>>
     >>> # Atom site with properties
     >>> atom_props = AtomicProperties(force=(0.1, 0.2, 0.3), charge=0.5)
     >>> atom_site = AtomSite(
@@ -59,7 +59,7 @@ See Also:
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from typing import Tuple
 
 from usif.constants import SymmetryConstants
 from usif.properties.atomic import AtomicProperties
@@ -72,7 +72,7 @@ class WyckoffSite:
     multiplicity: int
     coords: Tuple[float, float, float]  # Fractional
     occupancy: float = 1.0
-    
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, WyckoffSite):
             return False
@@ -92,7 +92,7 @@ class PointGroupSite:
     multiplicity: int
     coords: Tuple[float, float, float]  # Cartesian (Å)
     occupancy: float = 1.0
-    
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PointGroupSite):
             return False
@@ -111,12 +111,10 @@ class AtomSite:
     atomic_number: int
     coords: Tuple[float, float, float]
     properties: AtomicProperties = field(default_factory=AtomicProperties)
-    
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AtomSite):
             return False
         return (self.atomic_number == other.atomic_number and
                 all(abs(a - b) < SymmetryConstants.COORDINATE_TOLERANCE for a, b in zip(self.coords, other.coords)) and
                 self.properties == other.properties)
-
-

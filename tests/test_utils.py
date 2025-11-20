@@ -27,7 +27,7 @@ from usif import (
 
 class TestUSIFOptimizer(unittest.TestCase):
     """Test USIFOptimizer class"""
-    
+
     def setUp(self):
         """Set up test fixtures"""
         self.periodic_structure = USIFStructure(
@@ -41,7 +41,7 @@ class TestUSIFOptimizer(unittest.TestCase):
             ],
             formula="Si2"
         )
-        
+
         self.molecular_structure = USIFStructure(
             structure_type=StructureType.MOLECULE,
             storage_mode=StorageMode.FULL_ATOMIC,
@@ -52,7 +52,7 @@ class TestUSIFOptimizer(unittest.TestCase):
             ],
             formula="H2O"
         )
-    
+
     def test_optimize_periodic_structure(self):
         """Test optimizing periodic structure"""
         try:
@@ -65,7 +65,7 @@ class TestUSIFOptimizer(unittest.TestCase):
             # Optimization might fail if pymatgen not available or symmetry analysis fails
             # This is acceptable
             pass
-    
+
     def test_optimize_molecular_structure(self):
         """Test optimizing molecular structure"""
         try:
@@ -78,7 +78,7 @@ class TestUSIFOptimizer(unittest.TestCase):
             # Optimization might fail if pymatgen not available or symmetry analysis fails
             # This is acceptable
             pass
-    
+
     def test_optimize_with_tolerance(self):
         """Test optimizing with custom tolerance"""
         try:
@@ -93,7 +93,7 @@ class TestUSIFOptimizer(unittest.TestCase):
 
 class TestUSIFBenchmark(unittest.TestCase):
     """Test USIFBenchmark class"""
-    
+
     def setUp(self):
         """Set up test fixtures"""
         self.structures = [
@@ -116,7 +116,7 @@ class TestUSIFBenchmark(unittest.TestCase):
                 formula="Si"
             )
         ]
-    
+
     def test_benchmark_compression(self):
         """Test benchmarking compression"""
         try:
@@ -131,7 +131,7 @@ class TestUSIFBenchmark(unittest.TestCase):
             # Benchmark might fail if pymatgen not available
             # This is acceptable
             pass
-    
+
     def test_benchmark_empty_list(self):
         """Test benchmarking with empty list"""
         results = USIFBenchmark.benchmark_compression([])
@@ -141,4 +141,3 @@ class TestUSIFBenchmark(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

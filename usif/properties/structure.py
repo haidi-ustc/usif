@@ -19,7 +19,7 @@ Built-in Properties:
 
 Usage:
     >>> from usif import StructureProperties
-    >>> 
+    >>>
     >>> # Create structure properties
     >>> struct_props = StructureProperties(
     ...     energy=-10.5,
@@ -28,14 +28,14 @@ Usage:
     ...     pressure=0.0,
     ...     temperature=300.0
     ... )
-    >>> 
+    >>>
     >>> # Add custom properties
     >>> struct_props.custom['calculator'] = 'VASP'
     >>> struct_props.custom['kpoints'] = '4x4x4'
-    >>> 
+    >>>
     >>> # Get all properties
     >>> all_props = struct_props.get_all_properties()
-    >>> 
+    >>>
     >>> # Use in USIFStructure
     >>> from usif import USIFStructure, StructureType, StorageMode
     >>> structure = USIFStructure(
@@ -66,7 +66,7 @@ class StructureProperties:
     pressure: Optional[float] = None
     temperature: Optional[float] = None
     custom: Dict[str, Any] = field(default_factory=dict)
-    
+
     def get_all_properties(self) -> Dict[str, Any]:
         """Get all properties as dictionary"""
         props = {}
@@ -82,18 +82,18 @@ class StructureProperties:
             props['temperature'] = self.temperature
         props.update(self.custom)
         return props
-    
-    
+
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, StructureProperties):
             return False
-        
+
         def compare_values(v1, v2):
             if v1 is None and v2 is None:
                 return True
             if v1 is None or v2 is None:
                 return False
-            
+
             # Handle numpy arrays and tuples
             if isinstance(v1, (tuple, list, np.ndarray)) and isinstance(v2, (tuple, list, np.ndarray)):
                 if len(v1) != len(v2):
@@ -103,20 +103,18 @@ class StructureProperties:
                 return abs(v1 - v2) < 1e-5
             else:
                 return v1 == v2
-        
+
         for prop_name in ['energy', 'volume', 'pressure', 'temperature']:
             v1 = getattr(self, prop_name, None)
             v2 = getattr(other, prop_name, None)
             if not compare_values(v1, v2):
                 return False
-        
+
         # Special handling for stress
         if not compare_values(self.stress, other.stress):
             return False
-        
+
         if self.custom != other.custom:
             return False
-        
+
         return True
-
-

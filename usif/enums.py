@@ -12,15 +12,15 @@ Main Enumerations:
 
 Usage:
     >>> from usif import StructureType, StorageMode, CompressionType
-    >>> 
+    >>>
     >>> # Use structure type
     >>> if structure.structure_type == StructureType.CRYSTAL:
     ...     print("This is a crystal")
-    >>> 
+    >>>
     >>> # Use storage mode
     >>> if structure.storage_mode == StorageMode.SYMMETRIC:
     ...     print("Using symmetric storage")
-    >>> 
+    >>>
     >>> # Use compression type
     >>> structure.save('file.usif', compression=CompressionType.GZIP)
 
@@ -48,4 +48,3 @@ class CompressionType(IntEnum):
     """Compression type enumeration"""
     NONE = 0
     GZIP = 1
-

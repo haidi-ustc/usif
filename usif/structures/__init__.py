@@ -23,7 +23,7 @@ Usage:
     >>> from usif import USIFStructure, StructureType, StorageMode
     >>> from usif.structures.sites import WyckoffSite
     >>> import numpy as np
-    >>> 
+    >>>
     >>> # Create crystal structure
     >>> lattice = np.array([[5.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 5.0]])
     >>> sites = [WyckoffSite(atomic_number=14, multiplicity=8, coords=(0.0, 0.0, 0.0))]
@@ -35,7 +35,7 @@ Usage:
     ...     wyckoff_sites=sites,
     ...     formula='Si'
     ... )
-    >>> 
+    >>>
     >>> # Check structure type
     >>> structure.is_crystal()  # True
     >>> structure.is_symmetric()  # True
@@ -55,4 +55,3 @@ __all__ = [
     'AtomSite',
     'USIFStructure',
 ]
-

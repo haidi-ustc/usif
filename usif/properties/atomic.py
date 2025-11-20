@@ -18,7 +18,7 @@ Built-in Properties:
 
 Usage:
     >>> from usif import AtomicProperties
-    >>> 
+    >>>
     >>> # Create atomic properties
     >>> atom_props = AtomicProperties(
     ...     force=(0.1, 0.2, 0.3),
@@ -26,14 +26,14 @@ Usage:
     ...     magmom=2.0,
     ...     velocity=(0.0, 0.0, 0.0)
     ... )
-    >>> 
+    >>>
     >>> # Add custom properties
     >>> atom_props.custom['tag'] = 'surface'
     >>> atom_props.custom['label'] = 'Si1'
-    >>> 
+    >>>
     >>> # Get all properties
     >>> all_props = atom_props.get_all_properties()
-    >>> 
+    >>>
     >>> # Use in AtomSite
     >>> from usif.structures.sites import AtomSite
     >>> site = AtomSite(
@@ -82,46 +82,44 @@ class AtomicProperties:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AtomicProperties):
             return False
-        
+
         def compare_tuples(t1, t2):
             if t1 is None and t2 is None:
                 return True
             if t1 is None or t2 is None:
                 return False
-            
+
             # Handle numpy arrays
             if isinstance(t1, np.ndarray):
                 t1 = tuple(t1)
             if isinstance(t2, np.ndarray):
                 t2 = tuple(t2)
-                
+
             if hasattr(t1, '__len__') and hasattr(t2, '__len__'):
                 if len(t1) != len(t2):
                     return False
                 return all(abs(float(a) - float(b)) < SymmetryConstants.COORDINATE_TOLERANCE for a, b in zip(t1, t2))
             else:
                 return abs(float(t1) - float(t2)) < SymmetryConstants.COORDINATE_TOLERANCE
-        
+
         if not compare_tuples(self.force, other.force):
             return False
         if not compare_tuples(self.velocity, other.velocity):
             return False
-        
+
         if self.charge is not None and other.charge is not None:
             if abs(float(self.charge) - float(other.charge)) > SymmetryConstants.COORDINATE_TOLERANCE:
                 return False
         elif self.charge != other.charge:
             return False
-        
+
         if self.magmom is not None and other.magmom is not None:
             if abs(float(self.magmom) - float(other.magmom)) > SymmetryConstants.COORDINATE_TOLERANCE:
                 return False
         elif self.magmom != other.magmom:
             return False
-        
+
         if self.custom != other.custom:
             return False
-        
+
         return True
-
-

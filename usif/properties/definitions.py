@@ -19,7 +19,7 @@ Features:
 
 Usage:
     >>> from usif import PropertyDefinition, Units
-    >>> 
+    >>>
     >>> # Define a scalar property
     >>> energy_prop = PropertyDefinition(
     ...     name='energy',
@@ -29,7 +29,7 @@ Usage:
     ...     min_value=-1000.0,
     ...     max_value=1000.0
     ... )
-    >>> 
+    >>>
     >>> # Define a multi-dimensional property
     >>> force_prop = PropertyDefinition(
     ...     name='force',
@@ -39,7 +39,7 @@ Usage:
     ...     units=Units.EV_PER_ANGSTROM,
     ...     description='Force vector on atom'
     ... )
-    >>> 
+    >>>
     >>> # Validate a value
     >>> is_valid, message = energy_prop.validate_value(-10.5)
     >>> print(f"Valid: {is_valid}, Message: {message}")
@@ -51,14 +51,14 @@ See Also:
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
+from typing import Any, Generic, List, Optional, Tuple, TypeVar
 
 T = TypeVar('T')
 
 @dataclass
 class PropertyDefinition(Generic[T]):
     """Generic property definition with type parameter"""
-    
+
     name: str
     data_type: type
     is_per_atom: bool = False
@@ -67,7 +67,7 @@ class PropertyDefinition(Generic[T]):
     units: str = ""
     required: bool = False
     default_value: Optional[T] = None
-    
+
     # Type constraints
     min_value: Optional[float] = None
     max_value: Optional[float] = None
@@ -78,7 +78,7 @@ class PropertyDefinition(Generic[T]):
 
     def validate_value(self, value: Any, num_atoms: Optional[int] = None) -> Tuple[bool, str]:
         """Enhanced validation with range and value checks"""
-        
+
         # Basic validation
         is_valid, message = self._basic_validation(value, num_atoms)
         if not is_valid:
@@ -123,14 +123,14 @@ class PropertyDefinition(Generic[T]):
                 return f"Value {value} below minimum {self.min_value}"
             if self.max_value is not None and value > self.max_value:
                 return f"Value {value} above maximum {self.max_value}"
-        
+
         # For arrays, validate each element
         elif hasattr(value, '__iter__') and not isinstance(value, str):
             for i, elem in enumerate(value):
                 elem_error = self._validate_range(elem)
                 if elem_error:
                     return f"Element {i}: {elem_error}"
-        
+
         return None
 
     def _validate_shape(self, value: Any, expected_shape: Tuple[int, ...]) -> Optional[str]:
@@ -154,4 +154,3 @@ class PropertyDefinition(Generic[T]):
         if self.is_per_atom and num_atoms is not None:
             return (num_atoms,) + self.dimensions
         return self.dimensions
-

@@ -19,4 +19,3 @@ VERSION_INFO = (4, 0, 0)  # (major, minor, patch)
 VERSION_MAJOR = 4
 VERSION_MINOR = 0
 VERSION_PATCH = 0
-

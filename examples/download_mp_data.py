@@ -15,7 +15,7 @@ Usage:
     # Using environment variable
     export MP_API_KEY=your_key_here
     python examples/download_mp_data.py
-    
+
     # Or pass API key directly
     python examples/download_mp_data.py --api_key YOUR_API_KEY
 
@@ -48,87 +48,87 @@ Examples:
   # Using environment variable
   export MP_API_KEY=your_key_here
   python download_mp_data.py
-  
+
   # Custom settings
   python download_mp_data.py --api_key YOUR_KEY --total_entries 500 --entries_per_group 50
-  
+
   # Filter by band gap
   python download_mp_data.py --min_band_gap 0.5 --max_band_gap 3.0
-  
+
   # Disable zip creation
   python download_mp_data.py --no_zip
         """
     )
-    
+
     parser.add_argument(
         "--api_key",
         type=str,
         default=None,
         help="Materials Project API key. If not provided, uses MP_API_KEY environment variable."
     )
-    
+
     parser.add_argument(
         "--output_dir",
         type=str,
         default="tests/data/mp_structures",
         help="Output directory for structures (default: tests/data/mp_structures)"
     )
-    
+
     parser.add_argument(
         "--total_entries",
         type=int,
         default=1000,
         help="Total number of entries to download (default: 1000)"
     )
-    
+
     parser.add_argument(
         "--entries_per_group",
         type=int,
         default=100,
         help="Number of entries per group (default: 100)"
     )
-    
+
     parser.add_argument(
         "--e_above_hull_max",
         type=float,
         default=0.1,
         help="Maximum energy above hull for high quality (eV, default: 0.1)"
     )
-    
+
     parser.add_argument(
         "--min_band_gap",
         type=float,
         default=None,
         help="Minimum band gap filter (eV, optional, overrides group defaults)"
     )
-    
+
     parser.add_argument(
         "--max_band_gap",
         type=float,
         default=None,
         help="Maximum band gap filter (eV, optional, overrides group defaults)"
     )
-    
+
     parser.add_argument(
         "--rate_limit",
         type=float,
         default=2.0,
         help="Rate limit delay between groups in seconds (default: 2.0)"
     )
-    
+
     parser.add_argument(
         "--no_zip",
         action="store_true",
         help="Disable zip archive creation"
     )
-    
+
     args = parser.parse_args()
-    
+
     # Get API key
     api_key = args.api_key or os.getenv("MP_API_KEY")
     if not api_key:
         parser.error("API key required. Provide --api_key or set MP_API_KEY environment variable.")
-    
+
     # Download
     stats = download_mp_data(
         api_key=api_key,
@@ -141,7 +141,7 @@ Examples:
         rate_limit=args.rate_limit,
         create_zip=not args.no_zip,
     )
-    
+
     # Print summary
     print("\n" + "="*60)
     print("Download Summary")
