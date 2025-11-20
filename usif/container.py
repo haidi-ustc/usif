@@ -964,7 +964,7 @@ class StructureContainer:
     
     def _deserialize_group_hierarchy(self, data: bytes) -> None:
         """Deserialize group hierarchy from bytes"""
-        def deserialize_group(offset: int) -> Tuple[USIFGroup, int]:
+        def deserialize_group(offset: int, parent_path: str = "/") -> Tuple[USIFGroup, int]:
             # Group name
             name_len = struct.unpack(BinaryFormat.UINT16, data[offset:offset+2])[0]
             offset += 2
@@ -972,6 +972,16 @@ class StructureContainer:
             offset += name_len
             
             group = USIFGroup(name)
+            
+            # Calculate full path for this group
+            if parent_path == "/":
+                full_path = f"/{name}/" if name else "/"
+            else:
+                full_path = f"{parent_path}{name}/"
+            
+            # Add to group index (for stats and queries)
+            if full_path != "/":
+                self._group_index[full_path] = group
             
             # Structures in group
             num_structs = struct.unpack(BinaryFormat.UINT32, data[offset:offset+4])[0]
@@ -1009,7 +1019,7 @@ class StructureContainer:
             num_subgroups = struct.unpack(BinaryFormat.UINT32, data[offset:offset+4])[0]
             offset += 4
             for _ in range(num_subgroups):
-                subgroup, offset = deserialize_group(offset)
+                subgroup, offset = deserialize_group(offset, full_path)
                 group.subgroups[subgroup.name] = subgroup
             
             return group, offset
