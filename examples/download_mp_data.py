@@ -29,12 +29,9 @@ Features:
 
 import argparse
 import os
-from pathlib import Path
 
 from usif.utils.mp_downloader import (
-    convert_mp_to_usif,
-    download_mp_data,
-    load_mp_group,
+    download_mp_data
 )
 
 

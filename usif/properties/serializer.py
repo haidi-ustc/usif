@@ -263,7 +263,7 @@ class PropertySerializer:
         # Validate that all elements are numeric
         if not all(isinstance(x, (int, float)) for x in value):
             raise EncodingError(
-                f"All elements must be numeric (int or float), got mixed types"
+                "All elements must be numeric (int or float), got mixed types"
             )
 
         # Serialize based on data type

@@ -85,7 +85,7 @@ class TestStructureContainer(unittest.TestCase):
     def test_get_structure_by_name_same_session(self):
         """Test getting structure by name in same session"""
         with StructureContainer(self.temp_path, mode="w") as container:
-            struct_hash = container.add(self.structure, name="test_structure")
+            container.add(self.structure, name="test_structure")
             retrieved = container.get("test_structure")
             self.assertIsNotNone(retrieved)
             self.assertEqual(retrieved.formula, self.structure.formula)

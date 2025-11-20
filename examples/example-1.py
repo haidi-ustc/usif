@@ -6,7 +6,23 @@ Comprehensive testing of USIF format with all features
 
 import numpy as np
 
-from usif import *
+from usif import (
+    StructureType,
+    StorageMode,
+    WyckoffSite,
+    USIF,
+    StructureProperties,
+    USIFStructure,
+    AtomSite,
+    AtomicProperties,
+    PointGroupSite,
+    StructureContainer,
+    StructureConverter,
+    USIFBenchmark,
+    PropertyDefinition,
+    PropertyRegistry,
+    PropertySerializer,
+)
 
 
 def test_examples():
@@ -289,13 +305,14 @@ def test_edge_cases():
             wyckoff_sites=[],  # No atoms - should fail
             formula="",
         )
+        print(empty_structure)
         print("  Empty structure created (should fail validation)")
     except Exception as e:
         print(f"  Empty structure correctly rejected: {e}")
 
     # Test 2: Invalid molecular structure with lattice
     try:
-        invalid_mol = USIFStructure(
+        USIFStructure(
             structure_type=StructureType.MOLECULE,
             storage_mode=StorageMode.SYMMETRIC,
             lattice_matrix=np.eye(3),  # Should not have lattice
@@ -327,7 +344,7 @@ def test_edge_cases():
         f"  Multiplicity preserved: {large_structure.wyckoff_sites[0].multiplicity == decoded_large.wyckoff_sites[0].multiplicity}"
     )
     print(f"  Encoded size: {len(encoded_large)} bytes")
-    print(f"  Bytes per atom: {len(encoded_large)/large_structure.num_atoms():.3f}")
+    print(f"  Bytes per atom: {len(encoded_large) / large_structure.num_atoms():.3f}")
 
     # Test 4: Simple structure without complex properties
     print("\n3. Testing Simple Structure with Basic Properties")
@@ -454,7 +471,7 @@ def test_property_system():
     if custom_value is not None:
         print(f"  Property preserved: {abs(custom_value - 1.12) < 1e-6}")
     else:
-        print(f"  Property preserved: False (custom value is None)")
+        print("  Property preserved: False (custom value is None)")
         print(f"  All custom properties: {decoded.structure_properties.custom}")
 
     print("\nProperty system tests completed!")

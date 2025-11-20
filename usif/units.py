@@ -259,8 +259,8 @@ class UnitConversions:
 
     # Temperature: K (standard)
     KELVIN_TO_KELVIN = 1.0
-    CELSIUS_TO_KELVIN = lambda c: c + 273.15  # °C to K (offset)
-    FAHRENHEIT_TO_KELVIN = lambda f: (f - 32) * 5 / 9 + 273.15  # °F to K
+    CELSIUS_TO_KELVIN = lambda c: c + 273.15  # noqa: E731
+    FAHRENHEIT_TO_KELVIN = lambda f: (f - 32) * 5 / 9 + 273.15  # noqa: E731
 
     # Charge: e (standard)
     ELEMENTARY_CHARGE_TO_ELEMENTARY_CHARGE = 1.0

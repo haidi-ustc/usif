@@ -458,7 +458,7 @@ def example_property_serialization():
         recovered, offset = PropertySerializer.deserialize_value(
             charge_prop, data, 0, num_atoms=2
         )
-        print(f"none_value      - Serialization: OK (handled None value)")
+        print("none_value      - Serialization: OK (handled None value)")
     except Exception as e:
         print(f"none_value      - ERROR: {e}")
 

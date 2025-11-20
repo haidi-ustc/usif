@@ -83,7 +83,7 @@ def download_mp_data(
 
     # Create subdirectories for groups
     for i in range(10):
-        (output_path / f"group_{i+1:02d}").mkdir(exist_ok=True)
+        (output_path / f"group_{i + 1:02d}").mkdir(exist_ok=True)
 
     # Define 10 diverse chemistry groups with distinct properties
     query_groups = [
