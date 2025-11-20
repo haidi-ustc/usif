@@ -5,7 +5,9 @@ Comprehensive testing of USIF format with all features
 """
 
 import numpy as np
+
 from usif import *
+
 
 def test_examples():
     """Comprehensive test examples for USIF format"""
@@ -212,7 +214,8 @@ def test_examples():
     print("\n6. Testing Pymatgen Conversion")
 
     # Create a simple cubic structure
-    from pymatgen.core import Structure as PMGStructure, Lattice
+    from pymatgen.core import Lattice
+    from pymatgen.core import Structure as PMGStructure
     lattice_simple = Lattice.cubic(3.0)
     species = ["Li"]
     coords = [[0, 0, 0]]

@@ -58,11 +58,12 @@ See Also:
     - StructureType, StorageMode: Structure classification
 """
 
-from typing import Optional, Tuple
 from dataclasses import dataclass, field
+from typing import Optional, Tuple
 
-from usif.properties.atomic import AtomicProperties
 from usif.constants import SymmetryConstants
+from usif.properties.atomic import AtomicProperties
+
 
 @dataclass
 class WyckoffSite:

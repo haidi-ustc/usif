@@ -41,48 +41,49 @@ For more examples, see the examples/ directory.
 
 # Core constants and enums
 from .constants import BinaryFormat
+from .container import StructureContainer, USIFGroup
+from .converter import StructureConverter
+
+# Core functionality
+from .encoder import USIF
+from .enums import CompressionType, StorageMode, StructureType
 from .exceptions import (
-    USIFError,
-    EncodingError,
-    DecodingError,
-    ValidationError,
     CorruptedDataError,
-    SymmetryAnalysisError,
+    DecodingError,
+    EncodingError,
     StorageError,
+    SymmetryAnalysisError,
+    USIFError,
+    ValidationError,
 )
-from .enums import StructureType, StorageMode, CompressionType
-from .units import Units, UnitConversions
 
 # Property system
 from .properties import (
-    PropertyDefinition,
-    PropertySerializer,
-    PropertyRegistry,
     AtomicProperties,
+    PropertyDefinition,
+    PropertyRegistry,
+    PropertySerializer,
     StructureProperties,
 )
 
 # Structure system
 from .structures import (
-    WyckoffSite,
-    PointGroupSite,
     AtomSite,
+    PointGroupSite,
     USIFStructure,
+    WyckoffSite,
 )
-
-# Core functionality
-from .encoder import USIF
-from .converter import StructureConverter
-from .container import StructureContainer, USIFGroup
+from .units import UnitConversions, Units
 
 # Utilities
 from .utils import (
-    USIFOptimizer,
     USIFBenchmark,
+    USIFOptimizer,
 )
 
 # Version info - import from version module
-from .version import __version__, FORMAT_VERSION, VERSION_INFO
+from .version import FORMAT_VERSION, VERSION_INFO, __version__
+
 __author__ = "haidi@hfut.edu.cn"
 
 # Export all public API

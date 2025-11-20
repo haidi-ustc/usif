@@ -4,17 +4,24 @@ Test modular structure functionality
 Verify that modular structure works correctly
 """
 
-import unittest
-import numpy as np
 import sys
+import unittest
 from pathlib import Path
+
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from usif import (
-    USIFStructure, StructureType, StorageMode,
-    WyckoffSite, AtomSite, AtomicProperties, StructureProperties,
-    USIF, CompressionType
+    USIF,
+    AtomicProperties,
+    AtomSite,
+    CompressionType,
+    StorageMode,
+    StructureProperties,
+    StructureType,
+    USIFStructure,
+    WyckoffSite,
 )
 
 
@@ -91,8 +98,8 @@ class TestModularStructure(unittest.TestCase):
     
     def test_property_system(self):
         """Test property system with modular structure"""
-        from usif import PropertyRegistry, PropertyDefinition
-        
+        from usif import PropertyDefinition, PropertyRegistry
+
         # Test built-in properties
         force_def = PropertyRegistry.get('force')
         self.assertIsNotNone(force_def)

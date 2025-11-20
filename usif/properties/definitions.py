@@ -50,8 +50,8 @@ See Also:
     - Units: Physical unit constants
 """
 
-from typing import TypeVar, Generic, Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
+from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
 
 T = TypeVar('T')
 

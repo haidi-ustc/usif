@@ -3,11 +3,12 @@
 Setup script for USIF package
 """
 
-from setuptools import setup, find_packages
-from pathlib import Path
-
 # Read version from package (single source of truth)
 import sys
+from pathlib import Path
+
+from setuptools import find_packages, setup
+
 sys.path.insert(0, str(Path(__file__).parent))
 from usif.version import __version__
 

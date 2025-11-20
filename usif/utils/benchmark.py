@@ -38,14 +38,15 @@ See Also:
     - CompressionType: Compression algorithms
 """
 
-import time
 import logging
-import numpy as np
-from typing import List, Dict, Any
+import time
+from typing import Any, Dict, List
 
+import numpy as np
+
+from usif.converter import StructureConverter
 from usif.encoder import USIF
 from usif.structures.structure import USIFStructure
-from usif.converter import StructureConverter
 
 logger = logging.getLogger(__name__)
 

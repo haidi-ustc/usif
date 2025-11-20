@@ -58,16 +58,18 @@ See Also:
     - StructureProperties, AtomicProperties: Property types
 """
 
-import numpy as np
-from typing import Dict, List, Tuple, Optional, Any, Union
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
 from monty.json import MSONable
 
-from usif.enums import StructureType, StorageMode, CompressionType
-from usif.exceptions import ValidationError, StorageError
-from usif.structures.sites import WyckoffSite, PointGroupSite, AtomSite
-from usif.properties.structure import StructureProperties
+from usif.enums import CompressionType, StorageMode, StructureType
+from usif.exceptions import StorageError, ValidationError
 from usif.properties.atomic import AtomicProperties
+from usif.properties.structure import StructureProperties
+from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
+
 
 class USIFStructure(MSONable):
     """
@@ -529,7 +531,7 @@ class USIFStructure(MSONable):
             >>> usif_struct = USIFStructure.from_source(ase_atoms, energy=-10.5, calculator="VASP")
         """
         from usif.converter import StructureConverter
-        
+
         # Check if it's a file path
         if isinstance(source, (str, Path)):
             file_path = Path(source)
@@ -538,9 +540,9 @@ class USIFStructure(MSONable):
             
             # Use pymatgen to read the file
             try:
-                from pymatgen.core import Structure as PMGStructure
                 from pymatgen.core import Molecule as PMGMolecule
-                
+                from pymatgen.core import Structure as PMGStructure
+
                 # Try as Structure first (for periodic systems)
                 try:
                     pmg_obj = PMGStructure.from_file(str(file_path))
@@ -571,8 +573,8 @@ class USIFStructure(MSONable):
         
         # Check if it's a pymatgen object
         try:
-            from pymatgen.core import Structure as PMGStructure
             from pymatgen.core import Molecule as PMGMolecule
+            from pymatgen.core import Structure as PMGStructure
             if isinstance(source, (PMGStructure, PMGMolecule)):
                 return StructureConverter.from_pymatgen(
                     source,

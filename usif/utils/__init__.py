@@ -44,15 +44,15 @@ See Also:
     - StructureConverter: Conversion utilities
 """
 
-from .optimizer import USIFOptimizer
 from .benchmark import USIFBenchmark
 from .mp_downloader import (
-    download_mp_data,
-    load_mp_group,
     convert_mp_to_usif,
     create_mp_data_archive,
+    download_mp_data,
     load_mp_data_from_archive,
+    load_mp_group,
 )
+from .optimizer import USIFOptimizer
 
 __all__ = [
     'USIFOptimizer',

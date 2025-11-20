@@ -48,10 +48,13 @@ See Also:
     - PropertyDefinition: Property type definitions
 """
 
-import numpy as np
-from typing import Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, Tuple
+
+import numpy as np
+
 from usif.constants import SymmetryConstants
+
 
 @dataclass
 class AtomicProperties:

@@ -4,19 +4,31 @@ Comprehensive tests for USIF encoder/decoder
 Test error handling, edge cases, and all encoding modes
 """
 
-import unittest
-import numpy as np
-import tempfile
 import os
-from pathlib import Path
 import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from usif import (
-    USIFStructure, StructureType, StorageMode, CompressionType,
-    WyckoffSite, PointGroupSite, AtomSite, AtomicProperties, StructureProperties,
-    USIF, EncodingError, DecodingError, CorruptedDataError, ValidationError
+    USIF,
+    AtomicProperties,
+    AtomSite,
+    CompressionType,
+    CorruptedDataError,
+    DecodingError,
+    EncodingError,
+    PointGroupSite,
+    StorageMode,
+    StructureProperties,
+    StructureType,
+    USIFStructure,
+    ValidationError,
+    WyckoffSite,
 )
 
 

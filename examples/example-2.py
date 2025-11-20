@@ -4,17 +4,30 @@ USIF Library Usage Examples
 Demonstrating various use cases of the USIF structure format
 """
 
-import numpy as np
-import tempfile
 import os
+import tempfile
 from pathlib import Path
 
+import numpy as np
+
 from usif import (
-    StructureType, StorageMode, CompressionType,
-    PropertyDefinition, PropertyRegistry, PropertySerializer,
-    AtomicProperties, StructureProperties, WyckoffSite, PointGroupSite, AtomSite,
-    USIFStructure, USIF, StructureConverter, StructureContainer,
-    USIFOptimizer, USIFBenchmark
+    USIF,
+    AtomicProperties,
+    AtomSite,
+    CompressionType,
+    PointGroupSite,
+    PropertyDefinition,
+    PropertyRegistry,
+    PropertySerializer,
+    StorageMode,
+    StructureContainer,
+    StructureConverter,
+    StructureProperties,
+    StructureType,
+    USIFBenchmark,
+    USIFOptimizer,
+    USIFStructure,
+    WyckoffSite,
 )
 
 
@@ -541,8 +554,8 @@ def example_pymatgen_integration():
     print("=== Example 10: Pymatgen Integration ===")
     
     try:
-        from pymatgen.core import Structure, Lattice, Molecule
-        
+        from pymatgen.core import Lattice, Molecule, Structure
+
         # Create a pymatgen structure
         lattice = Lattice.cubic(4.2)
         species = ["Na", "Cl"]

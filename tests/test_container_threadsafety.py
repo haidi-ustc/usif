@@ -4,20 +4,28 @@ Thread Safety Tests for USIF StructureContainer
 Tests concurrent access and index operations
 """
 
-import unittest
-import tempfile
 import os
 import sys
-from pathlib import Path
+import tempfile
 import threading
 import time
+import unittest
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from usif import StructureContainer, USIFStructure, StructureType, StorageMode
-from usif import WyckoffSite, StructureProperties, CompressionType
 import numpy as np
+
+from usif import (
+    CompressionType,
+    StorageMode,
+    StructureContainer,
+    StructureProperties,
+    StructureType,
+    USIFStructure,
+    WyckoffSite,
+)
 
 
 class TestContainerThreadSafety(unittest.TestCase):

@@ -4,8 +4,8 @@ Test modular imports
 Verify that all modules can be imported correctly
 """
 
-import unittest
 import sys
+import unittest
 from pathlib import Path
 
 # Add parent directory to path
@@ -18,8 +18,8 @@ class TestModularImports(unittest.TestCase):
     def test_core_imports(self):
         """Test core module imports"""
         from usif.constants import BinaryFormat
-        from usif.exceptions import USIFError, EncodingError, DecodingError
-        from usif.enums import StructureType, StorageMode, CompressionType
+        from usif.enums import CompressionType, StorageMode, StructureType
+        from usif.exceptions import DecodingError, EncodingError, USIFError
         
         self.assertIsNotNone(BinaryFormat)
         self.assertIsNotNone(USIFError)
@@ -28,10 +28,10 @@ class TestModularImports(unittest.TestCase):
     def test_properties_imports(self):
         """Test properties module imports"""
         from usif.properties import (
-            PropertyDefinition,
-            PropertySerializer,
-            PropertyRegistry,
             AtomicProperties,
+            PropertyDefinition,
+            PropertyRegistry,
+            PropertySerializer,
             StructureProperties,
         )
         
@@ -44,10 +44,10 @@ class TestModularImports(unittest.TestCase):
     def test_structures_imports(self):
         """Test structures module imports"""
         from usif.structures import (
-            WyckoffSite,
-            PointGroupSite,
             AtomSite,
+            PointGroupSite,
             USIFStructure,
+            WyckoffSite,
         )
         
         self.assertIsNotNone(WyckoffSite)
@@ -57,9 +57,9 @@ class TestModularImports(unittest.TestCase):
     
     def test_core_functionality_imports(self):
         """Test core functionality imports"""
-        from usif.encoder import USIF
-        from usif.converter import StructureConverter
         from usif.container import StructureContainer, USIFGroup
+        from usif.converter import StructureConverter
+        from usif.encoder import USIF
         
         self.assertIsNotNone(USIF)
         self.assertIsNotNone(StructureConverter)
@@ -68,7 +68,7 @@ class TestModularImports(unittest.TestCase):
     
     def test_utils_imports(self):
         """Test utils module imports"""
-        from usif.utils import USIFOptimizer, USIFBenchmark
+        from usif.utils import USIFBenchmark, USIFOptimizer
         
         self.assertIsNotNone(USIFOptimizer)
         self.assertIsNotNone(USIFBenchmark)
@@ -77,25 +77,25 @@ class TestModularImports(unittest.TestCase):
         """Test top-level package imports (backward compatibility)"""
         from usif import (
             USIF,
-            USIFStructure,
-            StructureType,
-            StorageMode,
-            CompressionType,
-            PropertyDefinition,
-            PropertySerializer,
-            PropertyRegistry,
             AtomicProperties,
-            StructureProperties,
-            WyckoffSite,
-            PointGroupSite,
             AtomSite,
-            StructureConverter,
+            CompressionType,
+            PointGroupSite,
+            PropertyDefinition,
+            PropertyRegistry,
+            PropertySerializer,
+            StorageMode,
             StructureContainer,
+            StructureConverter,
+            StructureProperties,
+            StructureType,
+            USIFBenchmark,
             USIFGroup,
             USIFOptimizer,
-            USIFBenchmark,
+            USIFStructure,
+            WyckoffSite,
         )
-        
+
         # Verify all imports are available
         self.assertIsNotNone(USIF)
         self.assertIsNotNone(USIFStructure)
@@ -105,7 +105,7 @@ class TestModularImports(unittest.TestCase):
     
     def test_version_info(self):
         """Test version information"""
-        from usif import __version__, __author__
+        from usif import __author__, __version__
         
         self.assertEqual(__version__, "4.0")
         self.assertIsNotNone(__author__)

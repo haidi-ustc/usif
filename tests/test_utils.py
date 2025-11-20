@@ -4,15 +4,25 @@ Tests for USIF utils module
 Test USIFOptimizer and USIFBenchmark
 """
 
-import unittest
-import numpy as np
 import sys
+import unittest
 from pathlib import Path
+
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from usif import USIFOptimizer, USIFBenchmark, USIFStructure, StructureType, StorageMode
-from usif import WyckoffSite, AtomSite, AtomicProperties, StructureProperties
+from usif import (
+    AtomicProperties,
+    AtomSite,
+    StorageMode,
+    StructureProperties,
+    StructureType,
+    USIFBenchmark,
+    USIFOptimizer,
+    USIFStructure,
+    WyckoffSite,
+)
 
 
 class TestUSIFOptimizer(unittest.TestCase):

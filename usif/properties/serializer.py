@@ -43,12 +43,14 @@ See Also:
 """
 
 import struct
-import numpy as np
 from typing import Any, Optional, Tuple
 
+import numpy as np
+
 from usif.constants import BinaryFormat
-from usif.exceptions import EncodingError, DecodingError
+from usif.exceptions import DecodingError, EncodingError
 from usif.properties.definitions import PropertyDefinition
+
 
 class PropertySerializer:
     """Serialize and deserialize property values with clear structure vs atomic distinction"""

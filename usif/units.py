@@ -40,7 +40,7 @@ See Also:
     - PropertyDefinition: Stores unit strings
 """
 
-from typing import Dict, Set, Optional, Tuple
+from typing import Dict, Optional, Set, Tuple
 
 
 class Units:

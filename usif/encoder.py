@@ -34,26 +34,28 @@ See Also:
     - PropertySerializer: Property serialization
 """
 
-import struct
-import hashlib
 import gzip
+import hashlib
 import logging
-import numpy as np
-from typing import Optional, Tuple, Union
+import struct
 from pathlib import Path
+from typing import Optional, Tuple, Union
+
+import numpy as np
 
 from usif.constants import BinaryFormat
 from usif.version import FORMAT_VERSION
 
 logger = logging.getLogger(__name__)
-from usif.enums import CompressionType, StructureType, StorageMode
-from usif.exceptions import EncodingError, DecodingError, CorruptedDataError, ValidationError
-from usif.structures.structure import USIFStructure
-from usif.structures.sites import WyckoffSite, PointGroupSite, AtomSite
-from usif.properties.serializer import PropertySerializer
-from usif.properties.registry import PropertyRegistry
+from usif.enums import CompressionType, StorageMode, StructureType
+from usif.exceptions import CorruptedDataError, DecodingError, EncodingError, ValidationError
 from usif.properties.atomic import AtomicProperties
+from usif.properties.registry import PropertyRegistry
+from usif.properties.serializer import PropertySerializer
 from usif.properties.structure import StructureProperties
+from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
+from usif.structures.structure import USIFStructure
+
 
 class USIF:
     """USIF (Universal Structure Interchange Format) Encoder/Decoder"""

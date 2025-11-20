@@ -49,10 +49,10 @@ See Also:
     - PropertySerializer: Serialization details
 """
 
-from .definitions import PropertyDefinition
-from .serializer import PropertySerializer
-from .registry import PropertyRegistry
 from .atomic import AtomicProperties
+from .definitions import PropertyDefinition
+from .registry import PropertyRegistry
+from .serializer import PropertySerializer
 from .structure import StructureProperties
 
 __all__ = [

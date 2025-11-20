@@ -45,23 +45,24 @@ See Also:
     - USIFGroup: Group organization
 """
 
-import struct
 import gzip
-import numpy as np
-from typing import Dict, List, Tuple, Optional, Union, Any, Iterator
-from pathlib import Path
-from collections import defaultdict, OrderedDict
-from dataclasses import dataclass, field
-import queue
-import mmap
-import threading
 import logging
+import mmap
+import queue
+import struct
+import threading
+from collections import OrderedDict, defaultdict
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+
+import numpy as np
 
 from usif.constants import BinaryFormat, SymmetryConstants
-from usif.enums import CompressionType
-from usif.exceptions import StorageError, DecodingError, CorruptedDataError
-from usif.structures.structure import USIFStructure
 from usif.encoder import USIF
+from usif.enums import CompressionType
+from usif.exceptions import CorruptedDataError, DecodingError, StorageError
+from usif.structures.structure import USIFStructure
 
 logger = logging.getLogger(__name__)
 

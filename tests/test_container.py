@@ -4,17 +4,25 @@ Tests for USIF StructureContainer
 Test container functionality for storing multiple structures
 """
 
-import unittest
-import tempfile
 import os
 import sys
+import tempfile
+import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from usif import StructureContainer, USIFStructure, StructureType, StorageMode
-from usif import WyckoffSite, StructureProperties, CompressionType
 import numpy as np
+
+from usif import (
+    CompressionType,
+    StorageMode,
+    StructureContainer,
+    StructureProperties,
+    StructureType,
+    USIFStructure,
+    WyckoffSite,
+)
 
 
 class TestStructureContainer(unittest.TestCase):

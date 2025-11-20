@@ -14,24 +14,31 @@ Requirements:
     - Or set MP_DATA_DIR environment variable to point to downloaded data
 """
 
-import unittest
-import numpy as np
-import tempfile
 import os
-from pathlib import Path
 import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from usif import (
-    USIFStructure, StructureType, StorageMode, CompressionType,
-    USIF, EncodingError, DecodingError, ValidationError,
+    USIF,
+    CompressionType,
+    DecodingError,
+    EncodingError,
+    StorageMode,
     StructureContainer,
+    StructureType,
+    USIFStructure,
+    ValidationError,
 )
 from usif.utils.mp_downloader import (
-    load_mp_group,
     convert_mp_to_usif,
     load_mp_data_from_archive,
+    load_mp_group,
 )
 
 

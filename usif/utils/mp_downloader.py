@@ -27,16 +27,16 @@ Usage:
     >>> usif_struct = convert_mp_to_usif(docs[0])
 """
 
+import logging
 import os
 import time
 import zipfile
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Union
-import logging
+from typing import Any, Dict, List, Optional, Union
 
 try:
-    from mp_api.client import MPRester
     from monty.serialization import dumpfn, loadfn
+    from mp_api.client import MPRester
     from pymatgen.core import Structure
 except ImportError as e:
     raise ImportError(

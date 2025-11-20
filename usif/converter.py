@@ -53,25 +53,26 @@ See Also:
     - ASE: https://wiki.fysik.dtu.dk/ase/
 """
 
-import numpy as np
-from typing import Optional, Dict, Any, Union
-from pathlib import Path
-from collections import defaultdict
 import logging
+from collections import defaultdict
+from pathlib import Path
+from typing import Any, Dict, Optional, Union
 
-from pymatgen.core import Structure as PMGStructure, Lattice, Element
+import numpy as np
+from pymatgen.core import Element, Lattice
 from pymatgen.core import Molecule as PMGMolecule
+from pymatgen.core import Structure as PMGStructure
 from pymatgen.io.cif import CifParser
 from pymatgen.io.vasp import Poscar, Vasprun
-from pymatgen.symmetry.analyzer import SpacegroupAnalyzer, PointGroupAnalyzer
+from pymatgen.symmetry.analyzer import PointGroupAnalyzer, SpacegroupAnalyzer
 
-from usif.enums import StructureType, StorageMode
-from usif.exceptions import SymmetryAnalysisError, ValidationError
 from usif.constants import SymmetryConstants
-from usif.structures.structure import USIFStructure
-from usif.structures.sites import WyckoffSite, PointGroupSite, AtomSite
-from usif.properties.structure import StructureProperties
+from usif.enums import StorageMode, StructureType
+from usif.exceptions import SymmetryAnalysisError, ValidationError
 from usif.properties.atomic import AtomicProperties
+from usif.properties.structure import StructureProperties
+from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
+from usif.structures.structure import USIFStructure
 
 logger = logging.getLogger(__name__)
 

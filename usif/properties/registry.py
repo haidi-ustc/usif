@@ -59,6 +59,7 @@ logger = logging.getLogger(__name__)
 # Import Units here to avoid circular import issues
 from usif.units import Units
 
+
 class PropertyRegistry:
     """Registry of built-in property definitions"""
     

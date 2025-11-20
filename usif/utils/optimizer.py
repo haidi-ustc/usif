@@ -47,19 +47,19 @@ See Also:
     - SymmetryConstants: Symmetry tolerance constants
 """
 
-import numpy as np
 import logging
-from typing import Optional
 from collections import defaultdict
+from typing import Optional
+
+import numpy as np
+from pymatgen.symmetry.analyzer import PointGroupAnalyzer, SpacegroupAnalyzer
+
+from usif.constants import SymmetryConstants
 from usif.converter import StructureConverter
-
-from pymatgen.symmetry.analyzer import SpacegroupAnalyzer, PointGroupAnalyzer
-
 from usif.enums import StorageMode, StructureType
 from usif.exceptions import SymmetryAnalysisError, ValidationError
-from usif.constants import SymmetryConstants
+from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
 from usif.structures.structure import USIFStructure
-from usif.structures.sites import WyckoffSite, PointGroupSite, AtomSite
 
 logger = logging.getLogger(__name__)
 

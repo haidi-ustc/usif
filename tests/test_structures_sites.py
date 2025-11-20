@@ -4,14 +4,14 @@ Tests for USIF structures sites module
 Test WyckoffSite, PointGroupSite, AtomSite
 """
 
-import unittest
 import sys
+import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from usif.structures.sites import WyckoffSite, PointGroupSite, AtomSite
 from usif.properties.atomic import AtomicProperties
+from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
 
 
 class TestWyckoffSite(unittest.TestCase):

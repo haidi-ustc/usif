@@ -4,17 +4,20 @@ Tests for USIF StructureConverter
 Test conversion between USIF and pymatgen formats
 """
 
-import unittest
-import numpy as np
 import sys
+import unittest
 from pathlib import Path
+
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from usif import StructureConverter, USIFStructure, StructureType, StorageMode
+from pymatgen.core import Lattice, Molecule, Structure
+
+from usif import StorageMode, StructureConverter, StructureType, USIFStructure
 from usif.exceptions import SymmetryAnalysisError
 
-from pymatgen.core import Structure, Lattice, Molecule
+
 class TestStructureConverter(unittest.TestCase):
     """Test StructureConverter class"""
     
@@ -57,8 +60,9 @@ class TestStructureConverter(unittest.TestCase):
     
     def test_to_pymatgen_structure(self):
         """Test converting to pymatgen Structure"""
-        from usif import WyckoffSite, StructureProperties
         import numpy as np
+
+        from usif import StructureProperties, WyckoffSite
         
         lattice_matrix = np.eye(3) * 5.0
         wyckoff_sites = [WyckoffSite(14, 2, (0.0, 0.0, 0.0))]
@@ -78,7 +82,7 @@ class TestStructureConverter(unittest.TestCase):
     
     def test_to_pymatgen_molecule(self):
         """Test converting to pymatgen Molecule"""
-        from usif import AtomSite, AtomicProperties
+        from usif import AtomicProperties, AtomSite
         
         atom_sites = [
             AtomSite(8, (0.0, 0.0, 0.0)),
@@ -124,9 +128,10 @@ class TestUSIFStructureToMethod(unittest.TestCase):
     
     def setUp(self):
         """Set up test fixtures"""
-        from usif import WyckoffSite, StructureProperties
         import numpy as np
-        
+
+        from usif import StructureProperties, WyckoffSite
+
         # Create a simple crystal structure
         self.lattice_matrix = np.eye(3) * 5.0
         self.wyckoff_sites = [WyckoffSite(14, 2, (0.0, 0.0, 0.0))]
@@ -142,8 +147,8 @@ class TestUSIFStructureToMethod(unittest.TestCase):
     
     def test_to_usif_format(self):
         """Test converting to USIF format"""
-        import tempfile
         import os
+        import tempfile
         
         with tempfile.NamedTemporaryFile(suffix='.usif', delete=False) as tmp:
             tmp_path = tmp.name
@@ -229,8 +234,8 @@ class TestUSIFStructureToMethod(unittest.TestCase):
     
     def test_to_cif_format(self):
         """Test converting to CIF format"""
-        import tempfile
         import os
+        import tempfile
         
         with tempfile.NamedTemporaryFile(suffix='.cif', delete=False) as tmp:
             tmp_path = tmp.name
@@ -258,8 +263,8 @@ class TestUSIFStructureToMethod(unittest.TestCase):
     
     def test_to_poscar_format(self):
         """Test converting to POSCAR format"""
-        import tempfile
         import os
+        import tempfile
         
         with tempfile.NamedTemporaryFile(suffix='.poscar', delete=False) as tmp:
             tmp_path = tmp.name
@@ -279,8 +284,8 @@ class TestUSIFStructureToMethod(unittest.TestCase):
     
     def test_to_xyz_format(self):
         """Test converting to XYZ format"""
-        import tempfile
         import os
+        import tempfile
         
         with tempfile.NamedTemporaryFile(suffix='.xyz', delete=False) as tmp:
             tmp_path = tmp.name
@@ -308,8 +313,8 @@ class TestUSIFStructureToMethod(unittest.TestCase):
     
     def test_to_unsupported_format(self):
         """Test that to() raises error for unsupported formats"""
-        import tempfile
         import os
+        import tempfile
         
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp_path = tmp.name
@@ -324,9 +329,10 @@ class TestUSIFStructureToMethod(unittest.TestCase):
     
     def test_to_with_properties(self):
         """Test that properties are preserved when converting"""
-        from usif import StructureProperties
         import numpy as np
-        
+
+        from usif import StructureProperties
+
         # Add properties to structure
         self.usif_structure.structure_properties.energy = -10.5
         self.usif_structure.structure_properties.volume = 125.0
@@ -341,7 +347,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
     def test_to_molecule_format(self):
         """Test converting molecule to various formats"""
         from usif import AtomSite
-        
+
         # Create a molecule
         atom_sites = [
             AtomSite(8, (0.0, 0.0, 0.0)),
@@ -372,8 +378,8 @@ class TestUSIFStructureToMethod(unittest.TestCase):
             self.skipTest("ASE is not installed")
         
         # Test to XYZ (auto-detect from extension)
-        import tempfile
         import os
+        import tempfile
         
         with tempfile.NamedTemporaryFile(suffix='.xyz', delete=False) as tmp:
             tmp_path = tmp.name

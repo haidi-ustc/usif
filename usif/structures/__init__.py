@@ -46,7 +46,7 @@ See Also:
     - PropertySystem: Attach properties to structures
 """
 
-from .sites import WyckoffSite, PointGroupSite, AtomSite
+from .sites import AtomSite, PointGroupSite, WyckoffSite
 from .structure import USIFStructure
 
 __all__ = [
