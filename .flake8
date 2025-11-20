@@ -1,0 +1,38 @@
+[flake8]
+# Maximum line length
+max-line-length = 100
+
+# Exclude patterns
+exclude =
+    .git,
+    __pycache__,
+    build,
+    dist,
+    *.egg-info,
+    .venv,
+    venv,
+    .tox,
+    .pytest_cache,
+    htmlcov,
+    .mypy_cache,
+    .eggs,
+    work,
+    setup.py
+
+# Ignore specific error codes
+# E203: whitespace before ':' (conflicts with black)
+# W503: line break before binary operator (conflicts with black)
+# E501: line too long (handled by max-line-length)
+ignore = E203, W503, E501
+
+# Maximum complexity
+max-complexity = 15
+
+# Per-file ignores
+per-file-ignores =
+    __init__.py:F401
+    tests/*:F401,F811
+
+# Import order checking (use isort for this)
+import-order-style = google
+

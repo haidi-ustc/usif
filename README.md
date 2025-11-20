@@ -600,6 +600,52 @@ pytest tests/test_mp_data.py -v
 - The zip file is tracked in git for reproducible testing
 - To download fresh data: `python examples/download_mp_data.py`
 
+## Code Quality and Linting
+
+The project uses `flake8` for code style checking and `isort` for import sorting.
+
+### Installation
+
+Install linting tools with development dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+
+### Running Linting Checks
+
+Run all linting checks:
+
+```bash
+# Run both flake8 and isort checks
+python run_lint.py
+
+# Or run individually
+flake8 usif tests examples
+isort --check-only --diff usif tests examples
+```
+
+### Fixing Issues
+
+```bash
+# Auto-fix import order with isort
+isort usif tests examples
+
+# Fix flake8 errors manually (flake8 doesn't auto-fix)
+```
+
+### Configuration
+
+- **flake8**: Configured in `.flake8` file
+  - Max line length: 100
+  - Ignores E203, W503, E501 (compatible with black formatter)
+  - Max complexity: 15
+
+- **isort**: Configured in `pyproject.toml`
+  - Profile: black (compatible with black formatter)
+  - Line length: 100
+  - Known first party: `usif`
+
 ## Performance
 
 USIF provides significant compression benefits:
