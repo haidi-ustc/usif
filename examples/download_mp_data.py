@@ -30,9 +30,7 @@ Features:
 import argparse
 import os
 
-from usif.utils.mp_downloader import (
-    download_mp_data
-)
+from usif.utils.mp_downloader import download_mp_data
 
 
 def main():
