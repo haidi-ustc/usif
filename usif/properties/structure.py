@@ -201,14 +201,14 @@ class StructureProperties:
                     if len(v1) != len(v2):
                         return False
                     return all(
-                        abs(float(a) - float(b)) < SymmetryConstants.COORDINATE_TOLERANCE
+                        abs(float(a) - float(b)) < SymmetryConstants.PROPERTY_VALUE_TOLERANCE
                         for a, b in zip(v1, v2)
                     )
                 else:
                     return False
             else:
                 # Scalar comparison
-                return abs(float(v1) - float(v2)) < SymmetryConstants.COORDINATE_TOLERANCE
+                return abs(float(v1) - float(v2)) < SymmetryConstants.PROPERTY_VALUE_TOLERANCE
         
         return (
             values_equal(self.energy, other.energy) and

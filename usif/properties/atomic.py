@@ -215,7 +215,7 @@ class AtomicProperties:
                         return False
                     return all(
                         abs(float(a) - float(b))
-                        < SymmetryConstants.COORDINATE_TOLERANCE
+                        < SymmetryConstants.PROPERTY_VALUE_TOLERANCE
                         for a, b in zip(v1, v2)
                     )
                 else:
@@ -223,7 +223,7 @@ class AtomicProperties:
             else:
                 # Scalar comparison
                 return (
-                    abs(float(v1) - float(v2)) < SymmetryConstants.COORDINATE_TOLERANCE
+                    abs(float(v1) - float(v2)) < SymmetryConstants.PROPERTY_VALUE_TOLERANCE
                 )
 
         return (

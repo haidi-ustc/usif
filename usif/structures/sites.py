@@ -85,7 +85,7 @@ class WyckoffSite:
                 for a, b in zip(self.coords, other.coords)
             )
             and abs(self.occupancy - other.occupancy)
-            < SymmetryConstants.COORDINATE_TOLERANCE
+            < SymmetryConstants.PROPERTY_VALUE_TOLERANCE
         )
 
 
@@ -110,7 +110,7 @@ class PointGroupSite:
                 for a, b in zip(self.coords, other.coords)
             )
             and abs(self.occupancy - other.occupancy)
-            < SymmetryConstants.COORDINATE_TOLERANCE
+            < SymmetryConstants.PROPERTY_VALUE_TOLERANCE
         )
 
 
