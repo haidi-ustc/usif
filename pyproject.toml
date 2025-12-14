@@ -47,7 +47,8 @@ all = [
 ]
 
 [tool.setuptools]
-packages = ["usif"]
+# Auto-discover packages (equivalent to find_packages() in setup.py)
+packages = {find = {}}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
