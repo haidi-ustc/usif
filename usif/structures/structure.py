@@ -271,8 +271,16 @@ class USIFStructure(MSONable):
         Materials Science Object Notation (MSON) standard, allowing for
         JSON serialization and deserialization.
 
+        For crystals: Only includes crystal-related properties (lattice_matrix,
+        spacegroup, wyckoff_sites). Molecular properties (point_group,
+        point_group_sites) are excluded.
+
+        For molecules: Only includes molecular-related properties (point_group,
+        point_group_sites). Crystal properties (lattice_matrix, spacegroup,
+        wyckoff_sites) are excluded.
+
         Returns:
-            dict: Dictionary representation with all structure data
+            dict: Dictionary representation with structure-type-specific data
 
         Example:
             >>> structure_dict = structure.as_dict()
@@ -284,37 +292,43 @@ class USIFStructure(MSONable):
             "@class": self.__class__.__name__,
             "structure_type": self.structure_type.value,
             "storage_mode": self.storage_mode.value,
-            "spacegroup": self.spacegroup,
-            "point_group": self.point_group,
             "structure_properties": self.structure_properties,
             "formula": self.formula,
         }
 
-        if self.lattice_matrix is not None:
-            d["lattice_matrix"] = self.lattice_matrix.tolist()
+        if self.is_crystal():
+            # Crystal-specific properties
+            if self.lattice_matrix is not None:
+                d["lattice_matrix"] = self.lattice_matrix.tolist()
+            d["spacegroup"] = self.spacegroup
 
-        if self.wyckoff_sites is not None:
-            d["wyckoff_sites"] = [
-                {
-                    "atomic_number": site.atomic_number,
-                    "multiplicity": site.multiplicity,
-                    "coords": site.coords,
-                    "occupancy": site.occupancy,
-                }
-                for site in self.wyckoff_sites
-            ]
+            if self.wyckoff_sites is not None:
+                d["wyckoff_sites"] = [
+                    {
+                        "atomic_number": site.atomic_number,
+                        "multiplicity": site.multiplicity,
+                        "coords": site.coords,
+                        "occupancy": site.occupancy,
+                    }
+                    for site in self.wyckoff_sites
+                ]
+        else:
+            # Molecular-specific properties
+            if self.point_group is not None:
+                d["point_group"] = self.point_group
 
-        if self.point_group_sites is not None:
-            d["point_group_sites"] = [
-                {
-                    "atomic_number": site.atomic_number,
-                    "multiplicity": site.multiplicity,
-                    "coords": site.coords,
-                    "occupancy": site.occupancy,
-                }
-                for site in self.point_group_sites
-            ]
+            if self.point_group_sites is not None:
+                d["point_group_sites"] = [
+                    {
+                        "atomic_number": site.atomic_number,
+                        "multiplicity": site.multiplicity,
+                        "coords": site.coords,
+                        "occupancy": site.occupancy,
+                    }
+                    for site in self.point_group_sites
+                ]
 
+        # Atom sites are common to both structure types (for FULL_ATOMIC mode)
         if self.atom_sites is not None:
             d["atom_sites"] = [
                 {
@@ -341,6 +355,11 @@ class USIFStructure(MSONable):
         Reconstructs a USIFStructure from a dictionary created by as_dict().
         This is the inverse operation of as_dict().
 
+        Handles structure-type-specific properties:
+        - For crystals: reads lattice_matrix, spacegroup, wyckoff_sites
+        - For molecules: reads point_group, point_group_sites
+        - Properties not relevant to the structure type are ignored
+
         Args:
             d: Dictionary representation from as_dict()
 
@@ -351,22 +370,37 @@ class USIFStructure(MSONable):
             >>> structure_dict = structure.as_dict()
             >>> reconstructed = USIFStructure.from_dict(structure_dict)
         """
+        structure_type = StructureType(d["structure_type"])
+        is_crystal = structure_type == StructureType.CRYSTAL
+
+        # Crystal-specific properties
         lattice_matrix = None
-        if "lattice_matrix" in d and d["lattice_matrix"] is not None:
-            lattice_matrix = np.array(d["lattice_matrix"])
-
+        spacegroup = 1  # Default value
         wyckoff_sites = None
-        if "wyckoff_sites" in d and d["wyckoff_sites"] is not None:
-            wyckoff_sites = []
-            for site_dict in d["wyckoff_sites"]:
-                wyckoff_sites.append(WyckoffSite(**site_dict))
 
+        if is_crystal:
+            if "lattice_matrix" in d and d["lattice_matrix"] is not None:
+                lattice_matrix = np.array(d["lattice_matrix"])
+            if "spacegroup" in d:
+                spacegroup = d["spacegroup"]
+            if "wyckoff_sites" in d and d["wyckoff_sites"] is not None:
+                wyckoff_sites = []
+                for site_dict in d["wyckoff_sites"]:
+                    wyckoff_sites.append(WyckoffSite(**site_dict))
+
+        # Molecular-specific properties
+        point_group = None
         point_group_sites = None
-        if "point_group_sites" in d and d["point_group_sites"] is not None:
-            point_group_sites = []
-            for site_dict in d["point_group_sites"]:
-                point_group_sites.append(PointGroupSite(**site_dict))
 
+        if not is_crystal:
+            if "point_group" in d:
+                point_group = d["point_group"]
+            if "point_group_sites" in d and d["point_group_sites"] is not None:
+                point_group_sites = []
+                for site_dict in d["point_group_sites"]:
+                    point_group_sites.append(PointGroupSite(**site_dict))
+
+        # Common properties (atom_sites for FULL_ATOMIC mode)
         atom_sites = None
         if "atom_sites" in d and d["atom_sites"] is not None:
             atom_sites = []
@@ -395,11 +429,11 @@ class USIFStructure(MSONable):
                 structure_properties = d["structure_properties"]
 
         return cls(
-            structure_type=StructureType(d["structure_type"]),
+            structure_type=structure_type,
             storage_mode=StorageMode(d["storage_mode"]),
             lattice_matrix=lattice_matrix,
-            spacegroup=d["spacegroup"],
-            point_group=d.get("point_group"),
+            spacegroup=spacegroup,
+            point_group=point_group,
             wyckoff_sites=wyckoff_sites,
             point_group_sites=point_group_sites,
             atom_sites=atom_sites,
