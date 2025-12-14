@@ -63,8 +63,7 @@ from pymatgen.core import Molecule as PMGMolecule
 from pymatgen.core import Structure as PMGStructure
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer, SpacegroupAnalyzer
 
-from usif.constants import SymmetryConstants
-from usif.enums import StorageMode, StructureType
+from usif.constants import StorageMode, StructureType, SymmetryConstants
 from usif.exceptions import ValidationError
 from usif.properties.atomic import AtomicProperties
 from usif.properties.structure import StructureProperties

@@ -54,7 +54,7 @@ from pymatgen.symmetry.analyzer import PointGroupAnalyzer, SpacegroupAnalyzer
 
 from usif.constants import SymmetryConstants
 from usif.converter import StructureConverter
-from usif.enums import StorageMode, StructureType
+from usif.constants import StorageMode, StructureType
 from usif.exceptions import ValidationError
 from usif.structures.sites import PointGroupSite, WyckoffSite
 from usif.structures.structure import USIFStructure

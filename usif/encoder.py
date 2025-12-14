@@ -47,7 +47,7 @@ from usif.constants import BinaryFormat
 from usif.version import FORMAT_VERSION
 
 logger = logging.getLogger(__name__)
-from usif.enums import CompressionType, StorageMode, StructureType
+from usif.constants import CompressionType, StorageMode, StructureType
 from usif.exceptions import (
     CorruptedDataError,
     DecodingError,

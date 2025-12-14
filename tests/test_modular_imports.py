@@ -17,8 +17,12 @@ class TestModularImports(unittest.TestCase):
 
     def test_core_imports(self):
         """Test core module imports"""
-        from usif.constants import BinaryFormat
-        from usif.enums import CompressionType, StorageMode, StructureType
+        from usif.constants import (
+            BinaryFormat,
+            CompressionType,
+            StorageMode,
+            StructureType,
+        )
         from usif.exceptions import DecodingError, EncodingError, USIFError
 
         self.assertIsNotNone(BinaryFormat)

@@ -64,7 +64,7 @@ from typing import Any, List, Optional, Union
 import numpy as np
 from monty.json import MSONable
 
-from usif.enums import CompressionType, StorageMode, StructureType
+from usif.constants import CompressionType, StorageMode, StructureType
 from usif.exceptions import StorageError, ValidationError
 from usif.properties.atomic import AtomicProperties
 from usif.properties.structure import StructureProperties

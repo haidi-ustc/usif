@@ -40,13 +40,17 @@ For more examples, see the examples/ directory.
 """
 
 # Core constants and enums
-from .constants import BinaryFormat
+from .constants import (
+    BinaryFormat,
+    CompressionType,
+    StorageMode,
+    StructureType,
+)
 from .container import StructureContainer, USIFGroup
 from .converter import StructureConverter
 
 # Core functionality
 from .encoder import USIF
-from .enums import CompressionType, StorageMode, StructureType
 from .exceptions import (
     CorruptedDataError,
     DecodingError,

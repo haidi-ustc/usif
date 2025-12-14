@@ -57,7 +57,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from usif.constants import BinaryFormat, SymmetryConstants
 from usif.encoder import USIF
-from usif.enums import CompressionType
+from usif.constants import CompressionType
 from usif.exceptions import (
     CorruptedDataError,
     DecodingError,

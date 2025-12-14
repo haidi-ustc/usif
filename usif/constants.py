@@ -2,15 +2,20 @@
 """
 USIF Constants Module
 
-This module provides constants used throughout the USIF format, including
-binary format specifications and symmetry analysis parameters.
+This module provides constants and enumerations used throughout the USIF format, including
+binary format specifications, symmetry analysis parameters, and structure classifications.
 
 Main Classes:
     BinaryFormat: Binary format constants for struct pack/unpack
     SymmetryConstants: Constants for symmetry analysis and structure optimization
 
+Main Enumerations:
+    StructureType: Type of structure (CRYSTAL or MOLECULE)
+    StorageMode: Storage mode (SYMMETRIC or FULL_ATOMIC)
+    CompressionType: Compression algorithm (NONE or GZIP)
+
 Usage:
-    >>> from usif import BinaryFormat, SymmetryConstants
+    >>> from usif import BinaryFormat, SymmetryConstants, StructureType, StorageMode
     >>>
     >>> # Use binary format constants
     >>> import struct
@@ -19,11 +24,39 @@ Usage:
     >>> # Use symmetry constants
     >>> tolerance = SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE
     >>> coord_tolerance = SymmetryConstants.COORDINATE_TOLERANCE
+    >>>
+    >>> # Use enumerations
+    >>> if structure.structure_type == StructureType.CRYSTAL:
+    ...     print("This is a crystal")
 
 See Also:
     - PropertySerializer: Uses BinaryFormat for serialization
     - StructureConverter: Uses SymmetryConstants for analysis
+    - USIFStructure: Uses StructureType and StorageMode
 """
+
+from enum import IntEnum
+
+
+class StructureType(IntEnum):
+    """Structure type enumeration"""
+
+    CRYSTAL = 0  # Crystal with lattice
+    MOLECULE = 1  # Molecule without lattice
+
+
+class StorageMode(IntEnum):
+    """Storage mode enumeration"""
+
+    SYMMETRIC = 0  # Symmetric storage (Wyckoff/point group)
+    FULL_ATOMIC = 1  # Full atomic storage
+
+
+class CompressionType(IntEnum):
+    """Compression type enumeration"""
+
+    NONE = 0
+    GZIP = 1
 
 
 class BinaryFormat:
