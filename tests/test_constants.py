@@ -6,15 +6,25 @@ Test constants module
 import struct
 import sys
 import unittest
+import importlib.util
 from pathlib import Path
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Ensure conftest is loaded (sets up path) - works for both unittest and pytest
+# Add tests directory to path to import conftest
+tests_dir = Path(__file__).parent
+if str(tests_dir) not in sys.path:
+    sys.path.insert(0, str(tests_dir))
+try:
+    import conftest  # noqa: F401
+except ImportError:
+    # If conftest import fails, set up path manually
+    project_root = tests_dir.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
 
 # Import directly from module file to avoid triggering __init__.py
-import importlib.util
 spec = importlib.util.spec_from_file_location(
-    "constants", Path(__file__).parent.parent / "usif" / "constants.py"
+    "constants", tests_dir.parent / "usif" / "constants.py"
 )
 constants = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(constants)

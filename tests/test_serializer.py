@@ -4,13 +4,9 @@ Tests for USIF PropertySerializer
 Test serialization and deserialization of properties
 """
 
-import sys
 import unittest
-from pathlib import Path
 
 import numpy as np
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from usif.exceptions import DecodingError, EncodingError
 from usif.properties.definitions import PropertyDefinition

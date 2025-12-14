@@ -4,12 +4,7 @@ Test modular imports
 Verify that all modules can be imported correctly
 """
 
-import sys
 import unittest
-from pathlib import Path
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 class TestModularImports(unittest.TestCase):

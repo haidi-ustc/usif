@@ -4,13 +4,9 @@ Tests for USIF utils module
 Test USIFOptimizer and USIFBenchmark
 """
 
-import sys
 import unittest
-from pathlib import Path
 
 import numpy as np
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from usif import (
     AtomicProperties,

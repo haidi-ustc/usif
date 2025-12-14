@@ -4,13 +4,9 @@ Tests for USIF properties module
 Test PropertyDefinition, PropertyRegistry, AtomicProperties, StructureProperties
 """
 
-import sys
 import unittest
-from pathlib import Path
 
 import numpy as np
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from usif.exceptions import ValidationError
 from usif.properties.atomic import AtomicProperties

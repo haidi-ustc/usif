@@ -15,14 +15,11 @@ Requirements:
 """
 
 import os
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 import numpy as np
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from usif import (
     USIF,
