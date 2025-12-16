@@ -154,24 +154,15 @@ class TestSymmetryConstants(unittest.TestCase):
         self.assertEqual(SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE, 1e-3)
         self.assertIsInstance(SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE, float)
 
-    def test_default_symmetry_precision(self):
-        """Test default symmetry precision"""
-        self.assertEqual(SymmetryConstants.DEFAULT_SYMMETRY_PRECISION, 0.1)
-        self.assertIsInstance(SymmetryConstants.DEFAULT_SYMMETRY_PRECISION, float)
+    def test_default_spacegroup_tolerance(self):
+        """Test default spacegroup tolerance"""
+        self.assertEqual(SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE, 0.1)
+        self.assertIsInstance(SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE, float)
 
-    def test_molecular_equivalence_threshold(self):
-        """Test molecular equivalence threshold"""
-        self.assertEqual(
-            SymmetryConstants.MOLECULAR_EQUIVALENCE_THRESHOLD, 0.01
-        )
-        self.assertIsInstance(
-            SymmetryConstants.MOLECULAR_EQUIVALENCE_THRESHOLD, float
-        )
-
-    def test_property_value_tolerance(self):
-        """Test property value tolerance"""
-        self.assertEqual(SymmetryConstants.PROPERTY_VALUE_TOLERANCE, 0.001)
-        self.assertIsInstance(SymmetryConstants.PROPERTY_VALUE_TOLERANCE, float)
+    def test_molecular_equivalence_tolerance(self):
+        """Test molecular equivalence tolerance"""
+        self.assertEqual(SymmetryConstants.MOLECULAR_EQUIVALENCE_TOLERANCE, 0.01)
+        self.assertIsInstance(SymmetryConstants.MOLECULAR_EQUIVALENCE_TOLERANCE, float)
 
     def test_coordinate_tolerance(self):
         """Test coordinate tolerance"""
@@ -183,11 +174,6 @@ class TestSymmetryConstants(unittest.TestCase):
         # Coordinate tolerance should be tightest
         self.assertLess(
             SymmetryConstants.COORDINATE_TOLERANCE,
-            SymmetryConstants.PROPERTY_VALUE_TOLERANCE,
-        )
-        # Property tolerance should be less than or equal to symmetry tolerance
-        self.assertLessEqual(
-            SymmetryConstants.PROPERTY_VALUE_TOLERANCE,
             SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE,
         )
         # Coordinate tolerance should be much tighter than symmetry tolerance
@@ -195,8 +181,12 @@ class TestSymmetryConstants(unittest.TestCase):
             SymmetryConstants.COORDINATE_TOLERANCE,
             SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE,
         )
+        # Spacegroup tolerance should be larger than default symmetry tolerance
+        self.assertGreater(
+            SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE,
+            SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE,
+        )
 
 
 if __name__ == "__main__":
     unittest.main()
-

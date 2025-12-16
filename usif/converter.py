@@ -194,7 +194,7 @@ class StructureConverter:
 
                             if (
                                 min_dist
-                                < SymmetryConstants.MOLECULAR_EQUIVALENCE_THRESHOLD
+                                < SymmetryConstants.MOLECULAR_EQUIVALENCE_TOLERANCE
                             ):
                                 equiv_count += 1
                                 used.add(other_idx)
@@ -296,7 +296,7 @@ class StructureConverter:
         if storage_mode == StorageMode.SYMMETRIC:
             try:
                 sga = SpacegroupAnalyzer(
-                    pmg_structure, symprec=SymmetryConstants.DEFAULT_SYMMETRY_PRECISION
+                    pmg_structure, symprec=SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE
                 )
                 spacegroup_number = sga.get_space_group_number()
                 symmetrized = sga.get_symmetrized_structure()
@@ -320,7 +320,7 @@ class StructureConverter:
         if storage_mode == StorageMode.FULL_ATOMIC:
             try:
                 sga = SpacegroupAnalyzer(
-                    pmg_structure, symprec=SymmetryConstants.DEFAULT_SYMMETRY_PRECISION
+                    pmg_structure, symprec=SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE
                 )
                 spacegroup_number = sga.get_space_group_number()
             except (ValueError, RuntimeError) as e:

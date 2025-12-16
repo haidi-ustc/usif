@@ -100,14 +100,11 @@ class SymmetryConstants:
     # Default tolerance for symmetry analysis (in Angstroms)
     DEFAULT_SYMMETRY_TOLERANCE: float = 1e-3
 
-    # Symmetry precision for spacegroup analysis (in Angstroms)
-    DEFAULT_SYMMETRY_PRECISION: float = 0.1
+    # Tolerance for spacegroup analysis (in Angstroms)
+    DEFAULT_SPACEGROUP_TOLERANCE: float = 0.1
 
-    # Distance threshold for molecular symmetry equivalence (in Angstroms)
-    MOLECULAR_EQUIVALENCE_THRESHOLD: float = 0.01
+    # Tolerance for molecular symmetry equivalence distance (in Angstroms)
+    MOLECULAR_EQUIVALENCE_TOLERANCE: float = 0.01
 
-    # Property value comparison tolerance (for floating point comparisons)
-    PROPERTY_VALUE_TOLERANCE: float = 0.001
-
-    # Coordinate comparison tolerance (for equality checks, in Angstroms)
+    # Tolerance for coordinate comparison (for equality checks, in Angstroms)
     COORDINATE_TOLERANCE: float = 1e-6

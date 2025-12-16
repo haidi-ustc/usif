@@ -84,18 +84,15 @@ A static class containing tolerance and precision constants for symmetry analysi
 - `DEFAULT_SYMMETRY_TOLERANCE: float = 1e-3`: Default tolerance for symmetry analysis in Angstroms (0.001 Å)
   - Used by pymatgen's SpacegroupAnalyzer and PointGroupAnalyzer
   - Determines how close atoms must be to be considered equivalent
+  - Also used for property value comparisons
 
-- `DEFAULT_SYMMETRY_PRECISION: float = 0.1`: Symmetry precision for spacegroup analysis in Angstroms (0.1 Å)
+- `DEFAULT_SPACEGROUP_TOLERANCE: float = 0.1`: Tolerance for spacegroup analysis in Angstroms (0.1 Å)
   - Used for space group determination
   - Larger tolerance for initial symmetry detection
 
-- `MOLECULAR_EQUIVALENCE_THRESHOLD: float = 0.01`: Distance threshold for molecular symmetry equivalence in Angstroms (0.01 Å)
+- `MOLECULAR_EQUIVALENCE_TOLERANCE: float = 0.01`: Tolerance for molecular symmetry equivalence distance in Angstroms (0.01 Å)
   - Used specifically for molecular structures
   - Tighter tolerance than crystal symmetry
-
-- `PROPERTY_VALUE_TOLERANCE: float = 0.001`: Tolerance for floating-point property value comparisons
-  - Used in equality checks for properties
-  - Prevents floating-point precision issues
 
 - `COORDINATE_TOLERANCE: float = 1e-6`: Coordinate comparison tolerance in Angstroms (0.000001 Å)
   - Used for coordinate equality checks
@@ -108,7 +105,7 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 # Use default tolerance for symmetry analysis
 sga = SpacegroupAnalyzer(structure, 
-                        symprec=SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE)
+                        symprec=SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE)
 
 # Check coordinate equality with tolerance
 def coordinates_equal(coord1, coord2):
@@ -174,7 +171,7 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 # Use constants for consistent tolerance
 sga = SpacegroupAnalyzer(
     structure,
-    symprec=SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE
+    symprec=SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE
 )
 ```
 
@@ -197,9 +194,10 @@ The `array()` method strips endianness prefix before creating array format becau
 ### Tolerance Values
 
 Tolerance constants are carefully chosen:
-- `DEFAULT_SYMMETRY_TOLERANCE` (1e-3 Å): Balances accuracy with computational efficiency
+- `DEFAULT_SYMMETRY_TOLERANCE` (1e-3 Å): Balances accuracy with computational efficiency, also used for property value comparisons
+- `DEFAULT_SPACEGROUP_TOLERANCE` (0.1 Å): Larger tolerance for space group determination
+- `MOLECULAR_EQUIVALENCE_TOLERANCE` (0.01 Å): Used for molecular symmetry equivalence
 - `COORDINATE_TOLERANCE` (1e-6 Å): Very tight for precise coordinate matching
-- `PROPERTY_VALUE_TOLERANCE` (0.001): Appropriate for typical property values
 
 ## Testing Considerations
 

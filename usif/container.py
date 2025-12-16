@@ -708,7 +708,7 @@ class StructureContainer:
                                 if (
                                     isinstance(bucket, (int, float))
                                     and abs(bucket - prop_value)
-                                    < SymmetryConstants.PROPERTY_VALUE_TOLERANCE
+                                    < SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE
                                 ):
                                     candidate_hashes.intersection_update(hashes)
                         else:
