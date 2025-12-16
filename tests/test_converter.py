@@ -7,7 +7,6 @@ Test conversion between USIF and pymatgen formats
 import unittest
 
 import numpy as np
-
 from pymatgen.core import Lattice, Molecule, Structure
 
 from usif import StorageMode, StructureConverter, StructureType, USIFStructure

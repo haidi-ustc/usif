@@ -51,7 +51,7 @@ See Also:
 
 import logging
 import threading
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from usif.properties.definitions import PropertyDefinition
 
@@ -64,43 +64,67 @@ class PropertyRegistry:
     _lock = threading.RLock()
     _initialized = False
     _properties: Dict[str, PropertyDefinition] = {}
-    
+
     # Built-in properties that cannot be unregistered
     _builtin_properties = {
-        "force", "charge", "magmom", "velocity", 
-        "energy", "stress", "volume", "pressure", "temperature"
+        "force",
+        "charge",
+        "magmom",
+        "velocity",
+        "energy",
+        "stress",
+        "volume",
+        "pressure",
+        "temperature",
     }
 
     @classmethod
     def _initialize_builtins(cls) -> None:
         """Initialize built-in properties (lazy loading to avoid circular imports)"""
         from usif.units import Units
-        
+
         builtins = {
             # Atomic properties
             "force": PropertyDefinition(
-                "force", tuple, is_per_atom=True, dimensions=(3,),
-                description="Force on atom", units=Units.EV_PER_ANGSTROM,
+                "force",
+                tuple,
+                is_per_atom=True,
+                dimensions=(3,),
+                description="Force on atom",
+                units=Units.EV_PER_ANGSTROM,
             ),
             "charge": PropertyDefinition(
-                "charge", float, is_per_atom=True,
-                description="Atomic charge", units=Units.ELEMENTARY_CHARGE,
+                "charge",
+                float,
+                is_per_atom=True,
+                description="Atomic charge",
+                units=Units.ELEMENTARY_CHARGE,
             ),
             "magmom": PropertyDefinition(
-                "magmom", float, is_per_atom=True,
-                description="Magnetic moment", units=Units.BOHR_MAGNETON,
+                "magmom",
+                float,
+                is_per_atom=True,
+                description="Magnetic moment",
+                units=Units.BOHR_MAGNETON,
             ),
             "velocity": PropertyDefinition(
-                "velocity", tuple, is_per_atom=True, dimensions=(3,),
-                description="Atomic velocity", units=Units.ANGSTROM_PER_FS,
+                "velocity",
+                tuple,
+                is_per_atom=True,
+                dimensions=(3,),
+                description="Atomic velocity",
+                units=Units.ANGSTROM_PER_FS,
             ),
             # Structure properties
             "energy": PropertyDefinition(
                 "energy", float, description="Total energy", units=Units.EV
             ),
             "stress": PropertyDefinition(
-                "stress", tuple, dimensions=(6,),
-                description="Stress tensor (Voigt notation)", units=Units.GPA,
+                "stress",
+                tuple,
+                dimensions=(6,),
+                description="Stress tensor (Voigt notation)",
+                units=Units.GPA,
             ),
             "volume": PropertyDefinition(
                 "volume", float, description="Cell volume", units=Units.ANGSTROM_CUBED
@@ -112,7 +136,7 @@ class PropertyRegistry:
                 "temperature", float, description="Temperature", units=Units.KELVIN
             ),
         }
-        
+
         with cls._lock:
             cls._properties.update(builtins)
             cls._initialized = True
@@ -151,23 +175,27 @@ class PropertyRegistry:
         # Validate input
         if not isinstance(prop_def, PropertyDefinition):
             raise TypeError(f"Expected PropertyDefinition, got {type(prop_def)}")
-        
+
         if not prop_def.name or not isinstance(prop_def.name, str):
             raise ValueError("Property definition must have a valid name")
-        
+
         # Validate name doesn't conflict with reserved names
-        reserved_names = {'type', 'name', 'units', 'description', 'id', 'class'}
+        reserved_names = {"type", "name", "units", "description", "id", "class"}
         if prop_def.name in reserved_names:
             raise ValueError(f"Property name '{prop_def.name}' is reserved")
-        
+
         cls._ensure_initialized()
-        
+
         with cls._lock:
             if prop_def.name in cls._properties:
                 if cls.is_builtin(prop_def.name):
-                    logger.warning(f"Overwriting built-in property definition: {prop_def.name}")
+                    logger.warning(
+                        f"Overwriting built-in property definition: {prop_def.name}"
+                    )
                 else:
-                    logger.info(f"Overwriting custom property definition: {prop_def.name}")
+                    logger.info(
+                        f"Overwriting custom property definition: {prop_def.name}"
+                    )
             cls._properties[prop_def.name] = prop_def
 
     @classmethod
@@ -215,8 +243,10 @@ class PropertyRegistry:
         prop_def = cls._properties.get(name)
         if prop_def is None:
             available = list(cls._properties.keys())
-            raise KeyError(f"Property '{name}' not found in registry. "
-                          f"Available properties: {available}")
+            raise KeyError(
+                f"Property '{name}' not found in registry. "
+                f"Available properties: {available}"
+            )
         return prop_def
 
     @classmethod
@@ -289,7 +319,9 @@ class PropertyRegistry:
         return name in cls._properties
 
     @classmethod
-    def list_properties(cls, atomic_only: bool = False, structure_only: bool = False) -> List[str]:
+    def list_properties(
+        cls, atomic_only: bool = False, structure_only: bool = False
+    ) -> List[str]:
         """
         List available property names with filtering
 
@@ -306,19 +338,19 @@ class PropertyRegistry:
         Example:
             >>> # List all properties
             >>> all_props = PropertyRegistry.list_properties()
-            >>> 
+            >>>
             >>> # List only atomic properties
             >>> atomic_props = PropertyRegistry.list_properties(atomic_only=True)
-            >>> 
+            >>>
             >>> # List only structure properties
             >>> structure_props = PropertyRegistry.list_properties(structure_only=True)
         """
         if atomic_only and structure_only:
             raise ValueError("Cannot specify both atomic_only and structure_only")
-        
+
         cls._ensure_initialized()
         names = list(cls._properties.keys())
-        
+
         if atomic_only:
             return [name for name in names if cls.is_atomic_property(name)]
         elif structure_only:
@@ -344,14 +376,14 @@ class PropertyRegistry:
             >>> # Register a custom property
             >>> custom_prop = PropertyDefinition("custom", float)
             >>> PropertyRegistry.register(custom_prop)
-            >>> 
+            >>>
             >>> # Remove the custom property
             >>> success = PropertyRegistry.unregister("custom")
             >>> print(f"Removed: {success}")  # True
         """
         if cls.is_builtin(name):
             raise ValueError(f"Cannot unregister built-in property: {name}")
-        
+
         cls._ensure_initialized()
         with cls._lock:
             if name in cls._properties:
@@ -370,7 +402,9 @@ class PropertyRegistry:
         """
         cls._ensure_initialized()
         with cls._lock:
-            custom_props = [name for name in cls._properties.keys() if not cls.is_builtin(name)]
+            custom_props = [
+                name for name in cls._properties.keys() if not cls.is_builtin(name)
+            ]
             for name in custom_props:
                 del cls._properties[name]
 
@@ -389,13 +423,13 @@ class PropertyRegistry:
         cls._ensure_initialized()
         return {
             name: {
-                'data_type': prop_def.data_type.__name__,
-                'is_per_atom': prop_def.is_per_atom,
-                'dimensions': prop_def.dimensions,
-                'description': prop_def.description,
-                'units': prop_def.units,
-                'required': prop_def.required,
-                'is_builtin': cls.is_builtin(name)
+                "data_type": prop_def.data_type.__name__,
+                "is_per_atom": prop_def.is_per_atom,
+                "dimensions": prop_def.dimensions,
+                "description": prop_def.description,
+                "units": prop_def.units,
+                "required": prop_def.required,
+                "is_builtin": cls.is_builtin(name),
             }
             for name, prop_def in cls._properties.items()
         }
@@ -421,7 +455,9 @@ class PropertyRegistry:
         return prop_def.describe()
 
     @classmethod
-    def validate_property_value(cls, name: str, value: Any, num_atoms: Optional[int] = None) -> Tuple[bool, str]:
+    def validate_property_value(
+        cls, name: str, value: Any, num_atoms: Optional[int] = None
+    ) -> Tuple[bool, str]:
         """
         Validate a value against a property definition
 
@@ -440,7 +476,7 @@ class PropertyRegistry:
         prop_def = cls.get(name)
         if prop_def is None:
             return False, f"Property '{name}' not found"
-        
+
         return prop_def.validate_value(value, num_atoms)
 
 
@@ -448,50 +484,51 @@ class PropertyRegistry:
 if __name__ == "__main__":
     # Test the PropertyRegistry class
     print("=== Property Registry Demo ===")
-    
+
     # List all properties
     all_props = PropertyRegistry.list_properties()
     print(f"All properties: {all_props}")
-    
+
     # List atomic properties
     atomic_props = PropertyRegistry.list_properties(atomic_only=True)
     print(f"Atomic properties: {atomic_props}")
-    
+
     # List structure properties
     structure_props = PropertyRegistry.list_properties(structure_only=True)
     print(f"Structure properties: {structure_props}")
-    
+
     # Get property definitions
     energy_def = PropertyRegistry.get("energy")
     force_def = PropertyRegistry.get("force")
-    
+
     print(f"\nEnergy property: {energy_def.describe() if energy_def else 'Not found'}")
     print(f"Force property: {force_def.describe() if force_def else 'Not found'}")
-    
+
     # Check property types
     print(f"\nIs 'force' atomic? {PropertyRegistry.is_atomic_property('force')}")
     print(f"Is 'energy' atomic? {PropertyRegistry.is_atomic_property('energy')}")
     print(f"Is 'energy' structure? {PropertyRegistry.is_structure_property('energy')}")
-    
+
     # Validate values
     print(f"\nValidation tests:")
     print(f"Energy -10.5: {PropertyRegistry.validate_property_value('energy', -10.5)}")
-    print(f"Force validation: {PropertyRegistry.validate_property_value('force', ((1.0, 2.0, 3.0),), num_atoms=1)}")
-    
+    print(
+        f"Force validation: {PropertyRegistry.validate_property_value('force', ((1.0, 2.0, 3.0),), num_atoms=1)}"
+    )
+
     # Test custom property registration
     from usif.properties.definitions import PropertyDefinition
-    
+
     custom_prop = PropertyDefinition(
-        name="band_gap",
-        data_type=float,
-        description="Electronic band gap",
-        units="eV"
+        name="band_gap", data_type=float, description="Electronic band gap", units="eV"
     )
-    
+
     PropertyRegistry.register(custom_prop)
     print(f"\nCustom property registered: {PropertyRegistry.exists('band_gap')}")
-    print(f"Custom property description: {PropertyRegistry.describe_property('band_gap')}")
-    
+    print(
+        f"Custom property description: {PropertyRegistry.describe_property('band_gap')}"
+    )
+
     # Test serialization
     registry_dict = PropertyRegistry.to_dict()
     print(f"\nRegistry has {len(registry_dict)} properties")

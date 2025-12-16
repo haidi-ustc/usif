@@ -258,12 +258,14 @@ class PropertySerializer:
         # Serialize based on data type using consistent format from TYPE_HANDLERS
         handler = PropertySerializer.TYPE_HANDLERS.get(prop_def.data_type)
         if not handler:
-            raise EncodingError(f"Unsupported multi-dimensional type: {prop_def.data_type}")
-        
+            raise EncodingError(
+                f"Unsupported multi-dimensional type: {prop_def.data_type}"
+            )
+
         fmt = handler.get("format")
         if fmt is None:
             raise EncodingError(f"Format not defined for {prop_def.data_type}")
-        
+
         if prop_def.data_type == bool:
             bool_bytes = [1 if x else 0 for x in value]
             return struct.pack(BinaryFormat.array(BinaryFormat.UINT8, dim), *bool_bytes)
@@ -445,12 +447,14 @@ class PropertySerializer:
         # Calculate required size and check bounds using consistent format from TYPE_HANDLERS
         handler = PropertySerializer.TYPE_HANDLERS.get(prop_def.data_type)
         if not handler:
-            raise DecodingError(f"Unsupported multi-dimensional type: {prop_def.data_type}")
-        
+            raise DecodingError(
+                f"Unsupported multi-dimensional type: {prop_def.data_type}"
+            )
+
         fmt = handler.get("format")
         if fmt is None:
             raise DecodingError(f"Format not defined for {prop_def.data_type}")
-        
+
         # Calculate size based on format
         element_size = handler.get("size")
         if callable(element_size):
@@ -458,12 +462,12 @@ class PropertySerializer:
             size = element_size(dim)
         else:
             size = element_size * dim
-        
+
         if offset + size > len(data):
             raise DecodingError(
                 f"Insufficient data for multi-dimensional value: need {size} bytes at offset {offset}"
             )
-        
+
         if prop_def.data_type == bool:
             # Bool arrays use UINT8
             if offset + dim > len(data):
@@ -787,7 +791,9 @@ class PropertySerializer:
                     else:
                         element_size = handler.get("size")
                         if callable(element_size):
-                            element_size = element_size(value) if value is not None else 0
+                            element_size = (
+                                element_size(value) if value is not None else 0
+                            )
 
                 return count_size + (actual_count * element_size)
             else:

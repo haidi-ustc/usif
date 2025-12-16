@@ -51,7 +51,7 @@ See Also:
 """
 
 from dataclasses import dataclass
-from typing import Any, Generic, List, Optional, Tuple, Type, Union, TypeVar
+from typing import Any, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
 T = TypeVar("T")
 
@@ -92,9 +92,9 @@ class PropertyDefinition(Generic[T]):
             )
 
         # Validate range constraints only apply to numeric types
-        if (self.min_value is not None or self.max_value is not None) and not issubclass(
-            self.data_type, (int, float)
-        ):
+        if (
+            self.min_value is not None or self.max_value is not None
+        ) and not issubclass(self.data_type, (int, float)):
             raise ValueError(
                 "min_value/max_value constraints only applicable to numeric types (int, float)"
             )
@@ -112,7 +112,9 @@ class PropertyDefinition(Generic[T]):
             raise ValueError("String properties cannot have dimensions")
 
         # Validate default value type
-        if self.default_value is not None and not isinstance(self.default_value, self.data_type):
+        if self.default_value is not None and not isinstance(
+            self.default_value, self.data_type
+        ):
             raise ValueError(
                 f"default_value type {type(self.default_value)} does not match data_type {self.data_type}"
             )
@@ -214,24 +216,33 @@ class PropertyDefinition(Generic[T]):
         self, value: Any, expected_shape: Tuple[int, ...]
     ) -> Optional[str]:
         """Validate array shape with comprehensive checking"""
+
         def get_actual_shape(obj: Any, max_depth: int = 10) -> Tuple[int, ...]:
             """Recursively get the shape of nested structures"""
             if max_depth <= 0 or not hasattr(obj, "__len__") or isinstance(obj, str):
                 return ()
-            
+
             length = len(obj)
             if length == 0:
                 return (0,)
-            
+
             # Check if all elements have same structure
-            first_elem_shape = get_actual_shape(obj[0], max_depth - 1) if hasattr(obj[0], "__len__") and not isinstance(obj[0], str) else ()
-            
+            first_elem_shape = (
+                get_actual_shape(obj[0], max_depth - 1)
+                if hasattr(obj[0], "__len__") and not isinstance(obj[0], str)
+                else ()
+            )
+
             # Verify consistent structure
             for elem in obj[1:]:
-                elem_shape = get_actual_shape(elem, max_depth - 1) if hasattr(elem, "__len__") and not isinstance(elem, str) else ()
+                elem_shape = (
+                    get_actual_shape(elem, max_depth - 1)
+                    if hasattr(elem, "__len__") and not isinstance(elem, str)
+                    else ()
+                )
                 if elem_shape != first_elem_shape:
                     raise ValueError("Inconsistent nested structure")
-            
+
             return (length,) + first_elem_shape
 
         try:
@@ -248,7 +259,9 @@ class PropertyDefinition(Generic[T]):
 
         return None
 
-    def get_expected_shape(self, num_atoms: Optional[int] = None) -> Optional[Tuple[int, ...]]:
+    def get_expected_shape(
+        self, num_atoms: Optional[int] = None
+    ) -> Optional[Tuple[int, ...]]:
         """Get expected shape for validation"""
         if self.is_per_atom:
             if num_atoms is None:
@@ -257,7 +270,7 @@ class PropertyDefinition(Generic[T]):
             if num_atoms <= 0:
                 raise ValueError(f"Invalid number of atoms: {num_atoms}")
             return (num_atoms,) + self.dimensions
-        
+
         return self.dimensions if self.dimensions else None
 
     def get_effective_value(self, value: Any) -> Any:
@@ -270,34 +283,34 @@ class PropertyDefinition(Generic[T]):
         """Get human-readable description of the property"""
         parts = [f"'{self.name}'"]
         parts.append(f"type: {self.data_type.__name__}")
-        
+
         if self.units:
             parts.append(f"units: {self.units}")
-        
+
         if self.is_per_atom:
             parts.append("per-atom")
-        
+
         if self.dimensions:
             parts.append(f"dims: {self.dimensions}")
-        
+
         if self.required:
             parts.append("required")
         else:
             parts.append("optional")
-        
+
         if self.default_value is not None:
             parts.append(f"default: {self.default_value}")
-        
+
         if self.min_value is not None or self.max_value is not None:
             range_str = f"[{self.min_value or '-∞'}, {self.max_value or '∞'}]"
             parts.append(f"range: {range_str}")
-        
+
         if self.allowed_values is not None:
             parts.append(f"allowed: {self.allowed_values}")
-        
+
         if self.description:
             parts.append(f"desc: '{self.description}'")
-        
+
         return " | ".join(parts)
 
     def __str__(self) -> str:
@@ -306,10 +319,12 @@ class PropertyDefinition(Generic[T]):
 
     def __repr__(self) -> str:
         """Detailed representation"""
-        return (f"PropertyDefinition(name='{self.name}', "
-                f"data_type={self.data_type.__name__}, "
-                f"is_per_atom={self.is_per_atom}, "
-                f"dimensions={self.dimensions})")
+        return (
+            f"PropertyDefinition(name='{self.name}', "
+            f"data_type={self.data_type.__name__}, "
+            f"is_per_atom={self.is_per_atom}, "
+            f"dimensions={self.dimensions})"
+        )
 
 
 # Example usage and testing
@@ -322,9 +337,9 @@ if __name__ == "__main__":
         description="Total energy of the system",
         min_value=-1000.0,
         max_value=1000.0,
-        required=True
+        required=True,
     )
-    
+
     force_def = PropertyDefinition(
         name="force",
         data_type=tuple,
@@ -332,14 +347,16 @@ if __name__ == "__main__":
         dimensions=(3,),
         units="eV/Å",
         description="Force vector on each atom",
-        required=False
+        required=False,
     )
-    
+
     print(energy_def.describe())
     print(force_def.describe())
-    
+
     # Test validation
     print("\nValidation tests:")
     print(energy_def.validate_value(-50.5))  # Should be valid
     print(energy_def.validate_value(-1500.0))  # Should be invalid
-    print(force_def.validate_value(((1.0, 2.0, 3.0), (4.0, 5.0, 6.0)), num_atoms=2))  # Should be valid
+    print(
+        force_def.validate_value(((1.0, 2.0, 3.0), (4.0, 5.0, 6.0)), num_atoms=2)
+    )  # Should be valid

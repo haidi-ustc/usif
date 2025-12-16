@@ -296,7 +296,8 @@ class StructureConverter:
         if storage_mode == StorageMode.SYMMETRIC:
             try:
                 sga = SpacegroupAnalyzer(
-                    pmg_structure, symprec=SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE
+                    pmg_structure,
+                    symprec=SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE,
                 )
                 spacegroup_number = sga.get_space_group_number()
                 symmetrized = sga.get_symmetrized_structure()
@@ -320,7 +321,8 @@ class StructureConverter:
         if storage_mode == StorageMode.FULL_ATOMIC:
             try:
                 sga = SpacegroupAnalyzer(
-                    pmg_structure, symprec=SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE
+                    pmg_structure,
+                    symprec=SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE,
                 )
                 spacegroup_number = sga.get_space_group_number()
             except (ValueError, RuntimeError) as e:

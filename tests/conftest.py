@@ -153,7 +153,7 @@ def simple_structure():
     if not HAS_NUMPY:
         pytest.skip("numpy not available")
     try:
-        from usif import USIFStructure, StructureProperties, WyckoffSite
+        from usif import StructureProperties, USIFStructure, WyckoffSite
 
         return USIFStructure(
             structure_type=StructureType.CRYSTAL,
@@ -193,15 +193,11 @@ def encoder_none():
 # Pytest configuration
 def pytest_configure(config):
     """Configure pytest with custom markers"""
-    config.addinivalue_line(
-        "markers", "requires_numpy: mark test as requiring numpy"
-    )
+    config.addinivalue_line("markers", "requires_numpy: mark test as requiring numpy")
     config.addinivalue_line(
         "markers", "requires_pymatgen: mark test as requiring pymatgen"
     )
-    config.addinivalue_line(
-        "markers", "requires_monty: mark test as requiring monty"
-    )
+    config.addinivalue_line("markers", "requires_monty: mark test as requiring monty")
     config.addinivalue_line(
         "markers", "requires_deps: mark test as requiring all dependencies"
     )
@@ -218,9 +214,7 @@ def pytest_collection_modifyitems(config, items):
         # Skip if test requires pymatgen but it's not available
         if "requires_pymatgen" in [mark.name for mark in item.iter_markers()]:
             if not HAS_PYMATGEN:
-                item.add_marker(
-                    pytest.mark.skip(reason="pymatgen not available")
-                )
+                item.add_marker(pytest.mark.skip(reason="pymatgen not available"))
 
         # Skip if test requires monty but it's not available
         if "requires_monty" in [mark.name for mark in item.iter_markers()]:
@@ -233,4 +227,3 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(
                     pytest.mark.skip(reason="required dependencies not available")
                 )
-

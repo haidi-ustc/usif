@@ -3,10 +3,10 @@
 Test constants module
 """
 
+import importlib.util
 import struct
 import sys
 import unittest
-import importlib.util
 from pathlib import Path
 
 # Ensure conftest is loaded (sets up path) - works for both unittest and pytest

@@ -49,12 +49,12 @@ See Also:
 
 import logging
 from collections import defaultdict
+
 import numpy as np
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer, SpacegroupAnalyzer
 
-from usif.constants import SymmetryConstants
+from usif.constants import StorageMode, StructureType, SymmetryConstants
 from usif.converter import StructureConverter
-from usif.constants import StorageMode, StructureType
 from usif.exceptions import ValidationError
 from usif.structures.sites import PointGroupSite, WyckoffSite
 from usif.structures.structure import USIFStructure

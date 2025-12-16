@@ -3,9 +3,9 @@
 Test exceptions module
 """
 
+import importlib.util
 import sys
 import unittest
-import importlib.util
 from pathlib import Path
 
 # Ensure conftest is loaded (sets up path) - works for both unittest and pytest
@@ -137,4 +137,3 @@ class TestExceptionHierarchy(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

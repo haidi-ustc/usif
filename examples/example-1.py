@@ -7,21 +7,21 @@ Comprehensive testing of USIF format with all features
 import numpy as np
 
 from usif import (
-    StructureType,
-    StorageMode,
-    WyckoffSite,
     USIF,
-    StructureProperties,
-    USIFStructure,
-    AtomSite,
     AtomicProperties,
+    AtomSite,
     PointGroupSite,
-    StructureContainer,
-    StructureConverter,
-    USIFBenchmark,
     PropertyDefinition,
     PropertyRegistry,
     PropertySerializer,
+    StorageMode,
+    StructureContainer,
+    StructureConverter,
+    StructureProperties,
+    StructureType,
+    USIFBenchmark,
+    USIFStructure,
+    WyckoffSite,
 )
 
 

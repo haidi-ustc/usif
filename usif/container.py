@@ -55,9 +55,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
-from usif.constants import BinaryFormat, SymmetryConstants
+from usif.constants import BinaryFormat, CompressionType, SymmetryConstants
 from usif.encoder import USIF
-from usif.constants import CompressionType
 from usif.exceptions import (
     CorruptedDataError,
     DecodingError,
