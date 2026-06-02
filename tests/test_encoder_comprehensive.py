@@ -19,6 +19,8 @@ from usif import (
     DecodingError,
     EncodingError,
     PointGroupSite,
+    PropertyDefinition,
+    PropertyRegistry,
     StorageMode,
     StructureProperties,
     StructureType,
@@ -234,6 +236,70 @@ class TestEncoderComprehensive(unittest.TestCase):
                 structure.atom_sites[0].properties.charge,
                 decoded.atom_sites[0].properties.charge,
             )
+
+    def test_custom_property_types_roundtrip(self):
+        """Test binary custom properties preserve JSON-compatible value types."""
+        structure = USIFStructure(
+            structure_type=StructureType.CRYSTAL,
+            storage_mode=StorageMode.FULL_ATOMIC,
+            lattice_matrix=np.eye(3) * 5.0,
+            spacegroup=1,
+            atom_sites=[
+                AtomSite(
+                    14,
+                    (0.0, 0.0, 0.0),
+                    AtomicProperties(custom={"label": "Si1", "index": 1}),
+                )
+            ],
+            structure_properties=StructureProperties(
+                custom={
+                    "calculator": "VASP",
+                    "run_id": 3,
+                    "converged": True,
+                    "tags": ["static", "test"],
+                }
+            ),
+            formula="Si",
+        )
+
+        decoded, _ = self.encoder.decode(self.encoder.encode(structure))
+
+        self.assertEqual(
+            decoded.structure_properties.custom, structure.structure_properties.custom
+        )
+        self.assertEqual(
+            decoded.atom_sites[0].properties.custom,
+            structure.atom_sites[0].properties.custom,
+        )
+
+    def test_registered_custom_properties_roundtrip_to_custom_dict(self):
+        """Test registered custom properties remain in custom after decode."""
+        PropertyRegistry.register(
+            PropertyDefinition(
+                name="test_registered_custom",
+                data_type=float,
+                description="Registered custom test property",
+                units="eV",
+            )
+        )
+
+        structure = USIFStructure(
+            structure_type=StructureType.CRYSTAL,
+            storage_mode=StorageMode.SYMMETRIC,
+            lattice_matrix=np.eye(3) * 5.0,
+            spacegroup=1,
+            wyckoff_sites=[WyckoffSite(14, 1, (0.0, 0.0, 0.0))],
+            structure_properties=StructureProperties(
+                custom={"test_registered_custom": 1.23}
+            ),
+            formula="Si",
+        )
+
+        decoded, _ = self.encoder.decode(self.encoder.encode(structure))
+
+        self.assertEqual(
+            decoded.structure_properties.custom, structure.structure_properties.custom
+        )
 
     def test_version_mismatch_warning(self):
         """Test version mismatch handling"""

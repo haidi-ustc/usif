@@ -45,14 +45,26 @@ See Also:
 """
 
 from .benchmark import USIFBenchmark
-from .mp_downloader import (
-    convert_mp_to_usif,
-    create_mp_data_archive,
-    download_mp_data,
-    load_mp_data_from_archive,
-    load_mp_group,
-)
 from .optimizer import USIFOptimizer
+
+_MP_EXPORTS = {
+    "convert_mp_to_usif",
+    "create_mp_data_archive",
+    "download_mp_data",
+    "load_mp_data_from_archive",
+    "load_mp_group",
+}
+
+
+def __getattr__(name):
+    if name in _MP_EXPORTS:
+        from . import mp_downloader
+
+        value = getattr(mp_downloader, name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "USIFOptimizer",

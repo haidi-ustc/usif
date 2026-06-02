@@ -6,7 +6,6 @@ Demonstrating various use cases of the USIF structure format
 
 import os
 import tempfile
-from pathlib import Path
 
 import numpy as np
 

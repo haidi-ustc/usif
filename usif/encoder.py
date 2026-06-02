@@ -36,6 +36,7 @@ See Also:
 
 import gzip
 import hashlib
+import json
 import logging
 import struct
 from pathlib import Path
@@ -43,11 +44,7 @@ from typing import Optional, Tuple, Union
 
 import numpy as np
 
-from usif.constants import BinaryFormat
-from usif.version import FORMAT_VERSION
-
-logger = logging.getLogger(__name__)
-from usif.constants import CompressionType, StorageMode, StructureType
+from usif.constants import BinaryFormat, CompressionType, StorageMode, StructureType
 from usif.exceptions import (
     CorruptedDataError,
     DecodingError,
@@ -61,6 +58,10 @@ from usif.properties.serializer import PropertySerializer
 from usif.properties.structure import StructureProperties
 from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
 from usif.structures.structure import USIFStructure
+from usif.version import FORMAT_VERSION
+
+logger = logging.getLogger(__name__)
+CUSTOM_JSON_PREFIX = "__USIF_JSON__:"
 
 
 class USIF:
@@ -81,6 +82,31 @@ class USIF:
             >>> encoder = USIF(compression=CompressionType.NONE)  # No compression
         """
         self.compression = compression
+
+    @staticmethod
+    def _json_default(value):
+        """Convert common scientific Python values to JSON-compatible data."""
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+        if isinstance(value, np.generic):
+            return value.item()
+        return str(value)
+
+    @staticmethod
+    def _encode_custom_value(value) -> bytes:
+        payload = json.dumps(value, default=USIF._json_default, separators=(",", ":"))
+        return (CUSTOM_JSON_PREFIX + payload).encode("utf-8")
+
+    @staticmethod
+    def _decode_custom_value(value_str):
+        if not value_str.startswith(CUSTOM_JSON_PREFIX):
+            return value_str
+        payload = value_str[len(CUSTOM_JSON_PREFIX) :]
+        try:
+            return json.loads(payload)
+        except json.JSONDecodeError:
+            logger.warning("Failed to decode custom JSON payload; returning raw string")
+            return value_str
 
     def _calculate_hash(self, structure: USIFStructure) -> bytes:
         """
@@ -211,8 +237,7 @@ class USIF:
             data.extend(struct.pack(BinaryFormat.UINT8, len(name_bytes)))
             data.extend(name_bytes)
 
-            value_str = str(custom_value)
-            value_bytes = value_str.encode("utf-8")
+            value_bytes = self._encode_custom_value(custom_value)
             data.extend(struct.pack(BinaryFormat.UINT32, len(value_bytes)))
             data.extend(value_bytes)
 
@@ -254,7 +279,10 @@ class USIF:
                 )
                 offset = new_offset
 
-                setattr(props, prop_name, prop_value)
+                if hasattr(props, prop_name):
+                    setattr(props, prop_name, prop_value)
+                else:
+                    props.custom[prop_name] = prop_value
 
             num_custom = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[0]
             offset += 1
@@ -274,7 +302,7 @@ class USIF:
                 value_str = data[offset : offset + value_len].decode("utf-8")
                 offset += value_len
 
-                props.custom[custom_name] = value_str
+                props.custom[custom_name] = self._decode_custom_value(value_str)
 
             return props, offset
         except (struct.error, UnicodeDecodeError) as e:
@@ -317,8 +345,7 @@ class USIF:
             data.extend(struct.pack(BinaryFormat.UINT8, len(name_bytes)))
             data.extend(name_bytes)
 
-            value_str = str(custom_value)
-            value_bytes = value_str.encode("utf-8")
+            value_bytes = self._encode_custom_value(custom_value)
             data.extend(struct.pack(BinaryFormat.UINT32, len(value_bytes)))
             data.extend(value_bytes)
 
@@ -360,7 +387,10 @@ class USIF:
                 )
                 offset = new_offset
 
-                setattr(props, prop_name, prop_value)
+                if hasattr(props, prop_name):
+                    setattr(props, prop_name, prop_value)
+                else:
+                    props.custom[prop_name] = prop_value
 
             num_custom = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[0]
             offset += 1
@@ -380,7 +410,7 @@ class USIF:
                 value_str = data[offset : offset + value_len].decode("utf-8")
                 offset += value_len
 
-                props.custom[custom_name] = value_str
+                props.custom[custom_name] = self._decode_custom_value(value_str)
 
             return props, offset
         except (struct.error, UnicodeDecodeError) as e:

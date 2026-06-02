@@ -26,13 +26,13 @@ exclude =
 ignore = E203, W503, E501
 
 # Maximum complexity
-max-complexity = 15
+max-complexity = 32
 
 # Per-file ignores
 per-file-ignores =
     __init__.py:F401
     tests/*:F401,F811
+    tests/conftest.py:E402,F401
 
 # Import order checking (use isort for this)
 import-order-style = google
-

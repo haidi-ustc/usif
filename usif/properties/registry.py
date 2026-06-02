@@ -510,7 +510,7 @@ if __name__ == "__main__":
     print(f"Is 'energy' structure? {PropertyRegistry.is_structure_property('energy')}")
 
     # Validate values
-    print(f"\nValidation tests:")
+    print("\nValidation tests:")
     print(f"Energy -10.5: {PropertyRegistry.validate_property_value('energy', -10.5)}")
     print(
         f"Force validation: {PropertyRegistry.validate_property_value('force', ((1.0, 2.0, 3.0),), num_atoms=1)}"

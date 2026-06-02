@@ -90,7 +90,6 @@ class WyckoffSite:
 
 
 @dataclass
-@dataclass
 class PointGroupSite:
     """Point group symmetric position for molecules"""
 

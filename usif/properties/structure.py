@@ -281,7 +281,7 @@ if __name__ == "__main__":
     print(f"All properties: {struct_props.get_all_properties()}")
 
     # Test utility methods
-    print(f"\nUtility methods:")
+    print("\nUtility methods:")
     print(f"Has energy: {struct_props.has_energy()}")
     print(f"Has stress: {struct_props.has_stress()}")
     print(f"Has volume: {struct_props.has_volume()}")

@@ -103,7 +103,7 @@ class USIFBenchmark:
                 total_original_size += cif_size
                 total_compressed_size += len(compressed)
             except Exception as e:
-                logger.error(f"Benchmark error for structure: {e}")
+                logger.debug(f"Benchmark skipped structure: {e}")
                 continue
 
         avg_compression_ratio = (

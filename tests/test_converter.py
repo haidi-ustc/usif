@@ -106,6 +106,13 @@ class TestStructureConverter(unittest.TestCase):
         self.assertEqual(len(structure), len(pmg_structure))
         self.assertAlmostEqual(structure.volume, pmg_structure.volume, places=3)
 
+        original_coords = {tuple(round(float(x), 6) for x in site.frac_coords) for site in structure}
+        roundtrip_coords = {
+            tuple(round(float(x), 6) for x in site.frac_coords)
+            for site in pmg_structure
+        }
+        self.assertEqual(roundtrip_coords, original_coords)
+
     def test_roundtrip_molecule(self):
         """Test roundtrip conversion for molecule"""
         coords = [[0, 0, 0], [0.76, 0.59, 0], [-0.76, 0.59, 0]]
@@ -115,6 +122,13 @@ class TestStructureConverter(unittest.TestCase):
         pmg_molecule = StructureConverter.to_pymatgen(usif_structure)
 
         self.assertEqual(len(molecule), len(pmg_molecule))
+
+        original_coords = {tuple(round(float(x), 6) for x in site.coords) for site in molecule}
+        roundtrip_coords = {
+            tuple(round(float(x), 6) for x in site.coords)
+            for site in pmg_molecule
+        }
+        self.assertEqual(roundtrip_coords, original_coords)
 
 
 class TestUSIFStructureToMethod(unittest.TestCase):
