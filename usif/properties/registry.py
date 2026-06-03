@@ -455,6 +455,12 @@ class PropertyRegistry:
         return prop_def.describe()
 
     @classmethod
+    def create_isolated(cls) -> "PropertyRegistryInstance":
+        """Create an isolated registry copy for codecs, converters, or tests."""
+        cls._ensure_initialized()
+        return PropertyRegistryInstance(dict(cls._properties))
+
+    @classmethod
     def validate_property_value(
         cls, name: str, value: Any, num_atoms: Optional[int] = None
     ) -> Tuple[bool, str]:
@@ -477,6 +483,104 @@ class PropertyRegistry:
         if prop_def is None:
             return False, f"Property '{name}' not found"
 
+        return prop_def.validate_value(value, num_atoms)
+
+
+class PropertyRegistryInstance:
+    """Isolated property registry with the same read/write API as PropertyRegistry."""
+
+    def __init__(self, properties: Optional[Dict[str, PropertyDefinition]] = None):
+        PropertyRegistry._ensure_initialized()
+        self._properties = dict(properties or PropertyRegistry._properties)
+        self._builtin_properties = set(PropertyRegistry._builtin_properties)
+
+    def register(self, prop_def: PropertyDefinition) -> None:
+        if not isinstance(prop_def, PropertyDefinition):
+            raise TypeError(f"Expected PropertyDefinition, got {type(prop_def)}")
+        if not prop_def.name or not isinstance(prop_def.name, str):
+            raise ValueError("Property definition must have a valid name")
+        reserved_names = {"type", "name", "units", "description", "id", "class"}
+        if prop_def.name in reserved_names:
+            raise ValueError(f"Property name '{prop_def.name}' is reserved")
+        self._properties[prop_def.name] = prop_def
+
+    def get(self, name: str) -> Optional[PropertyDefinition]:
+        return self._properties.get(name)
+
+    def get_required(self, name: str) -> PropertyDefinition:
+        prop_def = self.get(name)
+        if prop_def is None:
+            available = list(self._properties.keys())
+            raise KeyError(
+                f"Property '{name}' not found in registry. Available properties: {available}"
+            )
+        return prop_def
+
+    def is_atomic_property(self, name: str) -> bool:
+        prop_def = self.get(name)
+        return prop_def.is_per_atom if prop_def else False
+
+    def is_structure_property(self, name: str) -> bool:
+        prop_def = self.get(name)
+        return not prop_def.is_per_atom if prop_def else False
+
+    def is_builtin(self, name: str) -> bool:
+        return name in self._builtin_properties
+
+    def exists(self, name: str) -> bool:
+        return name in self._properties
+
+    def list_properties(
+        self, atomic_only: bool = False, structure_only: bool = False
+    ) -> List[str]:
+        if atomic_only and structure_only:
+            raise ValueError("Cannot specify both atomic_only and structure_only")
+        names = list(self._properties.keys())
+        if atomic_only:
+            return [name for name in names if self.is_atomic_property(name)]
+        if structure_only:
+            return [name for name in names if self.is_structure_property(name)]
+        return names
+
+    def unregister(self, name: str) -> bool:
+        if self.is_builtin(name):
+            raise ValueError(f"Cannot unregister built-in property: {name}")
+        if name in self._properties:
+            del self._properties[name]
+            return True
+        return False
+
+    def clear_custom_properties(self) -> None:
+        for name in list(self._properties):
+            if not self.is_builtin(name):
+                del self._properties[name]
+
+    def to_dict(self) -> Dict[str, Dict[str, Any]]:
+        return {
+            name: {
+                "data_type": prop_def.data_type.__name__,
+                "is_per_atom": prop_def.is_per_atom,
+                "dimensions": prop_def.dimensions,
+                "description": prop_def.description,
+                "units": prop_def.units,
+                "required": prop_def.required,
+                "is_builtin": self.is_builtin(name),
+            }
+            for name, prop_def in self._properties.items()
+        }
+
+    def describe_property(self, name: str) -> str:
+        prop_def = self.get(name)
+        if prop_def is None:
+            return f"Property '{name}' not found"
+        return prop_def.describe()
+
+    def validate_property_value(
+        self, name: str, value: Any, num_atoms: Optional[int] = None
+    ) -> Tuple[bool, str]:
+        prop_def = self.get(name)
+        if prop_def is None:
+            return False, f"Property '{name}' not found"
         return prop_def.validate_value(value, num_atoms)
 
 

@@ -34,9 +34,6 @@ See Also:
     - PropertySerializer: Property serialization
 """
 
-import gzip
-import hashlib
-import json
 import logging
 import struct
 from pathlib import Path
@@ -52,16 +49,20 @@ from usif.exceptions import (
     StorageError,
     ValidationError,
 )
+from usif.format import (
+    PropertyCodec,
+    calculate_structure_hash,
+    compress_data,
+    decompress_data,
+)
 from usif.properties.atomic import AtomicProperties
 from usif.properties.registry import PropertyRegistry
-from usif.properties.serializer import PropertySerializer
 from usif.properties.structure import StructureProperties
 from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
 from usif.structures.structure import USIFStructure
 from usif.version import FORMAT_VERSION
 
 logger = logging.getLogger(__name__)
-CUSTOM_JSON_PREFIX = "__USIF_JSON__:"
 
 
 class USIF:
@@ -70,7 +71,11 @@ class USIF:
     VERSION = FORMAT_VERSION  # Use global format version
     HEADER_SIZE = 64
 
-    def __init__(self, compression: CompressionType = CompressionType.GZIP):
+    def __init__(
+        self,
+        compression: CompressionType = CompressionType.GZIP,
+        property_registry=PropertyRegistry,
+    ):
         """
         Initialize USIF encoder/decoder
 
@@ -82,341 +87,57 @@ class USIF:
             >>> encoder = USIF(compression=CompressionType.NONE)  # No compression
         """
         self.compression = compression
+        self.property_registry = property_registry
+        self.property_codec = PropertyCodec(property_registry)
 
     @staticmethod
     def _json_default(value):
         """Convert common scientific Python values to JSON-compatible data."""
-        if isinstance(value, np.ndarray):
-            return value.tolist()
-        if isinstance(value, np.generic):
-            return value.item()
-        return str(value)
+        return PropertyCodec._json_default(value)
 
     @staticmethod
     def _encode_custom_value(value) -> bytes:
-        payload = json.dumps(value, default=USIF._json_default, separators=(",", ":"))
-        return (CUSTOM_JSON_PREFIX + payload).encode("utf-8")
+        return PropertyCodec.encode_custom_value(value)
 
     @staticmethod
     def _decode_custom_value(value_str):
-        if not value_str.startswith(CUSTOM_JSON_PREFIX):
-            return value_str
-        payload = value_str[len(CUSTOM_JSON_PREFIX) :]
-        try:
-            return json.loads(payload)
-        except json.JSONDecodeError:
-            logger.warning("Failed to decode custom JSON payload; returning raw string")
-            return value_str
+        return PropertyCodec.decode_custom_value(value_str)
 
     def _calculate_hash(self, structure: USIFStructure) -> bytes:
-        """
-        Calculate SHA-256 hash of structure
-
-        IMPORTANT: This method must use EXACTLY the same encoding logic as encode()
-        to ensure hash matches the encoded data. Any changes here must be reflected
-        in encode() and vice versa.
-        """
-        data = bytearray()
-        data.extend(struct.pack(BinaryFormat.UINT8, structure.structure_type.value))
-        data.extend(struct.pack(BinaryFormat.UINT8, structure.storage_mode.value))
-
-        if structure.is_crystal():
-            # Use same precision as encoding: np.float32
-            lattice_data = structure.lattice_matrix.astype(np.float32).tobytes()
-            data.extend(lattice_data)
-            data.extend(struct.pack(BinaryFormat.UINT16, structure.spacegroup))
-        elif (
-            structure.is_molecular() and structure.storage_mode == StorageMode.SYMMETRIC
-        ):
-            pg_bytes = (structure.point_group or "C1").encode("utf-8")
-            data.extend(struct.pack(BinaryFormat.UINT8, len(pg_bytes)))
-            data.extend(pg_bytes)
-
-        if structure.storage_mode == StorageMode.SYMMETRIC:
-            if structure.is_crystal():
-                data.extend(
-                    struct.pack(BinaryFormat.UINT8, len(structure.wyckoff_sites))
-                )
-                for site in structure.wyckoff_sites:
-                    data.extend(struct.pack(BinaryFormat.UINT8, site.atomic_number))
-                    # Include multiplicity and occupancy to match encode() exactly
-                    data.extend(struct.pack(BinaryFormat.UINT16, site.multiplicity))
-                    # Use same encoding as encode(): pack coordinates directly without rounding
-                    # FLOAT32 precision is sufficient and matches encoding exactly
-                    data.extend(
-                        struct.pack(
-                            BinaryFormat.array(BinaryFormat.FLOAT32, 3), *site.coords
-                        )
-                    )
-                    data.extend(struct.pack(BinaryFormat.FLOAT32, site.occupancy))
-            else:
-                data.extend(
-                    struct.pack(BinaryFormat.UINT8, len(structure.point_group_sites))
-                )
-                for site in structure.point_group_sites:
-                    data.extend(struct.pack(BinaryFormat.UINT8, site.atomic_number))
-                    # Include multiplicity and occupancy to match encode() exactly
-                    data.extend(struct.pack(BinaryFormat.UINT16, site.multiplicity))
-                    # Use same encoding as encode(): pack coordinates directly without rounding
-                    data.extend(
-                        struct.pack(
-                            BinaryFormat.array(BinaryFormat.FLOAT32, 3), *site.coords
-                        )
-                    )
-                    data.extend(struct.pack(BinaryFormat.FLOAT32, site.occupancy))
-        else:
-            data.extend(struct.pack(BinaryFormat.UINT32, len(structure.atom_sites)))
-            for site in structure.atom_sites:
-                data.extend(struct.pack(BinaryFormat.UINT8, site.atomic_number))
-                # Use same encoding as encode(): pack coordinates directly without rounding
-                data.extend(
-                    struct.pack(
-                        BinaryFormat.array(BinaryFormat.FLOAT32, 3), *site.coords
-                    )
-                )
-                # Note: Atomic properties are not included in hash (they're encoded separately)
-
-        return hashlib.sha256(bytes(data)).digest()
+        """Calculate SHA-256 hash of structure."""
+        return calculate_structure_hash(structure)
 
     def _compress_data(self, data: bytes) -> bytes:
-        """Compress data based on compression type"""
-        try:
-            if self.compression == CompressionType.GZIP:
-                return gzip.compress(data, compresslevel=6)
-            return data
-        except (OSError, MemoryError) as e:
-            raise EncodingError(f"Compression failed: {e}") from e
+        """Compress data based on compression type."""
+        return compress_data(data, self.compression)
 
     def _decompress_data(self, data: bytes, comp_type: CompressionType) -> bytes:
-        """Decompress data based on compression type"""
-        try:
-            if comp_type == CompressionType.GZIP:
-                return gzip.decompress(data)
-            return data
-        except gzip.BadGzipFile as e:
-            raise CorruptedDataError(f"Corrupted gzip data: {e}") from e
-        except Exception as e:
-            raise DecodingError(f"Decompression failed: {e}") from e
+        """Decompress data based on compression type."""
+        return decompress_data(data, comp_type)
 
     def _encode_atomic_properties(
         self, props: AtomicProperties, num_atoms: Optional[int] = None
     ) -> bytes:
-        """Encode atomic properties using modular system"""
-        data = bytearray()
-
-        all_props = props.get_all_properties()
-        # Use public API to get atomic properties (ensures initialization internally)
-        atomic_props = PropertyRegistry.list_properties(atomic_only=True)
-
-        present_props = [p for p in atomic_props if p in all_props]
-        data.extend(struct.pack(BinaryFormat.UINT8, len(present_props)))
-
-        for prop_name in present_props:
-            prop_def = PropertyRegistry.get(prop_name)
-            if prop_def is None:
-                continue
-
-            name_bytes = prop_name.encode("utf-8")
-            data.extend(struct.pack(BinaryFormat.UINT8, len(name_bytes)))
-            data.extend(name_bytes)
-
-            prop_value = all_props[prop_name]
-            prop_data = PropertySerializer.serialize_value(
-                prop_value, prop_def, num_atoms
-            )
-            data.extend(struct.pack(BinaryFormat.UINT32, len(prop_data)))
-            data.extend(prop_data)
-
-        # Filter out built-in properties to get custom ones
-        built_in_props = set(PropertyRegistry.list_properties())
-        custom_props = {k: v for k, v in all_props.items() if k not in built_in_props}
-        data.extend(struct.pack(BinaryFormat.UINT8, len(custom_props)))
-
-        for custom_name, custom_value in custom_props.items():
-            name_bytes = custom_name.encode("utf-8")
-            data.extend(struct.pack(BinaryFormat.UINT8, len(name_bytes)))
-            data.extend(name_bytes)
-
-            value_bytes = self._encode_custom_value(custom_value)
-            data.extend(struct.pack(BinaryFormat.UINT32, len(value_bytes)))
-            data.extend(value_bytes)
-
-        return bytes(data)
+        """Encode atomic properties using modular system."""
+        return self.property_codec.encode_atomic_properties(props, num_atoms=num_atoms)
 
     def _decode_atomic_properties(
         self, data: bytes, offset: int, num_atoms: Optional[int] = None
     ) -> Tuple[AtomicProperties, int]:
-        """Decode atomic properties using modular system"""
-        props = AtomicProperties()
-
-        try:
-            num_props = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[0]
-            offset += 1
-
-            for _ in range(num_props):
-                name_len = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[
-                    0
-                ]
-                offset += 1
-                prop_name = data[offset : offset + name_len].decode("utf-8")
-                offset += name_len
-
-                prop_def = PropertyRegistry.get(prop_name)
-                if prop_def is None:
-                    data_len = struct.unpack(
-                        BinaryFormat.UINT32, data[offset : offset + 4]
-                    )[0]
-                    offset += 4 + data_len
-                    continue
-
-                data_len = struct.unpack(
-                    BinaryFormat.UINT32, data[offset : offset + 4]
-                )[0]
-                offset += 4
-
-                prop_value, new_offset = PropertySerializer.deserialize_value(
-                    prop_def, data, offset, num_atoms
-                )
-                offset = new_offset
-
-                if hasattr(props, prop_name):
-                    setattr(props, prop_name, prop_value)
-                else:
-                    props.custom[prop_name] = prop_value
-
-            num_custom = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[0]
-            offset += 1
-
-            for _ in range(num_custom):
-                name_len = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[
-                    0
-                ]
-                offset += 1
-                custom_name = data[offset : offset + name_len].decode("utf-8")
-                offset += name_len
-
-                value_len = struct.unpack(
-                    BinaryFormat.UINT32, data[offset : offset + 4]
-                )[0]
-                offset += 4
-                value_str = data[offset : offset + value_len].decode("utf-8")
-                offset += value_len
-
-                props.custom[custom_name] = self._decode_custom_value(value_str)
-
-            return props, offset
-        except (struct.error, UnicodeDecodeError) as e:
-            raise DecodingError(
-                f"Failed to decode atomic properties at offset {offset}: {e}"
-            ) from e
+        """Decode atomic properties using modular system."""
+        return self.property_codec.decode_atomic_properties(
+            data, offset, num_atoms=num_atoms
+        )
 
     def _encode_structure_properties(self, props: StructureProperties) -> bytes:
-        """Encode structure properties using modular system"""
-        data = bytearray()
-
-        all_props = props.get_all_properties()
-        # Use public API to get structure properties (ensures initialization internally)
-        struct_props = PropertyRegistry.list_properties(structure_only=True)
-
-        present_props = [p for p in struct_props if p in all_props]
-        data.extend(struct.pack(BinaryFormat.UINT8, len(present_props)))
-
-        for prop_name in present_props:
-            prop_def = PropertyRegistry.get(prop_name)
-            if prop_def is None:
-                continue
-
-            name_bytes = prop_name.encode("utf-8")
-            data.extend(struct.pack(BinaryFormat.UINT8, len(name_bytes)))
-            data.extend(name_bytes)
-
-            prop_value = all_props[prop_name]
-            prop_data = PropertySerializer.serialize_value(prop_value, prop_def)
-            data.extend(struct.pack(BinaryFormat.UINT32, len(prop_data)))
-            data.extend(prop_data)
-
-        # Filter out built-in properties to get custom ones
-        built_in_props = set(PropertyRegistry.list_properties())
-        custom_props = {k: v for k, v in all_props.items() if k not in built_in_props}
-        data.extend(struct.pack(BinaryFormat.UINT8, len(custom_props)))
-
-        for custom_name, custom_value in custom_props.items():
-            name_bytes = custom_name.encode("utf-8")
-            data.extend(struct.pack(BinaryFormat.UINT8, len(name_bytes)))
-            data.extend(name_bytes)
-
-            value_bytes = self._encode_custom_value(custom_value)
-            data.extend(struct.pack(BinaryFormat.UINT32, len(value_bytes)))
-            data.extend(value_bytes)
-
-        return bytes(data)
+        """Encode structure properties using modular system."""
+        return self.property_codec.encode_structure_properties(props)
 
     def _decode_structure_properties(
         self, data: bytes, offset: int
     ) -> Tuple[StructureProperties, int]:
-        """Decode structure properties using modular system"""
-        props = StructureProperties()
-
-        try:
-            num_props = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[0]
-            offset += 1
-
-            for _ in range(num_props):
-                name_len = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[
-                    0
-                ]
-                offset += 1
-                prop_name = data[offset : offset + name_len].decode("utf-8")
-                offset += name_len
-
-                prop_def = PropertyRegistry.get(prop_name)
-                if prop_def is None:
-                    data_len = struct.unpack(
-                        BinaryFormat.UINT32, data[offset : offset + 4]
-                    )[0]
-                    offset += 4 + data_len
-                    continue
-
-                data_len = struct.unpack(
-                    BinaryFormat.UINT32, data[offset : offset + 4]
-                )[0]
-                offset += 4
-
-                prop_value, new_offset = PropertySerializer.deserialize_value(
-                    prop_def, data, offset
-                )
-                offset = new_offset
-
-                if hasattr(props, prop_name):
-                    setattr(props, prop_name, prop_value)
-                else:
-                    props.custom[prop_name] = prop_value
-
-            num_custom = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[0]
-            offset += 1
-
-            for _ in range(num_custom):
-                name_len = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[
-                    0
-                ]
-                offset += 1
-                custom_name = data[offset : offset + name_len].decode("utf-8")
-                offset += name_len
-
-                value_len = struct.unpack(
-                    BinaryFormat.UINT32, data[offset : offset + 4]
-                )[0]
-                offset += 4
-                value_str = data[offset : offset + value_len].decode("utf-8")
-                offset += value_len
-
-                props.custom[custom_name] = self._decode_custom_value(value_str)
-
-            return props, offset
-        except (struct.error, UnicodeDecodeError) as e:
-            raise DecodingError(
-                f"Failed to decode structure properties at offset {offset}: {e}"
-            ) from e
+        """Decode structure properties using modular system."""
+        return self.property_codec.decode_structure_properties(data, offset)
 
     def encode(self, structure: USIFStructure) -> bytes:
         """

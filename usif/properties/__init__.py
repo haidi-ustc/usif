@@ -51,7 +51,7 @@ See Also:
 
 from .atomic import AtomicProperties
 from .definitions import PropertyDefinition
-from .registry import PropertyRegistry
+from .registry import PropertyRegistry, PropertyRegistryInstance
 from .serializer import PropertySerializer
 from .structure import StructureProperties
 
@@ -59,6 +59,7 @@ __all__ = [
     "PropertyDefinition",
     "PropertySerializer",
     "PropertyRegistry",
+    "PropertyRegistryInstance",
     "AtomicProperties",
     "StructureProperties",
 ]

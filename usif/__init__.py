@@ -66,14 +66,17 @@ from .properties import (
     AtomicProperties,
     PropertyDefinition,
     PropertyRegistry,
+    PropertyRegistryInstance,
     PropertySerializer,
     StructureProperties,
 )
 
 # Structure system
 from .structures import (
+    SYMMETRY_METADATA_KEY,
     AtomSite,
     PointGroupSite,
+    SymmetryMetadata,
     USIFStructure,
     WyckoffSite,
 )
@@ -113,12 +116,15 @@ __all__ = [
     "PropertyDefinition",
     "PropertySerializer",
     "PropertyRegistry",
+    "PropertyRegistryInstance",
     "AtomicProperties",
     "StructureProperties",
     # Structures
     "WyckoffSite",
     "PointGroupSite",
     "AtomSite",
+    "SymmetryMetadata",
+    "SYMMETRY_METADATA_KEY",
     "USIFStructure",
     # Core
     "USIF",

@@ -68,6 +68,7 @@ from usif.constants import CompressionType, StorageMode, StructureType
 from usif.exceptions import StorageError, ValidationError
 from usif.properties.atomic import AtomicProperties
 from usif.properties.structure import StructureProperties
+from usif.structures.metadata import SYMMETRY_METADATA_KEY, SymmetryMetadata
 from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
 
 
@@ -222,6 +223,21 @@ class USIFStructure(MSONable):
             >>> structure.is_molecular()  # True for molecules
         """
         return self.structure_type == StructureType.MOLECULE
+
+    def set_symmetry_metadata(self, metadata: SymmetryMetadata) -> None:
+        """Attach symmetry reconstruction metadata to structure properties."""
+        self.structure_properties.custom[SYMMETRY_METADATA_KEY] = metadata.as_dict()
+
+    def get_symmetry_metadata(self) -> Optional[SymmetryMetadata]:
+        """Return symmetry reconstruction metadata if present."""
+        data = self.structure_properties.custom.get(SYMMETRY_METADATA_KEY)
+        if data is None:
+            return None
+        if isinstance(data, SymmetryMetadata):
+            return data
+        if isinstance(data, dict):
+            return SymmetryMetadata.from_dict(data)
+        return None
 
     def is_symmetric(self) -> bool:
         """

@@ -50,12 +50,11 @@ import mmap
 import queue
 import struct
 import threading
-from collections import OrderedDict, defaultdict
-from dataclasses import dataclass, field
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
-from usif.constants import BinaryFormat, CompressionType, SymmetryConstants
+from usif.constants import BinaryFormat, CompressionType
 from usif.encoder import USIF
 from usif.exceptions import (
     CorruptedDataError,
@@ -63,71 +62,10 @@ from usif.exceptions import (
     StorageError,
     ValidationError,
 )
+from usif.storage import ChunkedFileStore, ContainerIndexes, QueryEngine, USIFGroup
 from usif.structures.structure import USIFStructure
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class USIFGroup:
-    """
-    Group for organizing structures (HDF5-like hierarchical organization)
-
-    Groups can contain structures and subgroups, similar to HDF5 groups.
-    Supports attributes for metadata storage.
-    """
-
-    name: str
-    structures: Dict[str, str] = field(default_factory=dict)
-    subgroups: Dict[str, "USIFGroup"] = field(default_factory=dict)
-    attributes: Dict[str, Any] = field(default_factory=dict)
-
-    def add_structure(self, name: str, struct_hash: str) -> None:
-        """Add structure to group"""
-        self.structures[name] = struct_hash
-
-    def remove_structure(self, name: str) -> bool:
-        """Remove structure from group"""
-        if name in self.structures:
-            del self.structures[name]
-            return True
-        return False
-
-    def get_subgroup(self, path: str) -> Optional["USIFGroup"]:
-        """Get subgroup by path (HDF5-like path navigation)"""
-        if not path or path == "/":
-            return self
-
-        parts = [p for p in path.split("/") if p]
-        current = self
-
-        for part in parts:
-            if part in current.subgroups:
-                current = current.subgroups[part]
-            else:
-                return None
-
-        return current
-
-    def list_structures(self) -> List[str]:
-        """List all structure names in this group"""
-        return list(self.structures.keys())
-
-    def list_subgroups(self) -> List[str]:
-        """List all subgroup names"""
-        return list(self.subgroups.keys())
-
-    def set_attribute(self, name: str, value: Any) -> None:
-        """Set group attribute (HDF5-like attributes)"""
-        self.attributes[name] = value
-
-    def get_attribute(self, name: str, default: Any = None) -> Any:
-        """Get group attribute"""
-        return self.attributes.get(name, default)
-
-    def has_attribute(self, name: str) -> bool:
-        """Check if group has attribute"""
-        return name in self.attributes
 
 
 class StructureContainer:
@@ -176,16 +114,13 @@ class StructureContainer:
         # Indexes with thread-safe lock
         self._index_lock = threading.RLock()  # NEW: Lock for index operations
         self._file_lock = threading.RLock()  # NEW: Lock for file I/O operations
-        self._hash_index: Dict[str, Tuple[int, int, int]] = {}
-        self._name_index: Dict[str, str] = {}
-        self._formula_index: Dict[str, List[str]] = defaultdict(list)
-        self._property_index: Dict[str, Dict[Any, List[str]]] = defaultdict(
-            lambda: defaultdict(list)
-        )
-        self._group_index: Dict[str, USIFGroup] = {}
-        self._structure_attributes: Dict[str, Dict[str, Any]] = (
-            {}
-        )  # HDF5-like attributes
+        self._indexes = ContainerIndexes()
+        self._hash_index = self._indexes.hash_index
+        self._name_index = self._indexes.name_index
+        self._formula_index = self._indexes.formula_index
+        self._property_index = self._indexes.property_index
+        self._group_index = self._indexes.group_index
+        self._structure_attributes = self._indexes.structure_attributes
 
         # File and mmap
         self._file = None
@@ -495,57 +430,17 @@ class StructureContainer:
         """
         return self.add(structure, name=name, group=group, attributes=attributes)
 
+    def _file_store(self) -> ChunkedFileStore:
+        """Create a chunked storage adapter for current file handles."""
+        return ChunkedFileStore(self._file, self._mmap, self.CHUNK_SIZE)
+
     def _allocate_space(self, size: int) -> Tuple[int, int]:
-        """Allocate space in chunked storage"""
-        if self._mmap:
-            current_pos = self._mmap.size()
-        else:
-            self._file.seek(0, 2)  # Seek to end
-            current_pos = self._file.tell()
-
-        chunk_id = current_pos // self.CHUNK_SIZE
-        chunk_offset = current_pos % self.CHUNK_SIZE
-
-        if chunk_offset + size > self.CHUNK_SIZE:
-            chunk_id += 1
-            chunk_offset = 0
-            if self._mmap:
-                self._mmap.resize(chunk_id * self.CHUNK_SIZE)
-            else:
-                # Pad to the start of next chunk
-                padding_size = self.CHUNK_SIZE - (current_pos % self.CHUNK_SIZE)
-                if padding_size > 0:
-                    self._file.write(b"\x00" * padding_size)
-                    self._file.flush()
-
-        return chunk_id, chunk_offset
+        """Allocate space in chunked storage."""
+        return self._file_store().allocate(size)
 
     def _write_to_chunk(self, chunk_id: int, offset: int, data: bytes) -> None:
-        """Write data to specific chunk"""
-        actual_offset = chunk_id * self.CHUNK_SIZE + offset
-
-        if self._mmap:
-            required_size = actual_offset + len(data)
-            if required_size > self._mmap.size():
-                self._mmap.resize(required_size)
-            self._mmap[actual_offset : actual_offset + len(data)] = data
-            self._mmap.flush()  # Ensure data is written
-        else:
-            # Get current file size
-            self._file.seek(0, 2)
-            file_size = self._file.tell()
-
-            # If we need to write beyond current file size, extend the file
-            required_size = actual_offset + len(data)
-            if required_size > file_size:
-                # Pad with zeros if there's a gap
-                if actual_offset > file_size:
-                    self._file.write(b"\x00" * (actual_offset - file_size))
-
-            # Write the data
-            self._file.seek(actual_offset)
-            self._file.write(data)
-            self._file.flush()  # Ensure data is flushed to disk
+        """Write data to specific chunk."""
+        self._file_store().write(chunk_id, offset, data)
 
     def _get_or_create_group(self, path: str) -> USIFGroup:
         """Get or create group by path"""
@@ -568,17 +463,9 @@ class StructureContainer:
     def _update_secondary_indexes(
         self, structure: USIFStructure, struct_hash: str
     ) -> None:
-        """Update secondary indexes for a structure (thread-safe)"""
-        with self._index_lock:  # FIXED: Thread-safe index updates
-            self._formula_index[structure.formula].append(struct_hash)
-
-            props = structure.structure_properties.get_all_properties()
-            for prop_name, value in props.items():
-                if isinstance(value, (int, float)):
-                    bucket = round(value, 3)
-                    self._property_index[prop_name][bucket].append(struct_hash)
-                else:
-                    self._property_index[prop_name][value].append(struct_hash)
+        """Update secondary indexes for a structure (thread-safe)."""
+        with self._index_lock:
+            self._indexes.update_secondary(structure, struct_hash)
 
     def get(self, identifier: str) -> Optional[USIFStructure]:
         """
@@ -635,19 +522,9 @@ class StructureContainer:
             return None
 
     def _read_from_chunk(self, chunk_id: int, offset: int, size: int) -> bytes:
-        """Read data from specific chunk (thread-safe)"""
-        actual_offset = chunk_id * self.CHUNK_SIZE + offset
-
-        # FIXED: Thread-safe file I/O
+        """Read data from specific chunk (thread-safe)."""
         with self._file_lock:
-            if self._mmap:
-                return bytes(self._mmap[actual_offset : actual_offset + size])
-            else:
-                current_pos = self._file.tell()
-                self._file.seek(actual_offset)
-                data = self._file.read(size)
-                self._file.seek(current_pos)
-                return data
+            return self._file_store().read(chunk_id, offset, size)
 
     def query(
         self,
@@ -656,85 +533,17 @@ class StructureContainer:
         energy_range: Optional[Tuple[float, float]] = None,
         group: Optional[str] = None,
     ) -> List[Tuple[str, USIFStructure]]:
-        """
-        Query structures with multiple criteria
-
-        Searches the container for structures matching the specified criteria.
-        All criteria are combined with AND logic (structures must match all).
-        Uses efficient secondary indexes for fast querying.
-
-        Args:
-            formula: Chemical formula to match (e.g., "NaCl", "H2O")
-            properties: Dictionary of property filters (e.g., {"pressure": 0.0})
-            energy_range: Tuple of (min_energy, max_energy) in eV
-            group: Group path to search within (e.g., "/crystals/NaCl")
-
-        Returns:
-            List[Tuple[str, USIFStructure]]: List of (hash, structure) tuples matching criteria
-
-        Example:
-            >>> # Find all NaCl structures
-            >>> results = container.query(formula="NaCl")
-            >>>
-            >>> # Find structures with specific energy range
-            >>> results = container.query(energy_range=(-10.0, -5.0))
-            >>>
-            >>> # Complex query
-            >>> results = container.query(
-            ...     formula="NaCl",
-            ...     energy_range=(-10.0, -5.0),
-            ...     properties={"pressure": 0.0},
-            ...     group="/crystals"
-            ... )
-        """
-        results = []
-
-        # FIXED: Thread-safe query operations
+        """Query structures with multiple criteria."""
         with self._index_lock:
-            candidate_hashes = set()
-            if formula:
-                candidate_hashes.update(self._formula_index.get(formula, []))
-            else:
-                candidate_hashes.update(self._hash_index.keys())
+            query_engine = QueryEngine(self._indexes, self.get_group)
+            candidate_hashes = query_engine.candidate_hashes(
+                formula=formula,
+                properties=properties,
+                energy_range=energy_range,
+                group=group,
+            )
 
-            if properties:
-                for prop_name, prop_value in properties.items():
-                    if prop_name in self._property_index:
-                        if isinstance(prop_value, (int, float)):
-                            for bucket, hashes in self._property_index[
-                                prop_name
-                            ].items():
-                                if (
-                                    isinstance(bucket, (int, float))
-                                    and abs(bucket - prop_value)
-                                    < SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE
-                                ):
-                                    candidate_hashes.intersection_update(hashes)
-                        else:
-                            if prop_value in self._property_index[prop_name]:
-                                candidate_hashes.intersection_update(
-                                    self._property_index[prop_name][prop_value]
-                                )
-
-            if energy_range:
-                min_energy, max_energy = energy_range
-                energy_hashes = set()
-                for bucket, hashes in self._property_index.get("energy", {}).items():
-                    if (
-                        isinstance(bucket, (int, float))
-                        and min_energy <= bucket <= max_energy
-                    ):
-                        energy_hashes.update(hashes)
-                candidate_hashes.intersection_update(energy_hashes)
-
-            if group and group != "/":
-                group_hashes = set()
-                target_group = self.get_group(group)
-                if target_group:
-                    for struct_name, struct_hash in target_group.structures.items():
-                        group_hashes.add(struct_hash)
-                candidate_hashes.intersection_update(group_hashes)
-
+        results = []
         for hash_val in candidate_hashes:
             structure = self.get(hash_val)
             if structure:

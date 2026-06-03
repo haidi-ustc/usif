@@ -65,23 +65,14 @@ from pymatgen.symmetry.analyzer import PointGroupAnalyzer, SpacegroupAnalyzer
 
 from usif.constants import StorageMode, StructureType, SymmetryConstants
 from usif.exceptions import ValidationError
+from usif.interop import POINT_GROUP_ALIASES, SymmetryOperations
 from usif.properties.atomic import AtomicProperties
 from usif.properties.structure import StructureProperties
+from usif.structures.metadata import SYMMETRY_METADATA_KEY, SymmetryMetadata
 from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
 from usif.structures.structure import USIFStructure
 
 logger = logging.getLogger(__name__)
-
-POINT_GROUP_ALIASES = {
-    "C1": "1",
-    "Ci": "-1",
-    "Cs": "m",
-    "C2": "2",
-    "C2h": "2/m",
-    "C2v": "mm2",
-    "D2": "222",
-    "D2h": "mmm",
-}
 
 # Try to import ASE (optional dependency)
 try:
@@ -229,6 +220,13 @@ class StructureConverter:
                     # Add any custom properties from kwargs
                     if kwargs:
                         struct_props.custom.update(kwargs)
+                    struct_props.custom[SYMMETRY_METADATA_KEY] = SymmetryMetadata(
+                        lossless=bool(can_expand),
+                        reconstruction_mode="point_group_expansion",
+                        symmetry_origin="pymatgen_point_group",
+                        source_coordinate_frame="cartesian",
+                        tolerance=SymmetryConstants.MOLECULAR_EQUIVALENCE_TOLERANCE,
+                    ).as_dict()
 
                     formula = pmg_molecule.composition.reduced_formula
 
@@ -308,6 +306,7 @@ class StructureConverter:
         wyckoff_sites = None
         atom_sites = None
         spacegroup_number = 1
+        symmetric_lossless = False
 
         if storage_mode == StorageMode.SYMMETRIC:
             try:
@@ -328,9 +327,10 @@ class StructureConverter:
                         )
                     )
 
-                if not force_symmetric and not StructureConverter._crystal_sites_match(
+                symmetric_lossless = StructureConverter._crystal_sites_match(
                     pmg_structure, spacegroup_number, wyckoff_sites
-                ):
+                )
+                if not force_symmetric and not symmetric_lossless:
                     logger.debug(
                         "Symmetric crystal representation does not preserve input coordinates; using full atomic"
                     )
@@ -398,6 +398,14 @@ class StructureConverter:
         # (built-in properties like energy, stress, volume are handled above)
         if kwargs:
             struct_props.custom.update(kwargs)
+        if storage_mode == StorageMode.SYMMETRIC:
+            struct_props.custom[SYMMETRY_METADATA_KEY] = SymmetryMetadata(
+                lossless=bool(symmetric_lossless),
+                reconstruction_mode="spacegroup_expansion",
+                symmetry_origin="pymatgen_spacegroup",
+                source_coordinate_frame="fractional",
+                tolerance=SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE,
+            ).as_dict()
 
         formula = pmg_structure.composition.reduced_formula
 
@@ -581,131 +589,42 @@ class StructureConverter:
 
     @staticmethod
     def _crystal_sites_match(pmg_structure, spacegroup_number, wyckoff_sites):
-        try:
-            from pymatgen.symmetry.groups import SpaceGroup
-
-            symmetry_ops = SpaceGroup.from_int_number(spacegroup_number).symmetry_ops
-        except Exception:
-            return False
-
-        expanded = []
-        for site in wyckoff_sites:
-            for coord in StructureConverter._expand_fractional_orbit(
-                site.coords, symmetry_ops, site.multiplicity
-            ):
-                expanded.append((site.atomic_number, coord))
-
-        original = [
-            (site.specie.Z, tuple(float(x % 1.0) for x in site.frac_coords))
-            for site in pmg_structure
-        ]
-        return StructureConverter._site_sets_equal(original, expanded, periodic=True)
+        return SymmetryOperations.crystal_sites_match(
+            pmg_structure, spacegroup_number, wyckoff_sites
+        )
 
     @staticmethod
     def _molecular_sites_match(pmg_molecule, point_group, point_group_sites):
-        try:
-            from pymatgen.symmetry.groups import PointGroup
-
-            pg_symbol = POINT_GROUP_ALIASES.get(point_group, point_group)
-            symmetry_ops = PointGroup(pg_symbol).symmetry_ops
-        except Exception:
-            return False
-
-        expanded = []
-        for site in point_group_sites:
-            for coord in StructureConverter._expand_cartesian_orbit(
-                site.coords, symmetry_ops, site.multiplicity
-            ):
-                expanded.append((site.atomic_number, coord))
-
-        original = [
-            (site.specie.Z, tuple(float(x) for x in site.coords))
-            for site in pmg_molecule
-        ]
-        return StructureConverter._site_sets_equal(original, expanded, periodic=False)
+        return SymmetryOperations.molecular_sites_match(
+            pmg_molecule, point_group, point_group_sites
+        )
 
     @staticmethod
     def _site_sets_equal(left, right, periodic):
-        if len(left) != len(right):
-            return False
-
-        unmatched = list(right)
-        for atomic_number, coord in left:
-            match_idx = None
-            for idx, (candidate_number, candidate_coord) in enumerate(unmatched):
-                if atomic_number != candidate_number:
-                    continue
-                if StructureConverter._coords_equal(coord, candidate_coord, periodic):
-                    match_idx = idx
-                    break
-            if match_idx is None:
-                return False
-            unmatched.pop(match_idx)
-        return True
+        return SymmetryOperations.site_sets_equal(left, right, periodic)
 
     @staticmethod
     def _coords_equal(left, right, periodic):
-        diff = np.array(left, dtype=float) - np.array(right, dtype=float)
-        if periodic:
-            diff -= np.round(diff)
-        return np.linalg.norm(diff) < SymmetryConstants.COORDINATE_TOLERANCE
+        return SymmetryOperations.coords_equal(left, right, periodic)
 
     @staticmethod
     def _expand_fractional_orbit(coords, symmetry_ops, multiplicity):
         """Generate unique fractional coordinates from symmetry operations."""
-        expanded = []
-        for op in symmetry_ops:
-            transformed = tuple(float(x % 1.0) for x in op.operate(coords))
-            if not StructureConverter._contains_coord(
-                expanded, transformed, periodic=True
-            ):
-                expanded.append(transformed)
-            if len(expanded) == multiplicity:
-                break
-
-        if len(expanded) != multiplicity:
-            logger.debug(
-                "Generated %d equivalent fractional sites, expected %d",
-                len(expanded),
-                multiplicity,
-            )
-
-        return expanded or [coords] * multiplicity
+        return SymmetryOperations.expand_fractional_orbit(
+            coords, symmetry_ops, multiplicity
+        )
 
     @staticmethod
     def _expand_cartesian_orbit(coords, symmetry_ops, multiplicity):
         """Generate unique Cartesian coordinates from point-group operations."""
-        expanded = []
-        for op in symmetry_ops:
-            transformed = tuple(float(x) for x in op.operate(coords))
-            if not StructureConverter._contains_coord(
-                expanded, transformed, periodic=False
-            ):
-                expanded.append(transformed)
-            if len(expanded) == multiplicity:
-                break
-
-        if len(expanded) != multiplicity:
-            logger.debug(
-                "Generated %d equivalent Cartesian sites, expected %d",
-                len(expanded),
-                multiplicity,
-            )
-
-        return expanded or [coords] * multiplicity
+        return SymmetryOperations.expand_cartesian_orbit(
+            coords, symmetry_ops, multiplicity
+        )
 
     @staticmethod
     def _contains_coord(existing, candidate, periodic):
         """Check coordinate membership with symmetry tolerance."""
-        tol = SymmetryConstants.COORDINATE_TOLERANCE
-        candidate_arr = np.array(candidate, dtype=float)
-        for coord in existing:
-            diff = candidate_arr - np.array(coord, dtype=float)
-            if periodic:
-                diff -= np.round(diff)
-            if np.linalg.norm(diff) < tol:
-                return True
-        return False
+        return SymmetryOperations.contains_coord(existing, candidate, periodic)
 
     @staticmethod
     def from_ase(

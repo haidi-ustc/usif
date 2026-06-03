@@ -46,6 +46,7 @@ See Also:
     - PropertySystem: Attach properties to structures
 """
 
+from .metadata import SYMMETRY_METADATA_KEY, SymmetryMetadata
 from .sites import AtomSite, PointGroupSite, WyckoffSite
 from .structure import USIFStructure
 
@@ -53,5 +54,7 @@ __all__ = [
     "WyckoffSite",
     "PointGroupSite",
     "AtomSite",
+    "SymmetryMetadata",
+    "SYMMETRY_METADATA_KEY",
     "USIFStructure",
 ]
