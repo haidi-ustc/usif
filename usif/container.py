@@ -54,7 +54,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
-from usif.constants import BinaryFormat, CompressionType
+from usif.constants import BinaryFormat, CompressionType, SymmetryConstants
 from usif.encoder import USIF
 from usif.exceptions import (
     CorruptedDataError,
@@ -532,6 +532,7 @@ class StructureContainer:
         properties: Optional[Dict[str, Any]] = None,
         energy_range: Optional[Tuple[float, float]] = None,
         group: Optional[str] = None,
+        numeric_tolerance: float = SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE,
     ) -> List[Tuple[str, USIFStructure]]:
         """Query structures with multiple criteria."""
         with self._index_lock:
@@ -541,6 +542,7 @@ class StructureContainer:
                 properties=properties,
                 energy_range=energy_range,
                 group=group,
+                numeric_tolerance=numeric_tolerance,
             )
 
         results = []

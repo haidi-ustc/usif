@@ -25,15 +25,11 @@ class ContainerIndexes:
 
         props = structure.structure_properties.get_all_properties()
         for prop_name, value in props.items():
-            if isinstance(value, (int, float)):
-                bucket = round(value, 3)
-                self.property_index[prop_name][bucket].append(struct_hash)
-            elif isinstance(value, (str, bool, tuple)):
+            if isinstance(value, (int, float, str, bool, tuple)):
                 self.property_index[prop_name][value].append(struct_hash)
             elif isinstance(value, dict):
                 for sub_key, sub_val in value.items():
-                    if isinstance(sub_val, (int, float, str, bool)):
+                    if isinstance(sub_val, (int, float, str, bool, tuple)):
                         composite_key = f"{prop_name}.{sub_key}"
-                        bucket = round(sub_val, 3) if isinstance(sub_val, float) else sub_val
-                        self.property_index[composite_key][bucket].append(struct_hash)
+                        self.property_index[composite_key][sub_val].append(struct_hash)
             # Unhashable or unsupported types (list, set, complex objects) are skipped

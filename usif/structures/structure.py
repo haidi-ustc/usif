@@ -65,7 +65,7 @@ import numpy as np
 from monty.json import MSONable
 
 from usif.constants import CompressionType, StorageMode, StructureType
-from usif.exceptions import StorageError, ValidationError
+from usif.exceptions import ValidationError
 from usif.properties.atomic import AtomicProperties
 from usif.properties.structure import StructureProperties
 from usif.structures.metadata import SYMMETRY_METADATA_KEY, SymmetryMetadata
@@ -579,141 +579,18 @@ class USIFStructure(MSONable):
         force_symmetric: bool = False,
         **kwargs,
     ) -> "USIFStructure":
-        """
-        High-level interface to create USIFStructure from various sources
+        """Create a USIFStructure from a file path, pymatgen object, or ASE Atoms."""
+        from usif.structures.source import from_source
 
-        This is the recommended method for creating USIF structures. It automatically
-        detects the input type and handles conversion from:
-        - File paths (CIF, POSCAR, XYZ, etc.) - uses pymatgen to read
-        - Pymatgen Structure or Molecule objects
-        - ASE Atoms objects
-
-        All sources support property attachment (forces, stress, energy, etc.)
-
-        Note: Due to Python's reserved keyword restrictions, the method is named
-        `from_source()`, but you can also access it as `from()` via attribute access.
-        However, `from_source()` is the recommended way to call it.
-
-        Args:
-            source: Input source - can be:
-                   - File path (str or Path): Any format supported by pymatgen
-                   - Pymatgen Structure or Molecule object
-                   - ASE Atoms object
-            forces: Optional forces array (Nx3 for N atoms, in eV/Å)
-            stress: Optional stress tensor (3x3 or 6-element Voigt notation, in GPa)
-            energy: Optional total energy (in eV)
-            charges: Optional atomic charges array (N elements, in e)
-            magmoms: Optional magnetic moments array (N elements, in μB)
-            force_symmetric: Force symmetric storage mode (default: auto-detect)
-            **kwargs: Additional properties to store in structure_properties.custom
-
-        Returns:
-            USIFStructure instance with automatic symmetry analysis
-
-        Raises:
-            FileNotFoundError: If file path doesn't exist
-            ImportError: If required dependencies (pymatgen/ASE) are missing
-            SymmetryAnalysisError: If symmetry analysis fails
-            ValidationError: If input data is invalid
-
-        Example:
-            >>> from usif import USIFStructure
-            >>> from pymatgen.core import Structure
-            >>> from ase import Atoms
-            >>>
-            >>> # From file (recommended: use from_source)
-            >>> usif_struct = USIFStructure.from_source("structure.cif", energy=-10.5)
-            >>>
-            >>> # From pymatgen object
-            >>> pmg_struct = Structure.from_file("structure.cif")
-            >>> usif_struct = USIFStructure.from_source(pmg_struct, energy=-10.5)
-            >>>
-            >>> # From ASE object
-            >>> ase_atoms = Atoms('H2O', positions=[[0, 0, 0], [0.95, 0, 0], [0.95, 0.95, 0]])
-            >>> usif_struct = USIFStructure.from_source(ase_atoms, energy=-10.5, calculator="VASP")
-        """
-        from usif.converter import StructureConverter
-
-        # Check if it's a file path
-        if isinstance(source, (str, Path)):
-            file_path = Path(source)
-            if not file_path.exists():
-                raise FileNotFoundError(f"File not found: {file_path}")
-
-            # Use pymatgen to read the file
-            try:
-                from pymatgen.core import Molecule as PMGMolecule
-                from pymatgen.core import Structure as PMGStructure
-
-                # Try as Structure first (for periodic systems)
-                try:
-                    pmg_obj = PMGStructure.from_file(str(file_path))
-                except Exception:
-                    # Try as Molecule (for non-periodic systems)
-                    try:
-                        pmg_obj = PMGMolecule.from_file(str(file_path))
-                    except Exception:
-                        raise ValueError(
-                            f"Could not read {file_path} as pymatgen Structure or Molecule. "
-                            f"Supported formats: CIF, POSCAR, XYZ, etc."
-                        )
-
-                return StructureConverter.from_pymatgen(
-                    pmg_obj,
-                    forces=forces,
-                    stress=stress,
-                    energy=energy,
-                    charges=charges,
-                    magmoms=magmoms,
-                    force_symmetric=force_symmetric,
-                    **kwargs,
-                )
-            except ImportError:
-                raise ImportError(
-                    "pymatgen is required for file reading. Install with: pip install pymatgen"
-                )
-
-        # Check if it's a pymatgen object
-        try:
-            from pymatgen.core import Molecule as PMGMolecule
-            from pymatgen.core import Structure as PMGStructure
-
-            if isinstance(source, (PMGStructure, PMGMolecule)):
-                return StructureConverter.from_pymatgen(
-                    source,
-                    forces=forces,
-                    stress=stress,
-                    energy=energy,
-                    charges=charges,
-                    magmoms=magmoms,
-                    force_symmetric=force_symmetric,
-                    **kwargs,
-                )
-        except ImportError:
-            pass  # pymatgen not available, continue to check ASE
-
-        # Check if it's an ASE Atoms object
-        try:
-            from ase import Atoms as ASEAtoms
-
-            if isinstance(source, ASEAtoms):
-                return StructureConverter.from_ase(
-                    source,
-                    forces=forces,
-                    stress=stress,
-                    energy=energy,
-                    charges=charges,
-                    magmoms=magmoms,
-                    force_symmetric=force_symmetric,
-                    **kwargs,
-                )
-        except ImportError:
-            pass  # ASE not available
-
-        # If we get here, we don't recognize the type
-        raise TypeError(
-            f"Unsupported source type: {type(source)}. "
-            f"Supported types: file path (str/Path), pymatgen Structure/Molecule, ASE Atoms"
+        return from_source(
+            source,
+            forces=forces,
+            stress=stress,
+            energy=energy,
+            charges=charges,
+            magmoms=magmoms,
+            force_symmetric=force_symmetric,
+            **kwargs,
         )
 
     @classmethod
@@ -728,43 +605,10 @@ class USIFStructure(MSONable):
         force_symmetric: bool = False,
         **kwargs,
     ) -> "USIFStructure":
-        """
-        Create USIFStructure from pymatgen Structure or Molecule
+        """Create USIFStructure from a pymatgen Structure or Molecule."""
+        from usif.structures.source import from_pymatgen
 
-        This is a convenient class method that automatically handles symmetry
-        analysis and Wyckoff site extraction from pymatgen objects.
-
-        Note: For a more flexible interface that supports files and ASE objects,
-        use USIFStructure.from_source() instead.
-
-        Args:
-            pmg_obj: Pymatgen Structure or Molecule object
-            forces: Optional forces array (Nx3)
-            stress: Optional stress tensor (3x3 or 6-element Voigt)
-            energy: Optional energy value
-            charges: Optional atomic charges array
-            magmoms: Optional magnetic moments array
-            force_symmetric: Force symmetric storage mode (default: auto-detect)
-            **kwargs: Additional properties to store in structure_properties.custom
-
-        Returns:
-            USIFStructure instance with automatic symmetry analysis
-
-        Example:
-            >>> from pymatgen.core import Structure
-            >>> pmg_struct = Structure.from_file("structure.cif")
-            >>> usif_struct = USIFStructure.from_pymatgen(
-            ...     pmg_struct,
-            ...     energy=-10.5,
-            ...     calculator="VASP"
-            ... )
-
-        See Also:
-            USIFStructure.from_source(): High-level interface supporting files, pymatgen, and ASE
-        """
-        from usif.converter import StructureConverter
-
-        return StructureConverter.from_pymatgen(
+        return from_pymatgen(
             pmg_obj,
             forces=forces,
             stress=stress,
@@ -781,225 +625,27 @@ class USIFStructure(MSONable):
         fmt: Optional[str] = None,
         **kwargs,
     ) -> Any:
-        """
-        Convert structure to various formats (similar to pymatgen's to() method)
+        """Convert structure to a supported object or file format."""
+        from usif.structures.source import convert_to
 
-        Supports conversion to:
-        - "usif" or ".usif": Save to USIF format (returns None, saves to file)
-        - "pymatgen": Convert to pymatgen Structure/Molecule (returns object)
-        - "ase": Convert to ASE Atoms (returns object)
-        - "xyz": Save to XYZ format (uses ASE, requires ase package)
-        - File formats: "cif", "poscar", "json", etc. (saves to file via pymatgen)
-
-        Args:
-            filename: Optional output file path. If provided and fmt is None,
-                     format is auto-detected from file extension.
-            fmt: Optional format string (e.g., "usif", "pymatgen", "ase", "cif", "poscar").
-                 If None and filename is provided, format is inferred from filename extension.
-                 If None and filename is None, defaults to "pymatgen" for object return.
-            **kwargs: Additional arguments passed to save/conversion methods
-                     - compression: For "usif" format (CompressionType enum)
-
-        Returns:
-            - For "pymatgen": Returns pymatgen Structure or Molecule
-            - For "ase": Returns ASE Atoms object
-            - For file formats ("usif", "cif", etc.): Returns None (saves to file)
-
-        Raises:
-            ValueError: If format is not supported or filename is missing for file formats
-            ImportError: If required dependencies are missing
-
-        Example:
-            >>> # Save to USIF format (auto-detect from extension)
-            >>> structure.to("output.usif")
-            >>> structure.to("output.usif", "usif", compression=CompressionType.GZIP)
-
-            >>> # Convert to pymatgen (no filename needed)
-            >>> pmg_struct = structure.to(fmt="pymatgen")
-            >>> pmg_struct = structure.to(None, "pymatgen")
-
-            >>> # Convert to ASE (no filename needed)
-            >>> ase_atoms = structure.to(fmt="ase")
-
-            >>> # Save to various file formats (auto-detect from extension)
-            >>> structure.to("output.cif")  # Auto-detects CIF format
-            >>> structure.to("output.poscar")  # Auto-detects POSCAR format
-            >>> structure.to("output.xyz")  # Auto-detects XYZ format
-            >>> structure.to("output.cif", "cif")  # Explicit format
-        """
-        # Auto-detect format from filename if fmt is not provided
-        if fmt is None:
-            if filename is None:
-                # Default to pymatgen if no filename and no format specified
-                fmt = "pymatgen"
-            else:
-                # Extract format from file extension
-                filename_path = Path(filename)
-                ext = filename_path.suffix.lower()
-                if ext:
-                    fmt = ext[1:]  # Remove leading dot
-                else:
-                    raise ValueError(
-                        f"Cannot auto-detect format from filename '{filename}'. "
-                        f"Please specify fmt parameter."
-                    )
-
-        fmt = fmt.lower().strip()
-
-        # Normalize format string (remove leading dot if present)
-        if fmt.startswith("."):
-            fmt = fmt[1:]
-
-        # Pymatgen format (object return, no filename needed)
-        if fmt == "pymatgen":
-            if filename is not None:
-                raise ValueError(
-                    "filename should not be provided for 'pymatgen' format (returns object)"
-                )
-            from usif.converter import StructureConverter
-
-            return StructureConverter.to_pymatgen(self)
-
-        # ASE format (object return, no filename needed)
-        if fmt == "ase":
-            if filename is not None:
-                raise ValueError(
-                    "filename should not be provided for 'ase' format (returns object)"
-                )
-            from usif.converter import StructureConverter
-
-            return StructureConverter.to_ase(self)
-
-        # All other formats require a filename
-        if filename is None:
-            raise ValueError(f"filename is required for '{fmt}' format")
-
-        # USIF format
-        if fmt == "usif":
-            compression = kwargs.get("compression", CompressionType.GZIP)
-            self.save(filename, compression=compression)
-            return None
-
-        # XYZ format - use ASE (pymatgen doesn't support XYZ directly)
-        if fmt == "xyz":
-            try:
-                from usif.converter import StructureConverter
-
-                ase_atoms = StructureConverter.to_ase(self)
-                ase_atoms.write(str(filename))
-                return None
-            except ImportError:
-                raise ImportError(
-                    "ASE is required for XYZ format. Install with: pip install ase"
-                )
-
-        # File formats via pymatgen
-        # Supported formats: cif, poscar, json, etc.
-        from usif.converter import StructureConverter
-
-        pmg_obj = StructureConverter.to_pymatgen(self)
-
-        # Use pymatgen's to() method to save in the requested format
-        # Note: pymatgen's to() signature is to(filename, fmt, **kwargs)
-        try:
-            pmg_obj.to(str(filename), fmt, **kwargs)
-            return None
-        except Exception as e:
-            raise ValueError(
-                f"Format '{fmt}' is not supported. "
-                f"Supported formats: usif, pymatgen, ase, xyz (via ASE), "
-                f"and formats supported by pymatgen (cif, poscar, json, etc.). Error: {e}"
-            ) from e
+        return convert_to(self, filename=filename, fmt=fmt, **kwargs)
 
     def save(
         self,
         filename: Union[str, Path],
         compression: CompressionType = CompressionType.GZIP,
     ) -> None:
-        """
-        Save structure to file
+        """Save structure to USIF binary or MSON JSON based on file extension."""
+        from usif.structures.io import save_structure
 
-        Automatically uses USIF encoder when file extension is .usif,
-        otherwise saves as JSON (MSONable format).
-
-        Args:
-            filename: Output file path
-            compression: Compression type for .usif files (ignored for JSON)
-
-        Example:
-            >>> structure.save("structure.usif")  # Uses USIF encoder
-            >>> structure.save("structure.json")  # Uses JSON format
-        """
-        filename = Path(filename)
-
-        if filename.suffix.lower() == ".usif":
-            # Use USIF encoder for .usif files
-            from usif.encoder import USIF
-
-            encoder = USIF(compression=compression)
-            encoder.save(self, filename)
-        else:
-            # Use MSONable JSON format for other files
-            try:
-                from monty.serialization import dumpfn
-
-                dumpfn(self, filename, indent=2)
-            except IOError as e:
-                raise StorageError(
-                    f"Failed to save structure to {filename}: {e}"
-                ) from e
+        save_structure(self, filename, compression=compression)
 
     @classmethod
     def load(cls, filename: Union[str, Path]) -> "USIFStructure":
-        """
-        Load structure from file
+        """Load structure from USIF binary or MSON JSON based on file extension."""
+        from usif.structures.io import load_structure
 
-        Automatically detects format based on file extension:
-        - .usif files: Uses USIF decoder
-        - Other files: Uses JSON (MSONable format)
-
-        Args:
-            filename: Input file path
-
-        Returns:
-            USIFStructure instance
-
-        Example:
-            >>> structure = USIFStructure.load("structure.usif")
-            >>> structure = USIFStructure.load("structure.json")
-        """
-        filename = Path(filename)
-
-        if filename.suffix.lower() == ".usif":
-            # Check if it's a container file by reading magic bytes
-            try:
-                with open(filename, "rb") as f:
-                    magic = f.read(7)
-                    if magic == b"USIFC\x00\x00":
-                        raise StorageError(
-                            f"File {filename} is a StructureContainer, not a USIF structure. "
-                            f"Use StructureContainer() to open it."
-                        )
-            except (IOError, FileNotFoundError):
-                pass  # Will be caught below
-
-            # Use USIF decoder for .usif files
-            from usif.encoder import USIF
-
-            encoder = USIF()
-            return encoder.load(filename)
-        else:
-            # Use MSONable JSON format for other files
-            try:
-                import json
-
-                with open(filename, "r") as f:
-                    data = json.load(f)
-                return cls.from_dict(data)
-            except (IOError, FileNotFoundError) as e:
-                raise StorageError(
-                    f"Failed to load structure from {filename}: {e}"
-                ) from e
+        return load_structure(cls, filename)
 
     def __getattr__(self, name: str):
         """Allow access to 'from' as an alias for 'from_source' (since 'from' is a reserved keyword)"""

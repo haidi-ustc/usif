@@ -583,16 +583,16 @@ Run the test suite:
 
 ```bash
 # Run all tests
-pytest tests/ -v
+python -m pytest
 
 # With coverage
-pytest tests/ --cov=usif --cov-report=term-missing
+python -m pytest --cov=usif --cov-report=term-missing
 
 # Run specific test file
-pytest tests/test_structure.py -v
+python -m pytest tests/test_structures_sites.py -v
 
-# Test with Materials Project data (requires MP data in tests/data/)
-pytest tests/test_mp_data.py -v
+# Test with Materials Project data (uses tests/data/mp_structures.zip)
+python -m pytest tests/test_mp_data.py -v
 ```
 
 **Test Data:**
@@ -620,9 +620,9 @@ Run all linting checks:
 # Run both flake8 and isort checks
 python run_lint.py
 
-# Or run individually
-flake8 usif tests examples
+# Or run the canonical checks directly
 isort --check-only --diff usif tests examples
+flake8 usif tests examples
 ```
 
 ### Fixing Issues
@@ -639,7 +639,7 @@ isort usif tests examples
 - **flake8**: Configured in `.flake8` file
   - Max line length: 100
   - Ignores E203, W503, E501 (compatible with black formatter)
-  - Max complexity: 15
+  - Max complexity: 32
 
 - **isort**: Configured in `pyproject.toml`
   - Profile: black (compatible with black formatter)

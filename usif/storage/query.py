@@ -18,6 +18,7 @@ class QueryEngine:
         properties: Optional[Dict[str, Any]] = None,
         energy_range: Optional[Tuple[float, float]] = None,
         group: Optional[str] = None,
+        numeric_tolerance: float = SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE,
     ) -> Set[str]:
         if formula:
             candidates = set(self.indexes.formula_index.get(formula, []))
@@ -35,8 +36,7 @@ class QueryEngine:
                     for bucket, hashes in prop_index.items():
                         if (
                             isinstance(bucket, (int, float))
-                            and abs(bucket - prop_value)
-                            < SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE
+                            and abs(bucket - prop_value) <= numeric_tolerance
                         ):
                             matches.update(hashes)
                     candidates.intersection_update(matches)
@@ -53,7 +53,9 @@ class QueryEngine:
 
         if group and group != "/":
             target_group = self.group_getter(group)
-            group_hashes = set(target_group.structures.values()) if target_group else set()
+            group_hashes = (
+                set(target_group.structures.values()) if target_group else set()
+            )
             candidates.intersection_update(group_hashes)
 
         return candidates
