@@ -8,7 +8,13 @@ from typing import Optional, Tuple
 import numpy as np
 
 from usif.constants import BinaryFormat
-from usif.exceptions import DecodingError
+from usif.exceptions import CorruptedDataError, DecodingError, EncodingError
+from usif.format.binary import (
+    BinaryReader,
+    MAX_CUSTOM_PROPERTY_COUNT,
+    MAX_KNOWN_PROPERTY_COUNT,
+    MAX_PROPERTY_VALUE_SIZE,
+)
 from usif.properties.atomic import AtomicProperties
 from usif.properties.registry import PropertyRegistry
 from usif.properties.serializer import PropertySerializer
@@ -82,6 +88,10 @@ class PropertyCodec:
         )
 
         present_props = [p for p in known_props if p in all_props]
+        if len(present_props) > MAX_KNOWN_PROPERTY_COUNT:
+            raise EncodingError(
+                f"Known property count {len(present_props)} exceeds maximum {MAX_KNOWN_PROPERTY_COUNT}"
+            )
         data.extend(struct.pack(BinaryFormat.UINT8, len(present_props)))
 
         for prop_name in present_props:
@@ -90,25 +100,47 @@ class PropertyCodec:
                 continue
 
             name_bytes = prop_name.encode("utf-8")
+            if len(name_bytes) > 0xFF:
+                raise EncodingError(
+                    f"Property name '{prop_name}' is too long for uint8 length"
+                )
             data.extend(struct.pack(BinaryFormat.UINT8, len(name_bytes)))
             data.extend(name_bytes)
 
             prop_data = PropertySerializer.serialize_value(
                 all_props[prop_name], prop_def, num_atoms
             )
+            if len(prop_data) > MAX_PROPERTY_VALUE_SIZE:
+                raise EncodingError(
+                    f"Property '{prop_name}' byte length {len(prop_data)} exceeds "
+                    f"maximum {MAX_PROPERTY_VALUE_SIZE}"
+                )
             data.extend(struct.pack(BinaryFormat.UINT32, len(prop_data)))
             data.extend(prop_data)
 
         built_in_props = set(self.registry.list_properties())
         custom_props = {k: v for k, v in all_props.items() if k not in built_in_props}
+        if len(custom_props) > MAX_CUSTOM_PROPERTY_COUNT:
+            raise EncodingError(
+                f"Custom property count {len(custom_props)} exceeds maximum {MAX_CUSTOM_PROPERTY_COUNT}"
+            )
         data.extend(struct.pack(BinaryFormat.UINT8, len(custom_props)))
 
         for custom_name, custom_value in custom_props.items():
             name_bytes = custom_name.encode("utf-8")
+            if len(name_bytes) > 0xFF:
+                raise EncodingError(
+                    f"Custom property name '{custom_name}' is too long for uint8 length"
+                )
             data.extend(struct.pack(BinaryFormat.UINT8, len(name_bytes)))
             data.extend(name_bytes)
 
             value_bytes = self.encode_custom_value(custom_value)
+            if len(value_bytes) > MAX_PROPERTY_VALUE_SIZE:
+                raise EncodingError(
+                    f"Custom property '{custom_name}' byte length {len(value_bytes)} exceeds "
+                    f"maximum {MAX_PROPERTY_VALUE_SIZE}"
+                )
             data.extend(struct.pack(BinaryFormat.UINT32, len(value_bytes)))
             data.extend(value_bytes)
 
@@ -118,57 +150,64 @@ class PropertyCodec:
         self, props, data: bytes, offset: int, num_atoms: Optional[int] = None
     ):
         try:
-            num_props = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[0]
-            offset += 1
+            reader = BinaryReader(data, context="property section")
+            reader.seek(offset)
+
+            num_props = reader.read_u8("known property count")
+            if num_props > MAX_KNOWN_PROPERTY_COUNT:
+                raise CorruptedDataError(
+                    f"Known property count {num_props} exceeds maximum {MAX_KNOWN_PROPERTY_COUNT}"
+                )
 
             for _ in range(num_props):
-                name_len = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[
-                    0
-                ]
-                offset += 1
-                prop_name = data[offset : offset + name_len].decode("utf-8")
-                offset += name_len
-
-                data_len = struct.unpack(
-                    BinaryFormat.UINT32, data[offset : offset + 4]
-                )[0]
-                offset += 4
+                prop_name = reader.read_string_u8("property name")
+                data_len = reader.read_u32(f"property '{prop_name}' byte length")
+                if data_len > MAX_PROPERTY_VALUE_SIZE:
+                    raise CorruptedDataError(
+                        f"Property '{prop_name}' byte length {data_len} exceeds "
+                        f"maximum {MAX_PROPERTY_VALUE_SIZE}"
+                    )
+                prop_data = reader.read_bytes(data_len, f"property '{prop_name}' data")
 
                 prop_def = self.registry.get(prop_name)
                 if prop_def is None:
-                    offset += data_len
                     continue
 
-                prop_value, offset = PropertySerializer.deserialize_value(
-                    prop_def, data, offset, num_atoms
+                prop_value, prop_offset = PropertySerializer.deserialize_value(
+                    prop_def, prop_data, 0, num_atoms
                 )
+                if prop_offset != len(prop_data):
+                    raise CorruptedDataError(
+                        f"Property '{prop_name}' did not consume its declared length: "
+                        f"{prop_offset} of {len(prop_data)} bytes"
+                    )
 
                 if hasattr(props, prop_name):
                     setattr(props, prop_name, prop_value)
                 else:
                     props.custom[prop_name] = prop_value
 
-            num_custom = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[0]
-            offset += 1
+            num_custom = reader.read_u8("custom property count")
+            if num_custom > MAX_CUSTOM_PROPERTY_COUNT:
+                raise CorruptedDataError(
+                    f"Custom property count {num_custom} exceeds maximum {MAX_CUSTOM_PROPERTY_COUNT}"
+                )
 
             for _ in range(num_custom):
-                name_len = struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[
-                    0
-                ]
-                offset += 1
-                custom_name = data[offset : offset + name_len].decode("utf-8")
-                offset += name_len
-
-                value_len = struct.unpack(
-                    BinaryFormat.UINT32, data[offset : offset + 4]
-                )[0]
-                offset += 4
-                value_str = data[offset : offset + value_len].decode("utf-8")
-                offset += value_len
+                custom_name = reader.read_string_u8("custom property name")
+                value_len = reader.read_u32(f"custom property '{custom_name}' byte length")
+                if value_len > MAX_PROPERTY_VALUE_SIZE:
+                    raise CorruptedDataError(
+                        f"Custom property '{custom_name}' byte length {value_len} exceeds "
+                        f"maximum {MAX_PROPERTY_VALUE_SIZE}"
+                    )
+                value_str = reader.read_bytes(
+                    value_len, f"custom property '{custom_name}' value"
+                ).decode("utf-8")
 
                 props.custom[custom_name] = self.decode_custom_value(value_str)
 
-            return props, offset
+            return props, reader.tell()
         except (struct.error, UnicodeDecodeError) as e:
             raise DecodingError(
                 f"Failed to decode properties at offset {offset}: {e}"

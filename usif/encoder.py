@@ -58,6 +58,16 @@ from usif.format import (
     compress_data,
     decompress_data,
 )
+from usif.format.binary import (
+    BinaryReader,
+    BinaryWriter,
+    MAX_ATOM_COUNT,
+    MAX_COMPRESSED_SIZE,
+    MAX_PAYLOAD_SIZE,
+    MAX_PROPERTY_SECTION_SIZE,
+    MAX_STRING_LENGTH,
+    MAX_SYMMETRIC_SITE_COUNT,
+)
 from usif.properties.atomic import AtomicProperties
 from usif.properties.registry import PropertyRegistry
 from usif.properties.structure import StructureProperties
@@ -120,9 +130,15 @@ class USIF:
         """Compress data based on compression type."""
         return compress_data(data, self.compression)
 
-    def _decompress_data(self, data: bytes, comp_type: CompressionType) -> bytes:
-        """Decompress data based on compression type."""
-        return decompress_data(data, comp_type)
+    def _decompress_data(
+        self,
+        data: bytes,
+        comp_type: CompressionType,
+        *,
+        max_output_size: int = MAX_PAYLOAD_SIZE,
+    ) -> bytes:
+        """Decompress data based on compression type with an output size cap."""
+        return decompress_data(data, comp_type, max_output_size=max_output_size)
 
     def _encode_atomic_properties(
         self, props: AtomicProperties, num_atoms: Optional[int] = None
@@ -164,117 +180,95 @@ class USIF:
 
         Raises:
             EncodingError: If encoding fails due to invalid data or serialization errors
-
-        Example:
-            >>> encoder = USIF()
-            >>> structure = USIFStructure(...)
-            >>> binary_data = encoder.encode(structure)
-            >>> len(binary_data)  # Size of encoded data
         """
         try:
-            data = bytearray()
+            data = BinaryWriter()
 
-            data.extend(struct.pack(BinaryFormat.UINT8, structure.structure_type.value))
-            data.extend(struct.pack(BinaryFormat.UINT8, structure.storage_mode.value))
+            data.write_u8(structure.structure_type.value, "structure type")
+            data.write_u8(structure.storage_mode.value, "storage mode")
 
             if structure.structure_type == StructureType.MOLECULE:
                 if structure.storage_mode == StorageMode.SYMMETRIC:
                     point_group = structure.point_group or "C1"
-                    pg_bytes = point_group.encode("utf-8")
-                    data.extend(struct.pack(BinaryFormat.UINT8, len(pg_bytes)))
-                    data.extend(pg_bytes)
-
-                    data.extend(
-                        struct.pack(
-                            BinaryFormat.UINT8, len(structure.point_group_sites)
-                        )
+                    data.write_string_u8(point_group, "point group")
+                    data.write_u8(
+                        len(structure.point_group_sites), "point-group site count"
                     )
                     for site in structure.point_group_sites:
-                        data.extend(struct.pack(BinaryFormat.UINT8, site.atomic_number))
-                        data.extend(struct.pack(BinaryFormat.UINT16, site.multiplicity))
-                        data.extend(
-                            struct.pack(
-                                BinaryFormat.array(BinaryFormat.FLOAT32, 3),
-                                *site.coords,
-                            )
-                        )
-                        data.extend(struct.pack(BinaryFormat.FLOAT32, site.occupancy))
+                        data.write_u8(site.atomic_number, "point-group atomic number")
+                        data.write_u16(site.multiplicity, "point-group multiplicity")
+                        data.write_f32_tuple3(site.coords, "point-group coords")
+                        data.write_f32(site.occupancy, "point-group occupancy")
                 else:
-                    data.extend(
-                        struct.pack(BinaryFormat.UINT32, len(structure.atom_sites))
-                    )
+                    data.write_u32(len(structure.atom_sites), "atom count")
                     for site in structure.atom_sites:
-                        data.extend(struct.pack(BinaryFormat.UINT8, site.atomic_number))
+                        data.write_u8(site.atomic_number, "atomic number")
+                        data.write_f32_tuple3(site.coords, "atom coords")
                         data.extend(
-                            struct.pack(
-                                BinaryFormat.array(BinaryFormat.FLOAT32, 3),
-                                *site.coords,
-                            )
+                            self._encode_atomic_properties(site.properties, num_atoms=1)
                         )
-                        atom_prop_data = self._encode_atomic_properties(
-                            site.properties, num_atoms=1
-                        )
-                        data.extend(atom_prop_data)
             else:
-                lattice_data = structure.lattice_matrix.astype(np.float32).tobytes()
-                data.extend(lattice_data)
-                data.extend(struct.pack(BinaryFormat.UINT16, structure.spacegroup))
+                lattice_array = np.asarray(structure.lattice_matrix, dtype=np.float32)
+                if lattice_array.shape != (3, 3):
+                    raise EncodingError(
+                        f"lattice_matrix must have shape (3, 3), got {lattice_array.shape}"
+                    )
+                data.extend(lattice_array.tobytes())
+                data.write_u16(structure.spacegroup, "space group")
 
                 if structure.storage_mode == StorageMode.SYMMETRIC:
-                    data.extend(
-                        struct.pack(BinaryFormat.UINT8, len(structure.wyckoff_sites))
-                    )
+                    data.write_u8(len(structure.wyckoff_sites), "wyckoff site count")
                     for site in structure.wyckoff_sites:
-                        data.extend(struct.pack(BinaryFormat.UINT8, site.atomic_number))
-                        data.extend(struct.pack(BinaryFormat.UINT16, site.multiplicity))
-                        data.extend(
-                            struct.pack(
-                                BinaryFormat.array(BinaryFormat.FLOAT32, 3),
-                                *site.coords,
-                            )
-                        )
-                        data.extend(struct.pack(BinaryFormat.FLOAT32, site.occupancy))
+                        data.write_u8(site.atomic_number, "wyckoff atomic number")
+                        data.write_u16(site.multiplicity, "wyckoff multiplicity")
+                        data.write_f32_tuple3(site.coords, "wyckoff coords")
+                        data.write_f32(site.occupancy, "wyckoff occupancy")
                 else:
-                    data.extend(
-                        struct.pack(BinaryFormat.UINT32, len(structure.atom_sites))
-                    )
+                    data.write_u32(len(structure.atom_sites), "atom count")
                     for site in structure.atom_sites:
-                        data.extend(struct.pack(BinaryFormat.UINT8, site.atomic_number))
+                        data.write_u8(site.atomic_number, "atomic number")
+                        data.write_f32_tuple3(site.coords, "atom coords")
                         data.extend(
-                            struct.pack(
-                                BinaryFormat.array(BinaryFormat.FLOAT32, 3),
-                                *site.coords,
-                            )
+                            self._encode_atomic_properties(site.properties, num_atoms=1)
                         )
-                        atom_prop_data = self._encode_atomic_properties(
-                            site.properties, num_atoms=1
-                        )
-                        data.extend(atom_prop_data)
 
             struct_prop_data = self._encode_structure_properties(
                 structure.structure_properties
             )
-            data.extend(struct.pack(BinaryFormat.UINT32, len(struct_prop_data)))
+            if len(struct_prop_data) > MAX_PROPERTY_SECTION_SIZE:
+                raise EncodingError(
+                    "Structure property section length "
+                    f"{len(struct_prop_data)} exceeds maximum {MAX_PROPERTY_SECTION_SIZE}"
+                )
+            data.write_u32(len(struct_prop_data), "structure property section length")
             data.extend(struct_prop_data)
-
-            formula_bytes = structure.formula.encode("utf-8")
-            data.extend(struct.pack(BinaryFormat.UINT16, len(formula_bytes)))
-            data.extend(formula_bytes)
+            data.write_string_u16(structure.formula, "formula")
 
             raw_data = bytes(data)
+            if len(raw_data) > MAX_PAYLOAD_SIZE:
+                raise EncodingError(
+                    f"Raw payload size {len(raw_data)} exceeds maximum {MAX_PAYLOAD_SIZE}"
+                )
             compressed_data = self._compress_data(raw_data)
+            if len(compressed_data) > MAX_COMPRESSED_SIZE:
+                raise EncodingError(
+                    "Compressed payload size "
+                    f"{len(compressed_data)} exceeds maximum {MAX_COMPRESSED_SIZE}"
+                )
 
-            header = bytearray(self.HEADER_SIZE)
-            header[0:7] = b"USIF\x00\x00\x00"
-            header[7:8] = struct.pack(BinaryFormat.UINT8, self.VERSION)
-            header[8:12] = struct.pack(BinaryFormat.UINT32, len(raw_data))
-            header[12:16] = struct.pack(BinaryFormat.UINT32, len(compressed_data))
-            header[16:17] = struct.pack(BinaryFormat.UINT8, self.compression.value)
-
-            hash_value = self._calculate_hash(structure)
-            header[17:49] = hash_value
-
-            return bytes(header) + compressed_data
+            header = BinaryWriter()
+            header.extend(b"USIF\x00\x00\x00")
+            header.write_u8(self.VERSION, "format version")
+            header.write_u32(len(raw_data), "raw payload size")
+            header.write_u32(len(compressed_data), "compressed payload size")
+            header.write_u8(self.compression.value, "compression type")
+            header.extend(self._calculate_hash(structure))
+            header_bytes = bytes(header)
+            if len(header_bytes) > self.HEADER_SIZE:
+                raise EncodingError(
+                    f"USIF header length {len(header_bytes)} exceeds {self.HEADER_SIZE}"
+                )
+            return header_bytes.ljust(self.HEADER_SIZE, b"\x00") + compressed_data
 
         except (EncodingError, ValidationError):
             raise
@@ -301,12 +295,6 @@ class USIF:
             DecodingError: If decoding fails due to invalid format or data
             CorruptedDataError: If data is corrupted or incomplete
             ValidationError: If decoded structure fails validation
-
-        Example:
-            >>> encoder = USIF()
-            >>> binary_data = encoder.encode(structure)
-            >>> decoded_structure, hash_value = encoder.decode(binary_data)
-            >>> print(f"Structure hash: {hash_value.hex()}")
         """
         try:
             if len(data) < self.HEADER_SIZE:
@@ -314,37 +302,59 @@ class USIF:
                     f"Data too short: {len(data)} < {self.HEADER_SIZE}"
                 )
 
-            magic = data[0:7]
+            header = BinaryReader(data[: self.HEADER_SIZE], context="USIF header")
+            magic = header.read_bytes(7, "magic")
             if magic != b"USIF\x00\x00\x00":
                 raise CorruptedDataError(f"Invalid magic bytes: {magic}")
 
-            version = struct.unpack(BinaryFormat.UINT8, data[7:8])[0]
+            version = header.read_u8("format version")
             if version != self.VERSION:
                 logger.warning(
                     f"Version mismatch: file version {version}, expected {self.VERSION}"
                 )
 
-            struct.unpack(BinaryFormat.UINT32, data[8:12])[0]  # raw_size
-            compressed_size = struct.unpack(BinaryFormat.UINT32, data[12:16])[0]
-            comp_type = CompressionType(
-                struct.unpack(BinaryFormat.UINT8, data[16:17])[0]
-            )
-            hash_value = data[17:49]
+            raw_size = header.read_u32("raw payload size")
+            compressed_size = header.read_u32("compressed payload size")
+            if raw_size > MAX_PAYLOAD_SIZE:
+                raise CorruptedDataError(
+                    f"Raw payload size {raw_size} exceeds maximum {MAX_PAYLOAD_SIZE}"
+                )
+            if compressed_size > MAX_COMPRESSED_SIZE:
+                raise CorruptedDataError(
+                    "Compressed payload size "
+                    f"{compressed_size} exceeds maximum {MAX_COMPRESSED_SIZE}"
+                )
 
-            compressed_data = data[
-                self.HEADER_SIZE : self.HEADER_SIZE + compressed_size
-            ]
-            data = self._decompress_data(compressed_data, comp_type)
+            try:
+                comp_type = CompressionType(header.read_u8("compression type"))
+            except ValueError as e:
+                raise CorruptedDataError(f"Invalid compression type in header: {e}") from e
 
-            offset = 0
-            structure_type = StructureType(
-                struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[0]
+            hash_value = header.read_bytes(32, "geometry hash")
+
+            actual_compressed_size = len(data) - self.HEADER_SIZE
+            if actual_compressed_size != compressed_size:
+                raise CorruptedDataError(
+                    "Compressed payload size mismatch: header says "
+                    f"{compressed_size}, file contains {actual_compressed_size}"
+                )
+
+            compressed_data = data[self.HEADER_SIZE :]
+            payload = self._decompress_data(
+                compressed_data, comp_type, max_output_size=raw_size
             )
-            offset += 1
-            storage_mode = StorageMode(
-                struct.unpack(BinaryFormat.UINT8, data[offset : offset + 1])[0]
-            )
-            offset += 1
+            if len(payload) != raw_size:
+                raise CorruptedDataError(
+                    f"Raw payload size mismatch: header says {raw_size}, "
+                    f"decoded payload has {len(payload)} bytes"
+                )
+
+            reader = BinaryReader(payload, context="USIF payload")
+            try:
+                structure_type = StructureType(reader.read_u8("structure type"))
+                storage_mode = StorageMode(reader.read_u8("storage mode"))
+            except ValueError as e:
+                raise CorruptedDataError(f"Invalid structure type or storage mode: {e}") from e
 
             lattice_matrix = None
             spacegroup = 1
@@ -355,130 +365,108 @@ class USIF:
 
             if structure_type == StructureType.MOLECULE:
                 if storage_mode == StorageMode.SYMMETRIC:
-                    pg_len = struct.unpack(
-                        BinaryFormat.UINT8, data[offset : offset + 1]
-                    )[0]
-                    offset += 1
-                    point_group = data[offset : offset + pg_len].decode("utf-8")
-                    offset += pg_len
-
-                    num_sites = struct.unpack(
-                        BinaryFormat.UINT8, data[offset : offset + 1]
-                    )[0]
-                    offset += 1
+                    point_group = reader.read_string_u8("point group")
+                    num_sites = reader.read_u8("point-group site count")
+                    if num_sites > MAX_SYMMETRIC_SITE_COUNT:
+                        raise CorruptedDataError(
+                            f"Point-group site count {num_sites} exceeds maximum "
+                            f"{MAX_SYMMETRIC_SITE_COUNT}"
+                        )
 
                     point_group_sites = []
                     for _ in range(num_sites):
-                        atomic_num = struct.unpack(
-                            BinaryFormat.UINT8, data[offset : offset + 1]
-                        )[0]
-                        mult = struct.unpack(
-                            BinaryFormat.UINT16, data[offset + 1 : offset + 3]
-                        )[0]
-                        x, y, z_coord = struct.unpack(
-                            BinaryFormat.array(BinaryFormat.FLOAT32, 3),
-                            data[offset + 3 : offset + 15],
-                        )
-                        occupancy = struct.unpack(
-                            BinaryFormat.FLOAT32, data[offset + 15 : offset + 19]
-                        )[0]
-                        offset += 19
+                        atomic_num = reader.read_u8("point-group atomic number")
+                        mult = reader.read_u16("point-group multiplicity")
+                        x, y, z_coord = reader.read_f32_tuple3("point-group coords")
+                        occupancy = reader.read_f32("point-group occupancy")
                         point_group_sites.append(
                             PointGroupSite(atomic_num, mult, (x, y, z_coord), occupancy)
                         )
                 else:
-                    num_atoms = struct.unpack(
-                        BinaryFormat.UINT32, data[offset : offset + 4]
-                    )[0]
-                    offset += 4
+                    num_atoms = reader.read_u32("atom count")
+                    if num_atoms > MAX_ATOM_COUNT:
+                        raise CorruptedDataError(
+                            f"Atom count {num_atoms} exceeds maximum {MAX_ATOM_COUNT}"
+                        )
 
                     atom_sites = []
                     for _ in range(num_atoms):
-                        atomic_num = struct.unpack(
-                            BinaryFormat.UINT8, data[offset : offset + 1]
-                        )[0]
-                        x, y, z_coord = struct.unpack(
-                            BinaryFormat.array(BinaryFormat.FLOAT32, 3),
-                            data[offset + 1 : offset + 13],
+                        atomic_num = reader.read_u8("atomic number")
+                        x, y, z_coord = reader.read_f32_tuple3("atom coords")
+                        atom_props, new_offset = self._decode_atomic_properties(
+                            payload, reader.tell(), num_atoms=1
                         )
-                        offset += 13
-                        atom_props, offset = self._decode_atomic_properties(
-                            data, offset, num_atoms=1
-                        )
+                        reader.seek(new_offset)
                         atom_sites.append(
                             AtomSite(atomic_num, (x, y, z_coord), atom_props)
                         )
             else:
-                lattice_data = data[offset : offset + 36]
+                lattice_data = reader.read_bytes(36, "lattice matrix")
                 lattice_matrix = np.frombuffer(lattice_data, dtype=np.float32).reshape(
                     3, 3
                 )
-                offset += 36
 
-                spacegroup = struct.unpack(
-                    BinaryFormat.UINT16, data[offset : offset + 2]
-                )[0]
-                offset += 2
+                spacegroup = reader.read_u16("space group")
 
                 if storage_mode == StorageMode.SYMMETRIC:
-                    num_sites = struct.unpack(
-                        BinaryFormat.UINT8, data[offset : offset + 1]
-                    )[0]
-                    offset += 1
+                    num_sites = reader.read_u8("wyckoff site count")
+                    if num_sites > MAX_SYMMETRIC_SITE_COUNT:
+                        raise CorruptedDataError(
+                            f"Wyckoff site count {num_sites} exceeds maximum "
+                            f"{MAX_SYMMETRIC_SITE_COUNT}"
+                        )
 
                     wyckoff_sites = []
                     for _ in range(num_sites):
-                        atomic_num = struct.unpack(
-                            BinaryFormat.UINT8, data[offset : offset + 1]
-                        )[0]
-                        mult = struct.unpack(
-                            BinaryFormat.UINT16, data[offset + 1 : offset + 3]
-                        )[0]
-                        x, y, z_coord = struct.unpack(
-                            BinaryFormat.array(BinaryFormat.FLOAT32, 3),
-                            data[offset + 3 : offset + 15],
-                        )
-                        occupancy = struct.unpack(
-                            BinaryFormat.FLOAT32, data[offset + 15 : offset + 19]
-                        )[0]
-                        offset += 19
+                        atomic_num = reader.read_u8("wyckoff atomic number")
+                        mult = reader.read_u16("wyckoff multiplicity")
+                        x, y, z_coord = reader.read_f32_tuple3("wyckoff coords")
+                        occupancy = reader.read_f32("wyckoff occupancy")
                         wyckoff_sites.append(
                             WyckoffSite(atomic_num, mult, (x, y, z_coord), occupancy)
                         )
                 else:
-                    num_atoms = struct.unpack(
-                        BinaryFormat.UINT32, data[offset : offset + 4]
-                    )[0]
-                    offset += 4
+                    num_atoms = reader.read_u32("atom count")
+                    if num_atoms > MAX_ATOM_COUNT:
+                        raise CorruptedDataError(
+                            f"Atom count {num_atoms} exceeds maximum {MAX_ATOM_COUNT}"
+                        )
 
                     atom_sites = []
                     for _ in range(num_atoms):
-                        atomic_num = struct.unpack(
-                            BinaryFormat.UINT8, data[offset : offset + 1]
-                        )[0]
-                        x, y, z_coord = struct.unpack(
-                            BinaryFormat.array(BinaryFormat.FLOAT32, 3),
-                            data[offset + 1 : offset + 13],
+                        atomic_num = reader.read_u8("atomic number")
+                        x, y, z_coord = reader.read_f32_tuple3("atom coords")
+                        atom_props, new_offset = self._decode_atomic_properties(
+                            payload, reader.tell(), num_atoms=1
                         )
-                        offset += 13
-                        atom_props, offset = self._decode_atomic_properties(
-                            data, offset, num_atoms=1
-                        )
+                        reader.seek(new_offset)
                         atom_sites.append(
                             AtomSite(atomic_num, (x, y, z_coord), atom_props)
                         )
 
-            struct.unpack(BinaryFormat.UINT32, data[offset : offset + 4])[
-                0
-            ]  # props_len
-            offset += 4
-            struct_props, offset = self._decode_structure_properties(data, offset)
+            props_len = reader.read_u32("structure property section length")
+            if props_len > MAX_PROPERTY_SECTION_SIZE:
+                raise CorruptedDataError(
+                    "Structure property section length "
+                    f"{props_len} exceeds maximum {MAX_PROPERTY_SECTION_SIZE}"
+                )
+            props_payload = reader.read_bytes(props_len, "structure property section")
+            struct_props, props_offset = self._decode_structure_properties(
+                props_payload, 0
+            )
+            if props_offset != len(props_payload):
+                raise CorruptedDataError(
+                    "Structure property section was not consumed exactly: "
+                    f"decoded {props_offset} of {len(props_payload)} bytes"
+                )
 
-            formula_len = struct.unpack(BinaryFormat.UINT16, data[offset : offset + 2])[
-                0
-            ]
-            offset += 2
-            formula = data[offset : offset + formula_len].decode("utf-8")
+            formula_len = reader.read_u16("formula length")
+            if formula_len > MAX_STRING_LENGTH:
+                raise CorruptedDataError(
+                    f"Formula length {formula_len} exceeds maximum {MAX_STRING_LENGTH}"
+                )
+            formula = reader.read_string(formula_len, "formula")
+            reader.assert_consumed("USIF payload")
 
             if structure_type == StructureType.MOLECULE:
                 structure = USIFStructure(
@@ -514,8 +502,6 @@ class USIF:
 
             return structure, hash_value
 
-        except (struct.error, UnicodeDecodeError) as e:
-            raise DecodingError(f"Failed to decode data: {e}") from e
         except (DecodingError, CorruptedDataError, ValidationError):
             raise
         except (ValueError, TypeError, KeyError) as e:
