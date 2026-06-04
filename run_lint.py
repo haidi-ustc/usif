@@ -1,80 +1,43 @@
 #!/usr/bin/env python3
-"""
-Run linting checks (flake8 and isort) for USIF project
-"""
-
+"""Run canonical local lint checks for USIF."""
+import argparse
+import shutil
 import subprocess
 import sys
 from pathlib import Path
-
+ROOT = Path(__file__).resolve().parent
+CHECK_PATHS = ["usif", "tests", "examples"]
 
 def run_command(cmd, description):
-    """Run a command and return success status"""
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"Running {description}...")
-    print(f"{'='*70}")
-    print(f"Command: {' '.join(cmd)}")
-    print()
+    result = subprocess.run(cmd, cwd=ROOT)
+    print("passed" if result.returncode == 0 else "failed")
+    return result.returncode == 0
 
-    result = subprocess.run(cmd, cwd=Path(__file__).parent)
+def require_tools(tools):
+    missing = [tool for tool in tools if shutil.which(tool) is None]
+    if missing:
+        print("Missing required lint tools:", ", ".join(missing))
+        print('Install them with: python -m pip install -e ".[dev]"')
+        sys.exit(1)
 
-    if result.returncode == 0:
-        print(f"\n✓ {description} passed!")
-        return True
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Run USIF lint checks")
+    parser.add_argument("--fix", action="store_true", help="Apply black and isort formatting.")
+    parser.add_argument("--check-black", action="store_true", help="Also run black --check.")
+    args = parser.parse_args()
+    tools = ["isort", "flake8"] + (["black"] if args.fix or args.check_black else [])
+    require_tools(tools)
+    commands = []
+    if args.fix:
+        commands.extend([(["black", *CHECK_PATHS], "black formatter"), (["isort", *CHECK_PATHS], "isort formatter")])
     else:
-        print(f"\n✗ {description} failed!")
-        return False
-
-
-def main():
-    """Run all linting checks"""
-    print("=" * 70)
-    print("USIF Linting Checks")
-    print("=" * 70)
-
-    # Check if tools are installed
-    try:
-        subprocess.run(["flake8", "--version"], capture_output=True, check=True)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        print("\n✗ flake8 is not installed!")
-        print("Install it with: pip install flake8")
-        sys.exit(1)
-
-    try:
-        subprocess.run(["isort", "--version"], capture_output=True, check=True)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        print("\n✗ isort is not installed!")
-        print("Install it with: pip install isort")
-        sys.exit(1)
-
-    # Run isort check
-    isort_check = run_command(
-        ["isort", "--check-only", "--diff", "usif", "tests", "examples"],
-        "isort (import sorting check)",
-    )
-
-    # Run flake8
-    flake8_check = run_command(
-        ["flake8", "usif", "tests", "examples"], "flake8 (code style check)"
-    )
-
-    # Summary
-    print("\n" + "=" * 70)
-    print("Linting Summary")
-    print("=" * 70)
-
-    all_passed = isort_check and flake8_check
-
-    if all_passed:
-        print("✓ All linting checks passed!")
-        sys.exit(0)
-    else:
-        print("✗ Some linting checks failed!")
-        print("\nTo fix issues:")
-        print("  - Run 'isort usif tests examples' to fix import order")
-        print("  - Fix flake8 errors manually")
-        sys.exit(1)
-
+        if args.check_black:
+            commands.append((["black", "--check", *CHECK_PATHS], "black formatting check"))
+        commands.append((["isort", "--check-only", "--diff", *CHECK_PATHS], "isort import sorting check"))
+    commands.append((["flake8", *CHECK_PATHS], "flake8 code style check"))
+    return 0 if all(run_command(*item) for item in commands) else 1
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
