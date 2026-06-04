@@ -14,6 +14,8 @@ def from_source(
     charges: Optional[np.ndarray] = None,
     magmoms: Optional[np.ndarray] = None,
     force_symmetric: bool = False,
+    drop_atomic_properties: bool = False,
+    fallback_full_atomic: bool = False,
     **kwargs,
 ):
     """Create a USIFStructure from a file path, pymatgen object, or ASE Atoms."""
@@ -51,6 +53,8 @@ def from_source(
             charges=charges,
             magmoms=magmoms,
             force_symmetric=force_symmetric,
+            drop_atomic_properties=drop_atomic_properties,
+            fallback_full_atomic=fallback_full_atomic,
             **kwargs,
         )
 
@@ -67,6 +71,8 @@ def from_source(
                 charges=charges,
                 magmoms=magmoms,
                 force_symmetric=force_symmetric,
+                drop_atomic_properties=drop_atomic_properties,
+                fallback_full_atomic=fallback_full_atomic,
                 **kwargs,
             )
     except ImportError:
@@ -84,6 +90,8 @@ def from_source(
                 charges=charges,
                 magmoms=magmoms,
                 force_symmetric=force_symmetric,
+                drop_atomic_properties=drop_atomic_properties,
+                fallback_full_atomic=fallback_full_atomic,
                 **kwargs,
             )
     except ImportError:
@@ -103,6 +111,8 @@ def from_pymatgen(
     charges: Optional[np.ndarray] = None,
     magmoms: Optional[np.ndarray] = None,
     force_symmetric: bool = False,
+    drop_atomic_properties: bool = False,
+    fallback_full_atomic: bool = False,
     **kwargs,
 ):
     """Create a USIFStructure from a pymatgen Structure or Molecule."""
@@ -116,6 +126,8 @@ def from_pymatgen(
         charges=charges,
         magmoms=magmoms,
         force_symmetric=force_symmetric,
+        drop_atomic_properties=drop_atomic_properties,
+        fallback_full_atomic=fallback_full_atomic,
         **kwargs,
     )
 

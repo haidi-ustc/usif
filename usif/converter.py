@@ -96,6 +96,8 @@ class StructureConverter:
         charges: Optional[np.ndarray] = None,
         magmoms: Optional[np.ndarray] = None,
         force_symmetric: bool = False,
+        drop_atomic_properties: bool = False,
+        fallback_full_atomic: bool = False,
         **kwargs,
     ) -> USIFStructure:
         """
@@ -113,6 +115,8 @@ class StructureConverter:
             charges: Optional atomic charges array (N elements, in e)
             magmoms: Optional magnetic moments array (N elements, in μB)
             force_symmetric: Force symmetric storage mode (default: auto-detect)
+            drop_atomic_properties: Explicitly allow per-atom properties to be dropped when forcing symmetric storage
+            fallback_full_atomic: Preserve per-atom properties by falling back to FULL_ATOMIC when forcing symmetric storage
             **kwargs: Additional properties to store in structure_properties.custom
 
         Returns:
@@ -136,7 +140,7 @@ class StructureConverter:
 
         if is_molecule:
             return StructureConverter._from_molecule(
-                pmg_obj, forces, charges, energy, force_symmetric, **kwargs
+                pmg_obj, forces, charges, energy, force_symmetric, drop_atomic_properties, fallback_full_atomic, **kwargs
             )
         else:
             return StructureConverter._from_crystal(
@@ -147,6 +151,8 @@ class StructureConverter:
                 charges,
                 magmoms,
                 force_symmetric,
+                drop_atomic_properties,
+                fallback_full_atomic,
                 **kwargs,
             )
 
@@ -157,10 +163,33 @@ class StructureConverter:
         charges: Optional[np.ndarray] = None,
         energy: Optional[float] = None,
         force_symmetric: bool = False,
+        drop_atomic_properties: bool = False,
+        fallback_full_atomic: bool = False,
         **kwargs,
     ) -> USIFStructure:
         """Convert pymatgen Molecule to USIF"""
         has_atomic_properties = forces is not None or charges is not None
+        if drop_atomic_properties and fallback_full_atomic:
+            raise ValidationError(
+                "drop_atomic_properties and fallback_full_atomic are mutually exclusive"
+            )
+        if force_symmetric and has_atomic_properties:
+            if fallback_full_atomic:
+                force_symmetric = False
+            elif drop_atomic_properties:
+                logger.warning(
+                    "Dropping per-atom properties because force_symmetric=True and "
+                    "drop_atomic_properties=True"
+                )
+                forces = None
+                charges = None
+                has_atomic_properties = False
+            else:
+                raise ValidationError(
+                    "force_symmetric=True cannot preserve per-atom properties "
+                    "(forces/charges). Set fallback_full_atomic=True to preserve them "
+                    "or drop_atomic_properties=True to explicitly discard them."
+                )
 
         if force_symmetric or (not has_atomic_properties):
             try:
@@ -285,6 +314,8 @@ class StructureConverter:
         charges: Optional[np.ndarray] = None,
         magmoms: Optional[np.ndarray] = None,
         force_symmetric: bool = False,
+        drop_atomic_properties: bool = False,
+        fallback_full_atomic: bool = False,
         **kwargs,
     ) -> USIFStructure:
         """Convert pymatgen Structure to USIF"""
@@ -293,6 +324,28 @@ class StructureConverter:
         has_atomic_properties = (
             forces is not None or charges is not None or magmoms is not None
         )
+        if drop_atomic_properties and fallback_full_atomic:
+            raise ValidationError(
+                "drop_atomic_properties and fallback_full_atomic are mutually exclusive"
+            )
+        if force_symmetric and has_atomic_properties:
+            if fallback_full_atomic:
+                force_symmetric = False
+            elif drop_atomic_properties:
+                logger.warning(
+                    "Dropping per-atom properties because force_symmetric=True and "
+                    "drop_atomic_properties=True"
+                )
+                forces = None
+                charges = None
+                magmoms = None
+                has_atomic_properties = False
+            else:
+                raise ValidationError(
+                    "force_symmetric=True cannot preserve per-atom properties "
+                    "(forces/charges/magmoms). Set fallback_full_atomic=True to preserve "
+                    "them or drop_atomic_properties=True to explicitly discard them."
+                )
 
         if force_symmetric:
             storage_mode = StorageMode.SYMMETRIC
@@ -635,6 +688,8 @@ class StructureConverter:
         charges: Optional[np.ndarray] = None,
         magmoms: Optional[np.ndarray] = None,
         force_symmetric: bool = False,
+        drop_atomic_properties: bool = False,
+        fallback_full_atomic: bool = False,
         **kwargs,
     ) -> USIFStructure:
         """
@@ -657,6 +712,8 @@ class StructureConverter:
             magmoms: Optional magnetic moments array (N elements, in μB)
                     If not provided, will try to extract from ase_atoms.get_magnetic_moments()
             force_symmetric: Force symmetric storage mode (default: auto-detect)
+            drop_atomic_properties: Explicitly allow per-atom properties to be dropped when forcing symmetric storage
+            fallback_full_atomic: Preserve per-atom properties by falling back to FULL_ATOMIC when forcing symmetric storage
             **kwargs: Additional properties to store in structure_properties.custom
 
         Returns:
@@ -740,6 +797,8 @@ class StructureConverter:
                 charges=charges,
                 magmoms=magmoms,
                 force_symmetric=force_symmetric,
+                drop_atomic_properties=drop_atomic_properties,
+                fallback_full_atomic=fallback_full_atomic,
                 **kwargs,
             )
         else:
@@ -754,6 +813,8 @@ class StructureConverter:
                 energy=energy,
                 charges=charges,
                 force_symmetric=force_symmetric,
+                drop_atomic_properties=drop_atomic_properties,
+                fallback_full_atomic=fallback_full_atomic,
                 **kwargs,
             )
 
