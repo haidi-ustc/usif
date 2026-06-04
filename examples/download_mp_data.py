@@ -34,8 +34,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from usif.utils.mp_downloader import download_mp_data
-
 
 def main():
     """Main function"""
@@ -127,6 +125,9 @@ Examples:
         parser.error(
             "API key required. Provide --api_key or set MP_API_KEY environment variable."
         )
+
+    # Import only after argparse handles --help and an API key is present.
+    from usif.utils.mp_downloader import download_mp_data
 
     # Download
     stats = download_mp_data(
