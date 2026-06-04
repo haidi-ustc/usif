@@ -1,679 +1,223 @@
-# USIF (Universal Structure Interchange Format) v4.0
+# USIF — Universal Structure Interchange Format
 
-[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+USIF is a Python library for representing, converting, encoding, and grouping atomistic structures. It supports crystals and molecules, compact symmetry-aware storage, explicit full-atom storage with per-atom properties, binary `.usif` files, and multi-structure `.usifc` containers.
 
-**Unified format for crystals and molecules with intelligent compression**
+```python
+from pymatgen.core import Lattice, Structure
+from usif import USIFStructure
 
-USIF is a next-generation file format designed for storing and exchanging atomic structure data with unprecedented efficiency and flexibility. It provides a unified interface for both periodic (crystals) and non-periodic (molecules) structures with intelligent compression capabilities.
+pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
+structure = USIFStructure.from_source(pmg, energy=-10.5, calculator="VASP")
+structure.save("nacl.usif")
+loaded = USIFStructure.load("nacl.usif")
+print(loaded.formula)
+```
 
-## Features
+## What USIF provides
 
-- **Unified Structure Support**: Crystals and molecules with seamless conversion
-- **Intelligent Compression**: 4-6x compression vs traditional formats
-- **Automatic Symmetry Analysis**: Automatic Wyckoff site extraction from pymatgen structures
-- **Modular Property System**: Type-safe properties with units and validation
-- **HDF5-like Container**: Hierarchical organization with groups and attributes
-- **Easy File I/O**: Simple save/load methods with automatic format detection
-- **Materials Project Integration**: Download and convert MP data for testing and benchmarking
+- One `USIFStructure` model for crystals and molecules.
+- Binary `.usif` encoding with compression and integrity checks.
+- `.usifc` containers for many structures, names, groups, attributes, and indexed queries.
+- Conversion from and to pymatgen and ASE objects.
+- A property model for energy, stress, temperature, pressure, volume, forces, charges, magnetic moments, and custom metadata.
+- Materials Project helper utilities behind the optional `mp` extra.
 
 ## Installation
 
 ```bash
-# Basic installation (includes pymatgen as required dependency)
-pip install -e .
-
-# Development installation with all dependencies
-pip install -e ".[all]"
+python -m pip install -e ".[dev,ase]"
+python -m pip install -e ".[all]"  # include Materials Project tooling
 ```
 
-**Requirements:**
-- Python 3.8+
-- pymatgen (required for symmetry analysis and structure conversion)
-- numpy
-- monty (for serialization)
-- ase (optional, for ASE Atoms support - install with: `pip install ase`)
+Core runtime requirements are Python 3.10+, `numpy`, and `pymatgen`. ASE support is installed with the `ase` extra. Materials Project download support is installed with the `mp` extra and requires an API key.
 
-## Quick Start
-
-### High-Level Interface (Recommended)
-
-The easiest way to create USIF structures is using the high-level `from_source()` method, which supports multiple input types:
+## Quick start
 
 ```python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from pymatgen.core import Lattice, Structure
 from usif import USIFStructure
 
-# From file (auto-detects format: CIF, POSCAR, XYZ, etc.)
-usif_struct = USIFStructure.from_source(
-    "structure.cif",
-    energy=-10.5,      # Built-in property
-    volume=179.4,      # Built-in property
-    calculator="VASP"  # Custom property (stored in structure_properties.custom)
-)
-
-# From pymatgen Structure or Molecule object
-from pymatgen.core import Structure, Lattice
-import numpy as np
-
-# Create a pymatgen structure (or load from file)
-lattice = Lattice.cubic(5.64)
-species = ["Na", "Cl"]
-coords = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
-pmg_struct = Structure(lattice, species, coords)
-# Or: pmg_struct = Structure.from_file("structure.cif")
-
-# Define properties
-forces_array = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])  # Nx3 array for N atoms
-stress_tensor = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])  # 3x3 tensor
-
-usif_struct = USIFStructure.from_source(
-    pmg_struct,
-    energy=-10.5,           # Built-in property
-    forces=forces_array,     # Atomic property
-    stress=stress_tensor     # Built-in property
-)
-
-# From ASE Atoms object
-from ase import Atoms
-ase_atoms = Atoms('H2O', positions=[[0, 0, 0], [0.95, 0, 0], [0.95, 0.95, 0]])
-usif_struct = USIFStructure.from_source(
-    ase_atoms,
-    energy=-10.5,           # Built-in property
-    calculator="VASP"       # Custom property (stored in structure_properties.custom)
-)
-
-# Save directly to .usif file
-usif_struct.save("structure.usif")
-
-# Or use the to() method (similar to pymatgen)
-usif_struct.to("structure.usif")  # Auto-detects USIF format from extension
-usif_struct.to("structure.cif")  # Auto-detects CIF format from extension
-usif_struct.to("structure.cif", "cif")  # Explicit format specification
-pmg_struct = usif_struct.to(fmt="pymatgen")  # Convert to pymatgen (returns object)
-ase_atoms = usif_struct.to(fmt="ase")  # Convert to ASE (returns object)
+with TemporaryDirectory() as tmp:
+    pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
+    structure = USIFStructure.from_source(pmg, energy=-10.5, calculator="VASP")
+    path = Path(tmp) / "nacl.usif"
+    structure.save(path)
+    loaded = USIFStructure.load(path)
+    print(loaded.formula)
 ```
 
-### Creating Structures from Pymatgen (Alternative)
+Run it from the repository root:
 
-For direct pymatgen conversion, you can also use the `from_pymatgen()` method:
-
-```python
-from pymatgen.core import Structure
-from usif import USIFStructure
-
-# Load from CIF file
-pmg_struct = Structure.from_file("structure.cif")
-
-# Convert to USIF with automatic Wyckoff site extraction
-# Built-in properties: energy, stress, volume, pressure, temperature
-# Additional kwargs are stored as custom properties
-usif_struct = USIFStructure.from_pymatgen(
-    pmg_struct,
-    energy=-10.5,           # Built-in property
-    volume=179.4,           # Built-in property
-    calculator="VASP"       # Custom property (stored in structure_properties.custom)
-)
-
-# Save directly to .usif file
-usif_struct.save("structure.usif")
+```bash
+python examples/quickstart.py
 ```
 
-### Manual Structure Creation
-
-For more control, you can create structures manually:
+## Manual structure creation
 
 ```python
-from usif import USIFStructure, StructureType, StorageMode
-from usif import WyckoffSite, StructureProperties
 import numpy as np
-
-# Create a simple NaCl crystal
-lattice_matrix = np.array([
-    [5.64, 0.0, 0.0],
-    [0.0, 5.64, 0.0],
-    [0.0, 0.0, 5.64]
-])
-
-wyckoff_sites = [
-    WyckoffSite(atomic_number=11, multiplicity=4, coords=(0.0, 0.0, 0.0)),  # Na
-    WyckoffSite(atomic_number=17, multiplicity=4, coords=(0.5, 0.5, 0.5))   # Cl
-]
-
-structure_props = StructureProperties(
-    energy=-10.5,
-    volume=179.4,
-    custom={"calculator": "VASP"}  # Custom properties dictionary
-)
+from usif import StorageMode, StructureProperties, StructureType, USIFStructure, WyckoffSite
 
 structure = USIFStructure(
     structure_type=StructureType.CRYSTAL,
     storage_mode=StorageMode.SYMMETRIC,
-    lattice_matrix=lattice_matrix,
+    lattice_matrix=np.eye(3) * 5.64,
     spacegroup=225,
-    wyckoff_sites=wyckoff_sites,
-    structure_properties=structure_props,
-    formula="NaCl"
+    wyckoff_sites=[WyckoffSite(11, 4, (0, 0, 0)), WyckoffSite(17, 4, (0.5, 0.5, 0.5))],
+    structure_properties=StructureProperties(energy=-10.5, custom={"calculator": "VASP"}),
+    formula="NaCl",
 )
+print(structure.num_atoms())
 ```
 
-### File I/O and Format Conversion
-
-USIF structures support convenient save/load and format conversion:
+## Binary encoding and integrity checks
 
 ```python
-# Save to .usif format (uses encoder)
-usif_struct.save("structure.usif")
+from pymatgen.core import Lattice, Structure
+from usif import CompressionType, USIF, USIFStructure
 
-# Save to JSON format (human-readable)
-usif_struct.save("structure.json")
-
-# Load from file (auto-detects format)
-loaded = USIFStructure.load("structure.usif")
-
-# Convert to various formats using to() method (auto-detects from extension)
-usif_struct.to("output.usif")  # Save to USIF (auto-detected)
-usif_struct.to("output.cif")  # Export to CIF (auto-detected)
-usif_struct.to("output.poscar")  # Export to POSCAR (auto-detected)
-usif_struct.to("output.xyz")  # Export to XYZ (auto-detected)
-
-# Explicit format specification
-usif_struct.to("output.cif", "cif")  # Explicit format
-
-# Convert to objects (no filename needed)
-pmg_struct = usif_struct.to(fmt="pymatgen")  # Get pymatgen Structure/Molecule
-ase_atoms = usif_struct.to(fmt="ase")  # Get ASE Atoms object
-pmg_struct2 = usif_struct.to()  # Defaults to pymatgen if no args
+pmg = Structure(Lattice.cubic(3.0), ["Li"], [[0, 0, 0]])
+structure = USIFStructure.from_source(pmg, energy=-1.0)
+codec = USIF(compression=CompressionType.GZIP)
+data = codec.encode(structure)
+decoded, geometry_hash = codec.decode(data)
+print(len(data), geometry_hash.hex(), codec.get_record_hash(decoded))
 ```
 
-### Using the Encoder Directly
+Hash semantics are intentionally separate:
 
-For more control over encoding/decoding:
+| Helper | Purpose |
+|---|---|
+| `get_geometry_hash()` | geometry-only identity for similarity/grouping |
+| `get_record_hash()` | full logical record identity, including properties |
+| binary payload digest | internal file integrity checks |
+
+## Containers
+
+`StructureContainer` stores many structures in a `.usifc` file. Records are deduplicated by `record_hash`, so two structures with the same geometry but different properties are preserved as distinct records.
 
 ```python
-from usif import USIF, CompressionType
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from pymatgen.core import Lattice, Structure
+from usif import StructureContainer, USIFStructure
 
-# Create encoder
-encoder = USIF(compression=CompressionType.GZIP)
-
-# Encode structure
-usif_data = encoder.encode(structure)
-print(f"Encoded size: {len(usif_data)} bytes")
-print(f"Structure hash: {encoder.get_structure_hash(structure)}")
-
-# Decode back
-decoded_structure, hash_value = encoder.decode(usif_data)
+with TemporaryDirectory() as tmp:
+    path = Path(tmp) / "materials.usifc"
+    pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
+    low = USIFStructure.from_source(pmg, energy=-10.5)
+    high = USIFStructure.from_source(pmg, energy=-10.0)
+    with StructureContainer(path, mode="w") as container:
+        print(container.add(low, name="nacl-low") != container.add(high, name="nacl-high"))
+    with StructureContainer(path, mode="r") as container:
+        print(container.query(formula="NaCl", energy_range=(-10.6, -10.1)))
 ```
 
-### Structure Container (HDF5-like)
-
-Store multiple structures with hierarchical organization:
-
-```python
-from usif import StructureContainer
-
-# Create container (can use .usif or .usifc suffix)
-with StructureContainer("structures.usifc", mode='w') as container:
-    # Add structures with names and groups
-    hash1 = container.add(
-        structure1, 
-        name="NaCl_001",
-        group="/materials/crystals",
-        attributes={"author": "John Doe", "date": "2024-01-01"}
-    )
-    
-    hash2 = container.add(
-        structure2,
-        name="H2O_001",
-        group="/materials/molecules"
-    )
-    
-    # Set group attributes
-    container.set_group_attribute("/materials", "description", "Material database")
-    
-    # Query structures
-    results = container.query(formula="NaCl", group="/materials/crystals")
-    
-    # Get statistics
-    stats = container.stats()
-    print(f"Total structures: {stats['total_structures']}")
-
-# Read from container
-with StructureContainer("structures.usifc", mode='r') as container:
-    # Get structure by hash or name
-    structure = container.get(hash1)  # or container.get("NaCl_001")
-    attrs = container.get_structure_attributes(hash1)
-```
-
-## Materials Project Data Integration
-
-USIF includes utilities for downloading and working with Materials Project data:
-
-### Downloading MP Data
-
-```python
-from usif.utils import download_mp_data
-
-# Download MP structures for testing
-stats = download_mp_data(
-    api_key="YOUR_MP_API_KEY",
-    output_dir="tests/data/mp_structures",
-    total_entries=1000,
-    entries_per_group=100,
-    e_above_hull_max=0.1,
-    create_zip=True  # Creates zip archive for easy sharing
-)
-
-print(f"Downloaded {stats['total_downloaded']} structures")
-print(f"Zip archive: {stats.get('zip_file')}")
-```
-
-Or use the command-line script:
+Run the full container example:
 
 ```bash
-# Set API key
-export MP_API_KEY=your_key_here
-
-# Download data
-python examples/download_mp_data.py --total_entries 1000
-
-# Or with custom options
-python examples/download_mp_data.py \
-    --total_entries 500 \
-    --entries_per_group 50 \
-    --e_above_hull_max 0.1 \
-    --min_band_gap 0.5 \
-    --max_band_gap 3.0
+python examples/container_query.py
 ```
 
-### Converting MP Data to USIF
+## Conversion with pymatgen and ASE
 
 ```python
-from usif.utils import load_mp_group, convert_mp_to_usif
+from pymatgen.core import Lattice, Structure
+from usif import StructureConverter, USIFStructure
 
-# Load MP data from downloaded files
-docs = load_mp_group("tests/data/mp_structures/group_01/materials.json")
-
-# Convert to USIF structures
-for doc in docs:
-    usif_struct = convert_mp_to_usif(doc)
-    
-    # Access properties
-    print(f"Material: {usif_struct.structure_properties.custom['material_id']}")
-    print(f"Formula: {usif_struct.formula}")
-    print(f"Energy: {usif_struct.structure_properties.energy} eV")
-    print(f"Volume: {usif_struct.structure_properties.volume} Å³")
-    print(f"Band gap: {usif_struct.structure_properties.custom.get('band_gap')} eV")
-    
-    # Save to USIF format
-    usif_struct.save(f"{doc['material_id']}.usif")
+pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
+structure = USIFStructure.from_source(pmg, energy=-10.5)
+round_tripped = StructureConverter.to_pymatgen(structure)
+print(round_tripped.composition.reduced_formula)
 ```
 
-### Loading from Zip Archive
+ASE support requires the `ase` extra:
 
 ```python
-from usif.utils import load_mp_data_from_archive
-
-# Extract and load from zip
-extracted_dir = load_mp_data_from_archive(
-    "tests/data/mp_structures.zip",
-    extract_to="tests/data/mp_extracted"
-)
-
-# Then load groups as usual
-docs = load_mp_group(f"{extracted_dir}/group_01/materials.json")
-```
-
-## API Reference
-
-### USIFStructure
-
-The main structure class with convenient methods:
-
-#### Class Methods
-
-- `from_source(source, **kwargs)` - **High-level interface (Recommended)**
-  - Create from file path, pymatgen object, or ASE Atoms object
-  - Automatically detects input type
-  - Supports all file formats readable by pymatgen (CIF, POSCAR, XYZ, etc.)
-  - Automatically performs symmetry analysis
-  - Extracts Wyckoff sites for crystals
-  - Supports forces, stress, energy, charges, magmoms
-  - Additional properties via `**kwargs` are stored in `structure_properties.custom`
-  - Example: `USIFStructure.from_source("structure.cif", energy=-10.5, calculator="VASP")`
-  - Note: Named `from_source()` because `from` is a reserved keyword in Python
-
-- `from_pymatgen(pmg_obj, **kwargs)` - Create from pymatgen Structure/Molecule
-  - Automatically performs symmetry analysis
-  - Extracts Wyckoff sites for crystals
-  - Supports forces, stress, energy, charges, magmoms
-  - Additional properties via `**kwargs` are stored in `structure_properties.custom`
-  - Example: `calculator="VASP"` → `structure_properties.custom["calculator"] = "VASP"`
-  - Note: For more flexibility, use `from_source()` instead
-
-- `load(filename)` - Load structure from file
-  - Auto-detects format (.usif uses encoder, others use JSON)
-
-#### Instance Methods
-
-- `to(filename=None, fmt=None, **kwargs)` - **Convert to various formats (Recommended)**
-  - Similar to pymatgen's `to()` method
-  - Supports: "usif", "pymatgen", "ase", and file formats (cif, poscar, xyz, etc.)
-  - Auto-detects format from filename extension if `fmt` is not provided
-  - Returns object for "pymatgen" and "ase", saves to file for other formats
-  - Defaults to "pymatgen" if both filename and fmt are None
-  - Example: `usif_struct.to("output.usif")`  # Auto-detects USIF format
-  - Example: `usif_struct.to("output.cif")`  # Auto-detects CIF format
-  - Example: `pmg_struct = usif_struct.to(fmt="pymatgen")`  # Returns object
-  - Example: `usif_struct.to("output.cif", "cif")`  # Explicit format
-  - Example: `pmg_struct2 = usif_struct.to()`  # Defaults to pymatgen if no args
-
-- `save(filename, compression=CompressionType.GZIP)` - Save structure to file
-  - `.usif` extension uses USIF encoder
-  - Other extensions use JSON format
-
-- `num_atoms()` - Get total number of atoms
-- `is_crystal()` - Check if crystal structure
-- `is_molecular()` - Check if molecular structure
-- `is_symmetric()` - Check if using symmetric storage
-
-### StructureConverter
-
-Convert between USIF and various structure formats (pymatgen, ASE):
-
-```python
-from usif import StructureConverter
-from pymatgen.core import Structure, Lattice
 from ase import Atoms
+from usif import USIFStructure
+
+atoms = Atoms("H2O", positions=[[0, 0, 0], [0.95, 0, 0], [0.95, 0.95, 0]])
+water = USIFStructure.from_source(atoms, energy=-76.4)
+print(water.formula)
+```
+
+Run the conversion example:
+
+```bash
+python examples/conversion_with_pymatgen.py
+```
+
+## Per-atom properties and hash semantics
+
+Full-atom storage preserves per-atom forces, charges, magnetic moments, velocities, and custom atom metadata. Symmetric storage stores representative sites and multiplicities. To avoid silent data loss, `force_symmetric=True` rejects per-atom properties unless you explicitly choose `drop_atomic_properties=True` or `fallback_full_atomic=True`.
+
+```python
 import numpy as np
+from usif import AtomicProperties, AtomSite, StorageMode, StructureProperties, StructureType, USIF, USIFStructure
 
-# From pymatgen to USIF
-# Create a pymatgen structure
-lattice = Lattice.cubic(5.64)
-species = ["Na", "Cl"]
-coords = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
-pmg_structure = Structure(lattice, species, coords)
-
-# Define properties
-forces_array = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])  # Nx3 array for N atoms
-stress_tensor = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])  # 3x3 tensor
-
-usif_struct = StructureConverter.from_pymatgen(
-    pmg_structure,
-    energy=-10.5,
-    forces=forces_array,
-    stress=stress_tensor
-)
-
-# From ASE to USIF
-ase_atoms = Atoms('H2O', positions=[[0, 0, 0], [0.95, 0, 0], [0.95, 0.95, 0]])
-forces_h2o = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])  # 3 atoms for H2O
-usif_struct2 = StructureConverter.from_ase(
-    ase_atoms,
-    energy=-10.5,
-    forces=forces_h2o
-)
-
-# From USIF to pymatgen
-pmg_structure = StructureConverter.to_pymatgen(usif_struct)
-
-# From USIF to ASE
-ase_atoms = StructureConverter.to_ase(usif_struct)
+atom = AtomSite(3, (0, 0, 0), AtomicProperties(force=(0, 0, 0)))
+relaxed = USIFStructure(StructureType.CRYSTAL, StorageMode.FULL_ATOMIC, np.eye(3) * 3.0, atom_sites=[atom], structure_properties=StructureProperties(energy=-1.0), formula="Li")
+excited = USIFStructure(StructureType.CRYSTAL, StorageMode.FULL_ATOMIC, np.eye(3) * 3.0, atom_sites=[atom], structure_properties=StructureProperties(energy=-0.5), formula="Li")
+codec = USIF()
+print(codec.get_geometry_hash(relaxed) == codec.get_geometry_hash(excited))
+print(codec.get_record_hash(relaxed) == codec.get_record_hash(excited))
 ```
 
-**Note:** For most use cases, the high-level `USIFStructure.from_source()` interface is recommended as it automatically handles file reading and format detection.
-
-### StructureContainer
-
-HDF5-like container for multiple structures.
-
-**File Extension**: Both `USIFStructure` and `StructureContainer` can use the `.usif` or `.usifc` file extension. The format is automatically detected by magic bytes:
-- Structure files: magic bytes `b'USIF\x00\x00\x00'`
-- Container files: magic bytes `b'USIFC\x00\x00'`
-
-If you try to open a container file with `USIFStructure.load()` or vice versa, you'll get a helpful error message directing you to use the correct class.
-
-#### Key Methods
-
-- `add(structure, name=None, group="/", attributes=None)` - Add structure (returns hash)
-- `add_structure(structure, name=None, group="/", attributes=None)` - Alias for `add()`
-- `get(identifier)` - Get structure by hash or name
-- `query(formula, properties, energy_range, group)` - Query structures
-- `get_group(path)` - Get group by path
-- `set_structure_attributes(identifier, attributes)` - Set structure metadata
-- `get_structure_attributes(identifier)` - Get structure metadata
-- `set_group_attribute(path, name, value)` - Set group metadata
-- `get_group_attribute(path, name)` - Get group attribute
-- `stats()` - Get container statistics
-
-### USIF Encoder/Decoder
-
-Low-level encoding/decoding:
-
-```python
-from usif import USIF, CompressionType
-
-encoder = USIF(compression=CompressionType.GZIP)
-data = encoder.encode(structure)
-structure, hash = encoder.decode(data)
-encoder.save(structure, "file.usif")
-structure = encoder.load("file.usif")
-```
-
-### Utilities
-
-#### MP Data Downloader
-
-```python
-from usif.utils import (
-    download_mp_data,
-    load_mp_group,
-    convert_mp_to_usif,
-    create_mp_data_archive,
-    load_mp_data_from_archive
-)
-
-# Download MP data
-stats = download_mp_data(api_key="YOUR_KEY", total_entries=100)
-
-# Load and convert
-docs = load_mp_group("path/to/group_01/materials.json")
-usif_struct = convert_mp_to_usif(docs[0])
-
-# Create/load archives
-create_mp_data_archive("data/mp_structures")
-load_mp_data_from_archive("data/mp_structures.zip")
-```
-
-#### Structure Optimizer
-
-```python
-from usif.utils import USIFOptimizer
-
-optimizer = USIFOptimizer()
-optimized = optimizer.optimize_structure(structure)
-```
-
-#### Benchmarking
-
-```python
-from usif.utils import USIFBenchmark
-
-benchmark = USIFBenchmark()
-results = benchmark.benchmark_compression(structure)
-```
-
-## Structure Types and Storage Modes
-
-USIF supports different structure types and storage modes:
-
-```
-┌─────────────┬──────────────┬─────────────────┐
-│             │ SYMMETRIC    │ FULL_ATOMIC     │
-├─────────────┼──────────────┼─────────────────┤
-│ CRYSTAL     │ Wyckoff      │ All atoms       │
-│ (Periodic)  │ + lattice    │ + lattice       │
-├─────────────┼──────────────┼─────────────────┤
-│ MOLECULE    │ Point group  │ All atoms       │
-│ (Molecular) │ (no lattice) │ (no lattice)    │
-└─────────────┴──────────────┴─────────────────┘
-```
-
-- **SYMMETRIC**: Stores only unique sites with multiplicities (more compact)
-- **FULL_ATOMIC**: Stores all atoms explicitly (supports per-atom properties)
-
-## Properties
-
-### Structure Properties
-
-Built-in properties (direct attributes):
-- `energy`: Total energy (float, eV)
-- `stress`: Stress tensor in Voigt notation (6-element tuple, GPa)
-- `volume`: Cell volume (float, Å³)
-- `pressure`: Pressure (float, GPa)
-- `temperature`: Temperature (float, K)
-
-Custom properties (stored in `custom` dictionary):
-- Any additional properties passed as `**kwargs` to `from_source()` or `from_pymatgen()`
-- Access via `structure.structure_properties.custom["key"]`
-
-```python
-from usif import StructureProperties
-
-# Create structure properties
-props = StructureProperties(
-    energy=-10.5,                                    # Built-in property
-    volume=179.4,                                    # Built-in property
-    stress=(1.0, 1.0, 1.0, 0.0, 0.0, 0.0),         # Built-in property (Voigt notation)
-    custom={"calculator": "VASP", "kpoints": "4x4x4"}  # Custom properties
-)
-
-# When using from_source() or from_pymatgen(), custom properties can be passed as kwargs:
-usif_struct = USIFStructure.from_source(
-    "structure.cif",
-    energy=-10.5,           # Built-in property
-    calculator="VASP",       # Custom property → structure_properties.custom["calculator"]
-    kpoints="4x4x4"          # Custom property → structure_properties.custom["kpoints"]
-)
-```
-
-### Atomic Properties
-
-```python
-from usif import AtomicProperties
-
-atom_props = AtomicProperties(
-    force=(0.1, 0.2, 0.3),
-    charge=0.5,
-    magmom=2.0,
-    velocity=(0.0, 0.0, 0.0),
-    custom={"tag": "surface"}
-)
-```
-
-## Examples
-
-See the `examples/` directory for more examples:
-
-- `example-1.py` - Basic structure creation and encoding
-- `example-2.py` - Container usage with groups
-- `download_mp_data.py` - Download Materials Project data for testing
-
-## Testing
-
-Run the test suite:
+Run the property/hash example:
 
 ```bash
-# Run all tests
+python examples/properties_and_hashes.py
+```
+
+## Materials Project utilities
+
+```bash
+python -m pip install -e ".[mp]"
+export MP_API_KEY="your_key_here"
+python examples/download_mp_data.py --total_entries 100 --entries_per_group 25
+python examples/download_mp_data.py --help
+```
+
+Prefer the `MP_API_KEY` environment variable over command-line API keys because shell history and process listings may expose arguments.
+
+## Repository examples
+
+README-linked examples are executable from the repository root:
+
+```bash
+python examples/quickstart.py
+python examples/container_query.py
+python examples/conversion_with_pymatgen.py
+python examples/properties_and_hashes.py
+python examples/download_mp_data.py --help
+```
+
+## Development
+
+```bash
+python -m pip install -e ".[dev,ase]"
 python -m pytest
-
-# With coverage
-python -m pytest --cov=usif --cov-report=term-missing
-
-# Run specific test file
-python -m pytest tests/test_structures_sites.py -v
-
-# Test with Materials Project data (uses tests/data/mp_structures.zip)
-python -m pytest tests/test_mp_data.py -v
-```
-
-**Test Data:**
-- MP test data is stored in `tests/data/mp_structures.zip`
-- The zip file is tracked in git for reproducible testing
-- To download fresh data: `python examples/download_mp_data.py`
-
-## Code Quality and Linting
-
-The project uses `flake8` for code style checking and `isort` for import sorting.
-
-### Installation
-
-Install linting tools with development dependencies:
-
-```bash
-pip install -e ".[dev]"
-```
-
-### Running Linting Checks
-
-Run all linting checks:
-
-```bash
-# Run both flake8 and isort checks
+python -m pytest --cov=usif --cov-report=term-missing --cov-fail-under=70
 python run_lint.py
-
-# Or run the canonical checks directly
-isort --check-only --diff usif tests examples
-flake8 usif tests examples
+mypy usif/format usif/storage usif/properties
+bandit -q -r usif -x tests
+pip-audit --desc off
+python -m build
 ```
 
-### Fixing Issues
+## Documentation map
 
-```bash
-# Auto-fix import order with isort
-isort usif tests examples
-
-# Fix flake8 errors manually (flake8 doesn't auto-fix)
-```
-
-### Configuration
-
-- **flake8**: Configured in `.flake8` file
-  - Max line length: 100
-  - Ignores E203, W503, E501 (compatible with black formatter)
-  - Max complexity: 32
-
-- **isort**: Configured in `pyproject.toml`
-  - Profile: black (compatible with black formatter)
-  - Line length: 100
-  - Known first party: `usif`
-
-## Performance
-
-USIF provides significant compression benefits:
-
-- **4-6x smaller** than traditional formats (CIF, POSCAR)
-- **Automatic symmetry detection** reduces storage for symmetric structures
-- **Efficient binary format** with optional compression
-- **Fast random access** in containers with indexing
-
-## Documentation
-
-Additional documentation is available in the `docs/` directory:
-
-- `ARCHITECTURE.md` - High-level architecture overview
-- `BINARY_FORMAT.md` - Detailed binary format specification
-- `DEVELOPMENT_PLAN.md` - Development roadmap and suggestions
-- `IMPORT_STRUCTURE.md` - Import structure and dependency analysis
+- `docs/ARCHITECTURE.md` — current architecture overview.
+- `docs/BINARY_FORMAT.md` — `.usif` binary format.
+- `docs/CONTAINER_FORMAT.md` — `.usifc` container format.
+- `docs/PROPERTY_SYSTEM.md` — built-in and custom property model.
+- `docs/CONTRIBUTING.md` — local development, testing, and PR expectations.
+- `docs/CHANGELOG.md` — notable changes.
+- `docs/archive/` — historical reviews and old planning documents.
 
 ## License
 
-This project is licensed under the USIF Non-Commercial License — academic use only.  
-For commercial licensing, please contact: haidi@hfut.edu.cn
-
-## Support
-
-- **Issues**: [GitHub Issues](https://github.com/your-org/usif/issues)
-- **Email**: haidi@hfut.edu.cn
-
----
-
-**USIF v4.0** - Universal Structure Interchange Format - Making computational materials data efficient and interoperable.
+USIF is licensed under the USIF Non-Commercial License. Academic and non-commercial use is allowed under the license terms. For commercial licensing, contact `haidi@hfut.edu.cn`.

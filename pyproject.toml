@@ -4,9 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "usif"
-# Version should match usif/version.py __version__
-# This is used by build tools before package installation
-version = "4.0"
+dynamic = ["version"]
 description = "Universal Structure Interchange Format for crystals and molecules"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -48,6 +46,10 @@ dev = [
     "pytest-cov>=2.0",
     "flake8>=6.0.0",
     "isort>=5.12.0",
+    "black>=23.0.0",
+    "mypy>=1.8.0",
+    "bandit>=1.7.0",
+    "pip-audit>=2.7.0",
     "build>=1.0.0",
 ]
 all = [
@@ -58,6 +60,10 @@ all = [
     "pytest-cov>=2.0",
     "flake8>=6.0.0",
     "isort>=5.12.0",
+    "black>=23.0.0",
+    "mypy>=1.8.0",
+    "bandit>=1.7.0",
+    "pip-audit>=2.7.0",
     "build>=1.0.0",
 ]
 
@@ -65,11 +71,15 @@ all = [
 # Auto-discover packages (equivalent to find_packages() in setup.py)
 packages = {find = {include = ["usif*"]}}
 
+[tool.setuptools.dynamic]
+version = {attr = "usif.version.__version__"}
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+addopts = "--strict-markers --strict-config"
 
 [tool.isort]
 profile = "black"
@@ -83,3 +93,34 @@ skip_glob = ["build/*", "dist/*", "*.egg-info/*", "htmlcov/*", ".tox/*", ".venv/
 known_first_party = ["usif"]
 known_third_party = ["numpy", "pymatgen", "pytest", "monty"]
 
+
+[tool.black]
+line-length = 100
+target-version = ["py38"]
+
+[tool.coverage.run]
+branch = true
+source = ["usif"]
+omit = ["*/tests/*", "*/examples/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 70
+
+[tool.mypy]
+python_version = "3.8"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+no_implicit_optional = true
+check_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["usif.interop.*", "usif.utils.*"]
+ignore_errors = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "docs/archive"]
+skips = ["B101"]
