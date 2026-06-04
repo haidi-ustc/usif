@@ -47,9 +47,12 @@ See Also:
 
 import logging
 import mmap
+import os
 import queue
 import struct
 import threading
+import time
+import zlib
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
@@ -60,9 +63,12 @@ from usif.exceptions import (
     CorruptedDataError,
     DecodingError,
     StorageError,
+    ContainerError,
+    ContainerIndexError,
     ValidationError,
 )
 from usif.storage import ChunkedFileStore, ContainerIndexes, QueryEngine, USIFGroup
+from usif.format.binary import BinaryReader
 from usif.structures.structure import USIFStructure
 
 logger = logging.getLogger(__name__)
@@ -75,6 +81,9 @@ class StructureContainer:
     """
 
     CONTAINER_MAGIC = b"USIFC\x00\x00"
+    INDEX_MAGIC = b"USIFIDX1"
+    INDEX_COMMIT = b"USIFDONE"
+    INDEX_HEADER_FORMAT = "<8sQQI4s"
     CHUNK_SIZE = 64 * 1024 * 1024  # 64 MB chunks
 
     def __init__(
@@ -137,6 +146,7 @@ class StructureContainer:
         # Data offsets
         self._data_offset = self.HEADER_SIZE = 64
         self._index_offset = 0
+        self._index_generation = 0
 
         # Initialize
         if mode == "r":
@@ -198,17 +208,22 @@ class StructureContainer:
         self._file.flush()
 
     def _read_enhanced_index(self) -> None:
-        """Read enhanced index with secondary indexes (FIXED: matches new serialization format)"""
+        """Read container header and load the newest valid index generation."""
         try:
             if self._mmap:
-                data = self._mmap
+                data = bytes(self._mmap[:])
             else:
                 self._file.seek(0)
                 data = self._file.read()
 
-            magic = data[0:7]
+            if len(data) < self.HEADER_SIZE:
+                raise CorruptedDataError(
+                    f"Container is too short: {len(data)} < {self.HEADER_SIZE}"
+                )
+
+            reader = BinaryReader(data[: self.HEADER_SIZE], context="USIF container header")
+            magic = reader.read_bytes(7, "container magic")
             if magic != self.CONTAINER_MAGIC:
-                # Check if it's a single structure file instead
                 if magic == b"USIF\x00\x00\x00":
                     raise StorageError(
                         f"File {self.filename} is a USIF structure file, not a container. "
@@ -216,25 +231,124 @@ class StructureContainer:
                     )
                 raise CorruptedDataError("Invalid enhanced USIF container")
 
-            struct.unpack(BinaryFormat.UINT8, data[7:8])[0]  # version
-            struct.unpack(BinaryFormat.UINT32, data[8:12])[0]  # num_structures
-            data_offset = struct.unpack(BinaryFormat.UINT64, data[12:20])[0]
-            index_offset = struct.unpack(BinaryFormat.UINT64, data[20:28])[0]
-            struct.unpack(BinaryFormat.UINT64, data[28:36])[0]  # group_offset
+            reader.read_u8("container version")
+            reader.read_u32("structure count")
+            data_offset = reader.read_u64("data offset")
+            index_offset = reader.read_u64("index offset")
+            reader.read_u64("group offset")
 
             self._data_offset = data_offset
             self._index_offset = index_offset
 
-            # FIXED: Read new serialization format
-            if index_offset > 0 and index_offset < len(data):
-                self._file.seek(index_offset)
-                self._deserialize_indexes()
+            if index_offset > 0:
+                try:
+                    self._deserialize_index_at(data, index_offset)
+                except ContainerIndexError as e:
+                    logger.warning("Header index generation is invalid: %s", e)
+                    recovered = self._find_latest_valid_index_offset(data)
+                    if recovered is None:
+                        raise
+                    logger.info("Recovered container index generation at offset %s", recovered)
+                    self._deserialize_index_at(data, recovered)
+                    self._index_offset = recovered
 
             self._build_secondary_indexes()
 
+        except (StorageError, CorruptedDataError, ContainerIndexError):
+            raise
         except Exception as e:
             logger.error(f"Failed to read index: {e}")
             raise StorageError(f"Failed to read container index: {e}") from e
+
+    def _clear_loaded_indexes(self) -> None:
+        """Clear index state before loading a persisted generation."""
+        self._hash_index.clear()
+        self._geometry_index.clear()
+        self._name_index.clear()
+        self._formula_index.clear()
+        self._property_index.clear()
+        self._group_index.clear()
+        self._structure_attributes.clear()
+        self.root_group = USIFGroup("/")
+        with self._cache_lock:
+            self._cache.clear()
+
+    def _deserialize_index_at(self, data: bytes, offset: int) -> None:
+        """Load either a checksummed P1 index block or legacy raw index payload."""
+        if offset < self.HEADER_SIZE or offset >= len(data):
+            raise ContainerIndexError(
+                f"Index offset {offset} is outside container size {len(data)}"
+            )
+
+        if data[offset : offset + len(self.INDEX_MAGIC)] == self.INDEX_MAGIC:
+            header_size = struct.calcsize(self.INDEX_HEADER_FORMAT)
+            if offset + header_size > len(data):
+                raise ContainerIndexError("Truncated index manifest header")
+            magic, generation, payload_size, checksum, _reserved = struct.unpack(
+                self.INDEX_HEADER_FORMAT, data[offset : offset + header_size]
+            )
+            if magic != self.INDEX_MAGIC:
+                raise ContainerIndexError("Invalid index magic")
+            payload_start = offset + header_size
+            payload_end = payload_start + payload_size
+            commit_end = payload_end + len(self.INDEX_COMMIT)
+            if commit_end > len(data):
+                raise ContainerIndexError("Truncated index payload or commit marker")
+            if data[payload_end:commit_end] != self.INDEX_COMMIT:
+                raise ContainerIndexError("Missing index commit marker")
+            payload = data[payload_start:payload_end]
+            actual_checksum = zlib.crc32(payload) & 0xFFFFFFFF
+            if actual_checksum != checksum:
+                raise ContainerIndexError(
+                    f"Index checksum mismatch: header {checksum:#x}, actual {actual_checksum:#x}"
+                )
+            self._clear_loaded_indexes()
+            try:
+                self._deserialize_indexes_from_payload(payload, strict=True)
+            except Exception as e:
+                raise ContainerIndexError(f"Invalid index payload: {e}") from e
+            self._index_generation = generation
+            return
+
+        # Legacy P0/v4 index payload: read to EOF and parse without checksum.
+        payload = data[offset:]
+        self._clear_loaded_indexes()
+        try:
+            self._deserialize_indexes_from_payload(payload, strict=False)
+            self._index_generation = 0
+        except Exception as e:
+            raise ContainerIndexError(f"Failed to read legacy index payload: {e}") from e
+
+    def _find_latest_valid_index_offset(self, data: bytes) -> Optional[int]:
+        """Scan append-only index generations and return the newest valid offset."""
+        best = None
+        best_generation = -1
+        search_from = self.HEADER_SIZE
+        while True:
+            offset = data.find(self.INDEX_MAGIC, search_from)
+            if offset < 0:
+                break
+            try:
+                header_size = struct.calcsize(self.INDEX_HEADER_FORMAT)
+                magic, generation, payload_size, checksum, _reserved = struct.unpack(
+                    self.INDEX_HEADER_FORMAT, data[offset : offset + header_size]
+                )
+                payload_start = offset + header_size
+                payload_end = payload_start + payload_size
+                commit_end = payload_end + len(self.INDEX_COMMIT)
+                if magic == self.INDEX_MAGIC and commit_end <= len(data):
+                    payload = data[payload_start:payload_end]
+                    if (
+                        data[payload_end:commit_end] == self.INDEX_COMMIT
+                        and (zlib.crc32(payload) & 0xFFFFFFFF) == checksum
+                        and generation > best_generation
+                    ):
+                        best = offset
+                        best_generation = generation
+            except Exception:
+                pass
+            search_from = offset + 1
+        return best
 
     def _read_group_hierarchy(self, group_offset: int) -> None:
         """Read group hierarchy from file"""
@@ -384,18 +498,19 @@ class StructureContainer:
             usif_data = self.encoder.encode(structure)
             struct_hash = self.encoder.get_record_hash(structure)
 
-            # FIXED: Thread-safe check and index updates
+            # P1: close the check/write/update TOCTOU window.  The index lock
+            # guards the record reservation; the file lock is acquired inside it so
+            # a second thread cannot pass the duplicate check before this record is
+            # fully indexed.
             with self._index_lock:
                 if struct_hash in self._hash_index:
                     logger.info(f"Record {struct_hash[:16]} already exists")
                     return struct_hash
 
-            # FIXED: Thread-safe file I/O operations
-            with self._file_lock:
-                chunk_id, chunk_offset = self._allocate_space(len(usif_data))
-                self._write_to_chunk(chunk_id, chunk_offset, usif_data)
+                with self._file_lock:
+                    chunk_id, chunk_offset = self._allocate_space(len(usif_data))
+                    self._write_to_chunk(chunk_id, chunk_offset, usif_data)
 
-            with self._index_lock:
                 self._hash_index[struct_hash] = (chunk_id, chunk_offset, len(usif_data))
 
                 if name:
@@ -407,13 +522,14 @@ class StructureContainer:
                 target_group = self._get_or_create_group(group)
                 display_name = name or struct_hash[:16]
                 target_group.add_structure(display_name, struct_hash)
-
-            self._update_secondary_indexes(structure, struct_hash)
+                self._indexes.update_secondary(structure, struct_hash)
 
             logger.debug(f"Added structure {struct_hash[:16]} (name: {name or 'N/A'})")
 
             return struct_hash
 
+        except (StorageError, ContainerError, ValidationError):
+            raise
         except Exception as e:
             logger.error(f"Failed to add structure: {e}")
             raise StorageError(f"Failed to add structure: {e}") from e
@@ -526,12 +642,12 @@ class StructureContainer:
 
         except (DecodingError, CorruptedDataError) as e:
             logger.error(f"Error decoding structure {identifier}: {e}")
-            return None
+            raise StorageError(f"Failed to decode stored structure {identifier}: {e}") from e
         except Exception as e:
             logger.error(
                 f"Unexpected error decoding structure {identifier}: {e}", exc_info=True
             )
-            return None
+            raise StorageError(f"Failed to decode stored structure {identifier}: {e}") from e
 
     def _read_from_chunk(self, chunk_id: int, offset: int, size: int) -> bytes:
         """Read data from specific chunk (thread-safe)."""
@@ -777,64 +893,80 @@ class StructureContainer:
         return results
 
     def _write_enhanced_index(self) -> None:
-        """Write enhanced index to file (persist indexes for HDF5-like functionality)"""
+        """Write a checksummed, append-only index generation and commit it."""
         if self.mode == "r" or not self._file:
             return
 
-        try:
-            # FIXED: Thread-safe index writing
-            with self._file_lock:
-                # Write index at the end of file
-                index_data = self._serialize_indexes()
-                self._file.seek(0, 2)  # FIXED: Seek to end of file first
-                index_offset = self._file.tell()
-                self._file.write(index_data)
-                self._file.flush()
+        with self._file_lock:
+            payload = self._serialize_indexes()
+            generation = max(self._index_generation + 1, int(time.time_ns()))
+            checksum = zlib.crc32(payload) & 0xFFFFFFFF
+            manifest = struct.pack(
+                self.INDEX_HEADER_FORMAT,
+                self.INDEX_MAGIC,
+                generation,
+                len(payload),
+                checksum,
+                b"\x00" * 4,
+            )
+            index_block = manifest + payload + self.INDEX_COMMIT
 
-                # Update header with index offset
-                self._file.seek(20)  # Index offset position in header
-                self._file.write(struct.pack(BinaryFormat.UINT64, index_offset))
+            try:
+                self._file.seek(0, 2)
+                index_offset = self._file.tell()
+                self._file.write(index_block)
                 self._file.flush()
-        except Exception as e:
-            logger.warning(f"Failed to write enhanced index: {e}")
+                os.fsync(self._file.fileno())
+
+                # Update header after the generation is durably committed.
+                self._file.seek(8)
+                self._file.write(struct.pack(BinaryFormat.UINT32, len(self._hash_index)))
+                self._file.seek(20)
+                self._file.write(struct.pack(BinaryFormat.UINT64, index_offset))
+                self._file.seek(54)
+                self._file.write(struct.pack(BinaryFormat.UINT64, int(time.time())))
+                self._file.flush()
+                os.fsync(self._file.fileno())
+                self._index_offset = index_offset
+                self._index_generation = generation
+            except Exception as e:
+                raise ContainerIndexError(f"Failed to write enhanced index: {e}") from e
 
     def _deserialize_indexes(self) -> None:
-        """Deserialize indexes from file (matches _serialize_indexes format)"""
-        # Read hash index
-        num_hashes = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
+        """Deserialize a legacy index payload from the current file position."""
+        payload = self._file.read()
+        self._deserialize_indexes_from_payload(payload, strict=False)
+
+    def _deserialize_indexes_from_payload(self, payload: bytes, *, strict: bool = True) -> None:
+        """Deserialize indexes from an in-memory payload."""
+        reader = BinaryReader(payload, context="container index payload")
+
+        # Read hash/record index.
+        num_hashes = reader.read_u32("hash index count")
         for _ in range(num_hashes):
-            hash_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
-            hash_bytes = self._file.read(hash_len)
-            struct_hash = hash_bytes.decode("utf-8")
-            chunk_id = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
-            offset = struct.unpack(BinaryFormat.UINT64, self._file.read(8))[0]
-            size = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
+            struct_hash = reader.read_string_u16("record hash")
+            chunk_id = reader.read_u32("chunk id")
+            offset = reader.read_u64("chunk offset")
+            size = reader.read_u32("record byte size")
             self._hash_index[struct_hash] = (chunk_id, offset, size)
 
-        # Read name index
-        num_names = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
+        # Read name index.
+        num_names = reader.read_u32("name index count")
         for _ in range(num_names):
-            name_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
-            name = self._file.read(name_len).decode("utf-8")
-            hash_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
-            struct_hash = self._file.read(hash_len).decode("utf-8")
+            name = reader.read_string_u16("structure name")
+            struct_hash = reader.read_string_u16("named record hash")
             self._name_index[name] = struct_hash
 
-        # Read structure attributes
-        num_attrs = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
+        # Read structure attributes.
+        num_attrs = reader.read_u32("structure attribute count")
         for _ in range(num_attrs):
-            name_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
-            name = self._file.read(name_len).decode("utf-8")
-            num_attr_pairs = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
+            name = reader.read_string_u16("attribute structure name")
+            num_attr_pairs = reader.read_u16("structure attribute pair count")
             attrs = {}
             for _ in range(num_attr_pairs):
-                attr_name_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[
-                    0
-                ]
-                attr_name = self._file.read(attr_name_len).decode("utf-8")
-                value_len = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
-                value_str = self._file.read(value_len).decode("utf-8")
-                # Try to parse as number, otherwise keep as string
+                attr_name = reader.read_string_u16("attribute name")
+                value_len = reader.read_u32("attribute value length")
+                value_str = reader.read_bytes(value_len, "attribute value").decode("utf-8")
                 try:
                     attrs[attr_name] = (
                         float(value_str) if "." in value_str else int(value_str)
@@ -843,73 +975,44 @@ class StructureContainer:
                     attrs[attr_name] = value_str
             self._structure_attributes[name] = attrs
 
-        # Read group hierarchy
-        group_data_len = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
+        # Read group hierarchy.
+        group_data_len = reader.read_u32("group hierarchy length")
         if group_data_len > 0:
-            group_data = self._file.read(group_data_len)
+            group_data = reader.read_bytes(group_data_len, "group hierarchy")
             self._deserialize_group_hierarchy(group_data)
 
+        if strict:
+            reader.assert_consumed("container index payload")
+
     def _deserialize_group_hierarchy(self, data: bytes) -> None:
-        """Deserialize group hierarchy from bytes"""
+        """Deserialize group hierarchy from bytes with bounds checking."""
+        reader = BinaryReader(data, context="container group hierarchy")
 
-        def deserialize_group(
-            offset: int, parent_path: str = "/"
-        ) -> Tuple[USIFGroup, int]:
-            # Group name
-            name_len = struct.unpack(BinaryFormat.UINT16, data[offset : offset + 2])[0]
-            offset += 2
-            name = data[offset : offset + name_len].decode("utf-8")
-            offset += name_len
-
+        def deserialize_group(parent_path: str = "/") -> USIFGroup:
+            name = reader.read_string_u16("group name")
             group = USIFGroup(name)
 
-            # Calculate full path for this group
             if parent_path == "/":
                 full_path = f"/{name}/" if name else "/"
             else:
                 full_path = f"{parent_path}{name}/"
 
-            # Add to group index (for stats and queries)
             if full_path != "/":
                 self._group_index[full_path] = group
 
-            # Structures in group
-            num_structs = struct.unpack(BinaryFormat.UINT32, data[offset : offset + 4])[
-                0
-            ]
-            offset += 4
+            num_structs = reader.read_u32("group structure count")
             for _ in range(num_structs):
-                struct_name_len = struct.unpack(
-                    BinaryFormat.UINT16, data[offset : offset + 2]
-                )[0]
-                offset += 2
-                struct_name = data[offset : offset + struct_name_len].decode("utf-8")
-                offset += struct_name_len
-                hash_len = struct.unpack(
-                    BinaryFormat.UINT16, data[offset : offset + 2]
-                )[0]
-                offset += 2
-                struct_hash = data[offset : offset + hash_len].decode("utf-8")
-                offset += hash_len
+                struct_name = reader.read_string_u16("group structure name")
+                struct_hash = reader.read_string_u16("group structure hash")
                 group.structures[struct_name] = struct_hash
 
-            # Attributes
-            num_attrs = struct.unpack(BinaryFormat.UINT16, data[offset : offset + 2])[0]
-            offset += 2
+            num_attrs = reader.read_u16("group attribute count")
             for _ in range(num_attrs):
-                attr_name_len = struct.unpack(
-                    BinaryFormat.UINT16, data[offset : offset + 2]
-                )[0]
-                offset += 2
-                attr_name = data[offset : offset + attr_name_len].decode("utf-8")
-                offset += attr_name_len
-                value_len = struct.unpack(
-                    BinaryFormat.UINT32, data[offset : offset + 4]
-                )[0]
-                offset += 4
-                value_str = data[offset : offset + value_len].decode("utf-8")
-                offset += value_len
-                # Try to parse as number
+                attr_name = reader.read_string_u16("group attribute name")
+                value_len = reader.read_u32("group attribute value length")
+                value_str = reader.read_bytes(value_len, "group attribute value").decode(
+                    "utf-8"
+                )
                 try:
                     group.attributes[attr_name] = (
                         float(value_str) if "." in value_str else int(value_str)
@@ -917,18 +1020,15 @@ class StructureContainer:
                 except ValueError:
                     group.attributes[attr_name] = value_str
 
-            # Subgroups
-            num_subgroups = struct.unpack(
-                BinaryFormat.UINT32, data[offset : offset + 4]
-            )[0]
-            offset += 4
+            num_subgroups = reader.read_u32("group subgroup count")
             for _ in range(num_subgroups):
-                subgroup, offset = deserialize_group(offset, full_path)
+                subgroup = deserialize_group(full_path)
                 group.subgroups[subgroup.name] = subgroup
 
-            return group, offset
+            return group
 
-        self.root_group, _ = deserialize_group(0)
+        self.root_group = deserialize_group("/")
+        reader.assert_consumed("container group hierarchy")
 
     def _serialize_indexes(self) -> bytes:
         """Serialize all indexes to bytes for persistence"""
@@ -1018,6 +1118,63 @@ class StructureContainer:
 
         return serialize_group(self.root_group)
 
+    def rebuild_index(self, *, persist: bool = False) -> int:
+        """Rebuild the primary record index by scanning USIF records in the file.
+
+        This recovery path is intentionally conservative: it restores record hashes
+        and secondary indexes for structure bytes that can be decoded, but names,
+        groups, and attributes cannot be reconstructed if the persisted index was
+        lost.  When ``persist`` is true and the container is writable, a new
+        checksummed index generation is written after rebuilding.
+
+        Returns:
+            Number of recovered records.
+        """
+        if not self._file:
+            raise StorageError("Cannot rebuild index on a closed container")
+
+        with self._index_lock, self._file_lock:
+            self._file.seek(0)
+            file_data = self._file.read()
+            scan_limit = self._index_offset if self._index_offset > self.HEADER_SIZE else len(file_data)
+
+            recovered = []
+            pos = self.HEADER_SIZE
+            while pos + USIF.HEADER_SIZE <= scan_limit:
+                if file_data[pos : pos + 7] != b"USIF\x00\x00\x00":
+                    pos += 1
+                    continue
+
+                try:
+                    compressed_size = struct.unpack(
+                        BinaryFormat.UINT32, file_data[pos + 12 : pos + 16]
+                    )[0]
+                    record_size = USIF.HEADER_SIZE + compressed_size
+                    if record_size <= USIF.HEADER_SIZE or pos + record_size > scan_limit:
+                        pos += 1
+                        continue
+                    record_data = file_data[pos : pos + record_size]
+                    structure, _ = self.encoder.decode(record_data)
+                    record_hash = self.encoder.get_record_hash(structure)
+                    chunk_id = pos // self.CHUNK_SIZE
+                    chunk_offset = pos % self.CHUNK_SIZE
+                    recovered.append((record_hash, (chunk_id, chunk_offset, record_size), structure))
+                    pos += record_size
+                except Exception:
+                    pos += 1
+
+            self._clear_loaded_indexes()
+            for record_hash, location, structure in recovered:
+                self._hash_index[record_hash] = location
+                self._indexes.update_secondary(structure, record_hash)
+
+            if persist:
+                if self.mode == "r":
+                    raise ValueError("Cannot persist rebuilt index in read-only mode")
+                self._write_enhanced_index()
+
+            return len(recovered)
+
     def stats(self) -> Dict[str, Any]:
         """
         Get detailed container statistics
@@ -1097,12 +1254,15 @@ class StructureContainer:
             >>> with StructureContainer("structures.usifc", mode="r") as container:
             ...     structure = container.get("NaCl_001")
         """
-        # Write indexes before closing if in write mode
+        write_error = None
+        # Write indexes before closing if in write mode.  P1 makes index
+        # persistence failures visible instead of only logging a warning.
         if self.mode in ("w", "a") and self._file:
             try:
                 self._write_enhanced_index()
             except Exception as e:
-                logger.warning(f"Failed to write index on close: {e}")
+                write_error = e
+                logger.error(f"Failed to write index on close: {e}")
 
         if (
             hasattr(self, "_prefetch_thread")
@@ -1119,6 +1279,9 @@ class StructureContainer:
         if self._file:
             self._file.close()
             self._file = None
+
+        if write_error is not None:
+            raise ContainerIndexError(f"Failed to write index on close: {write_error}") from write_error
 
     def __enter__(self):
         return self
