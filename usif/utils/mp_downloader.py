@@ -28,28 +28,55 @@ Usage:
 """
 
 import logging
+import tempfile
 import time
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-
-try:
-    from monty.serialization import dumpfn, loadfn
-    from mp_api.client import MPRester
-    from pymatgen.core import Structure
-except ImportError as e:
-    raise ImportError(
-        "Required packages not installed. Install with: pip install pymatgen mp-api monty"
-    ) from e
 
 from usif import USIFStructure
 
 logger = logging.getLogger(__name__)
 
 
+def _require_monty():
+    """Return monty JSON helpers, importing them only when needed."""
+    try:
+        from monty.serialization import dumpfn, loadfn
+    except ImportError as e:
+        raise ImportError(
+            "monty is required for MP data JSON I/O. Install with: pip install monty"
+        ) from e
+    return dumpfn, loadfn
+
+
+def _require_mp_rester():
+    """Return Materials Project client class, importing mp-api only for downloads."""
+    try:
+        from mp_api.client import MPRester
+    except ImportError as e:
+        raise ImportError(
+            "mp-api is required only for downloading Materials Project data. "
+            "Install with: pip install mp-api"
+        ) from e
+    return MPRester
+
+
+def _require_pymatgen_structure():
+    """Return pymatgen Structure class, importing it only when conversion needs it."""
+    try:
+        from pymatgen.core import Structure
+    except ImportError as e:
+        raise ImportError(
+            "pymatgen is required for converting Materials Project structures. "
+            "Install with: pip install pymatgen"
+        ) from e
+    return Structure
+
+
 def download_mp_data(
     api_key: str,
-    output_dir: str = "tests/data/mp_structures",
+    output_dir: Optional[str] = None,
     total_entries: int = 1000,
     entries_per_group: int = 100,
     e_above_hull_max: float = 0.1,
@@ -78,12 +105,14 @@ def download_mp_data(
     Returns:
         Dictionary with download statistics including zip_file path if created
     """
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
+    dumpfn, _ = _require_monty()
+    MPRester = _require_mp_rester()
 
-    # Create subdirectories for groups
-    for i in range(10):
-        (output_path / f"group_{i + 1:02d}").mkdir(exist_ok=True)
+    if output_dir is None:
+        output_path = Path(tempfile.mkdtemp(prefix="usif_mp_structures_"))
+    else:
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
 
     # Define 10 diverse chemistry groups with distinct properties
     query_groups = [
@@ -127,6 +156,7 @@ def download_mp_data(
         "total_skipped": 0,
         "total_filtered": 0,
         "groups": {},
+        "output_dir": str(output_path),
     }
 
     with MPRester(api_key) as mpr:
@@ -199,6 +229,7 @@ def download_mp_data(
 
                 # Save group
                 if group_docs:
+                    group_dir.mkdir(parents=True, exist_ok=True)
                     output_file = group_dir / "materials.json"
                     dumpfn(group_docs, str(output_file))
                     group_key = f"group_{group_idx:02d}"
@@ -264,6 +295,35 @@ def create_mp_data_archive(data_dir: Union[str, Path]) -> Path:
     return zip_path
 
 
+def safe_extract(zip_file: zipfile.ZipFile, target_dir: Union[str, Path]) -> None:
+    """Safely extract a zip archive without allowing Zip Slip traversal.
+
+    Every member path is normalized and must remain inside ``target_dir``.
+    Absolute paths and entries containing ``..`` traversal are rejected.
+    """
+    target_path = Path(target_dir).resolve()
+    target_path.mkdir(parents=True, exist_ok=True)
+
+    for member in zip_file.infolist():
+        member_name = member.filename
+        if Path(member_name).is_absolute():
+            raise ValueError(f"Unsafe absolute zip member path: {member_name}")
+
+        destination = (target_path / member_name).resolve()
+        try:
+            destination.relative_to(target_path)
+        except ValueError as e:
+            raise ValueError(f"Unsafe zip member path outside target: {member_name}") from e
+
+        if member.is_dir():
+            destination.mkdir(parents=True, exist_ok=True)
+            continue
+
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with zip_file.open(member, "r") as src, open(destination, "wb") as dst:
+            dst.write(src.read())
+
+
 def load_mp_data_from_archive(
     zip_path: Union[str, Path], extract_to: Optional[Union[str, Path]] = None
 ) -> Path:
@@ -286,7 +346,7 @@ def load_mp_data_from_archive(
     extract_to.mkdir(parents=True, exist_ok=True)
 
     with zipfile.ZipFile(zip_path, "r") as zipf:
-        zipf.extractall(extract_to)
+        safe_extract(zipf, extract_to)
 
     return extract_to
 
@@ -305,6 +365,7 @@ def load_mp_group(group_file: Union[str, Path]) -> List[Dict[str, Any]]:
     if not group_path.exists():
         raise FileNotFoundError(f"Group file not found: {group_file}")
 
+    _, loadfn = _require_monty()
     return loadfn(str(group_path))
 
 
@@ -332,6 +393,7 @@ def convert_mp_to_usif(doc: Union[Dict[str, Any], Any]) -> USIFStructure:
 
         # Reconstruct pymatgen Structure from dict
         if isinstance(structure_dict, dict):
+            Structure = _require_pymatgen_structure()
             structure = Structure.from_dict(structure_dict)
         else:
             # Already a Structure object

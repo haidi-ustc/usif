@@ -29,6 +29,10 @@ Features:
 
 import argparse
 import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from usif.utils.mp_downloader import download_mp_data
 
@@ -65,8 +69,8 @@ Examples:
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="tests/data/mp_structures",
-        help="Output directory for structures (default: tests/data/mp_structures)",
+        default=None,
+        help="Output directory for structures. Defaults to a temporary directory.",
     )
 
     parser.add_argument(
@@ -148,12 +152,12 @@ Examples:
     print("\nGroup breakdown:")
     for group, count in stats["groups"].items():
         print(f"  {group}: {count} entries")
-    print(f"\nOutput directory: {args.output_dir}")
+    print(f"\nOutput directory: {stats.get('output_dir', args.output_dir)}")
     if "zip_file" in stats:
         print(f"Zip archive: {stats['zip_file']}")
     print("\nTo load and convert to USIF:")
     print("  from usif.utils.mp_downloader import load_mp_group, convert_mp_to_usif")
-    print("  docs = load_mp_group('tests/data/mp_structures/group_01/materials.json')")
+    print("  docs = load_mp_group('<output_dir>/group_01/materials.json')")
     print("  usif_struct = convert_mp_to_usif(docs[0])")
     print("=" * 60)
 
