@@ -45,12 +45,15 @@ from usif.constants import BinaryFormat, CompressionType, StorageMode, Structure
 from usif.exceptions import (
     CorruptedDataError,
     DecodingError,
+    IntegrityError,
     EncodingError,
     StorageError,
     ValidationError,
 )
 from usif.format import (
     PropertyCodec,
+    calculate_geometry_hash,
+    calculate_record_hash,
     calculate_structure_hash,
     compress_data,
     decompress_data,
@@ -75,6 +78,7 @@ class USIF:
         self,
         compression: CompressionType = CompressionType.GZIP,
         property_registry=PropertyRegistry,
+        strict_integrity: bool = True,
     ):
         """
         Initialize USIF encoder/decoder
@@ -88,6 +92,7 @@ class USIF:
         """
         self.compression = compression
         self.property_registry = property_registry
+        self.strict_integrity = strict_integrity
         self.property_codec = PropertyCodec(property_registry)
 
     @staticmethod
@@ -104,8 +109,12 @@ class USIF:
         return PropertyCodec.decode_custom_value(value_str)
 
     def _calculate_hash(self, structure: USIFStructure) -> bytes:
-        """Calculate SHA-256 hash of structure."""
+        """Calculate historical geometry SHA-256 hash of structure."""
         return calculate_structure_hash(structure)
+
+    def _calculate_record_hash(self, structure: USIFStructure) -> bytes:
+        """Calculate record SHA-256 hash of structure and properties."""
+        return calculate_record_hash(structure)
 
     def _compress_data(self, data: bytes) -> bytes:
         """Compress data based on compression type."""
@@ -493,6 +502,16 @@ class USIF:
                     formula=formula,
                 )
 
+            expected_hash = self._calculate_hash(structure)
+            if hash_value != expected_hash:
+                message = (
+                    "USIF integrity check failed: header geometry hash "
+                    f"{hash_value.hex()} != decoded geometry hash {expected_hash.hex()}"
+                )
+                if self.strict_integrity:
+                    raise IntegrityError(message)
+                logger.warning(message)
+
             return structure, hash_value
 
         except (struct.error, UnicodeDecodeError) as e:
@@ -506,10 +525,11 @@ class USIF:
 
     def get_structure_hash(self, structure: USIFStructure) -> str:
         """
-        Calculate and return hexadecimal hash of structure
+        Calculate and return hexadecimal geometry hash of structure
 
-        Computes a SHA-256 hash of the structure's essential data (type, mode,
-        lattice, sites) for identification and deduplication purposes.
+        Computes a SHA-256 hash of the structure's geometry data (type, mode,
+        lattice, sites) for geometry identification. Use get_record_hash() for
+        container deduplication because this hash intentionally excludes properties.
 
         Args:
             structure: USIFStructure to hash
@@ -523,6 +543,14 @@ class USIF:
             >>> print(f"Structure ID: {hash_str[:16]}...")
         """
         return self._calculate_hash(structure).hex()
+
+    def get_geometry_hash(self, structure: USIFStructure) -> str:
+        """Return the geometry-only hash of a structure."""
+        return calculate_geometry_hash(structure).hex()
+
+    def get_record_hash(self, structure: USIFStructure) -> str:
+        """Return the full record hash including formula and properties."""
+        return self._calculate_record_hash(structure).hex()
 
     def save(self, structure: USIFStructure, filename: Union[str, Path]) -> None:
         """
