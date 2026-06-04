@@ -584,6 +584,28 @@ class PropertyRegistryInstance:
         return prop_def.validate_value(value, num_atoms)
 
 
+def default_registry(*, isolated: bool = False):
+    """Return the default property registry.
+
+    Args:
+        isolated: When True, return a copy-on-write registry instance.  When
+            False, return the backward-compatible class-level default facade.
+
+    The function is the preferred injection point for new codec/container code.
+    Legacy class methods on :class:`PropertyRegistry` remain available for
+    compatibility.
+    """
+    if isolated:
+        return PropertyRegistry.create_isolated()
+    PropertyRegistry._ensure_initialized()
+    return PropertyRegistry
+
+
+def isolated_registry():
+    """Return an isolated copy of the default property registry."""
+    return default_registry(isolated=True)
+
+
 # Example usage and testing
 if __name__ == "__main__":
     # Test the PropertyRegistry class

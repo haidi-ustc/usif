@@ -70,6 +70,8 @@ from .properties import (
     PropertyDefinition,
     PropertyRegistry,
     PropertyRegistryInstance,
+    default_registry,
+    isolated_registry,
     PropertySerializer,
     StructureProperties,
 )
@@ -123,6 +125,8 @@ __all__ = [
     "PropertySerializer",
     "PropertyRegistry",
     "PropertyRegistryInstance",
+    "default_registry",
+    "isolated_registry",
     "AtomicProperties",
     "StructureProperties",
     # Structures
