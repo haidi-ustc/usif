@@ -77,3 +77,15 @@ class StorageError(USIFError):
     """Storage error"""
 
     pass
+
+
+class ContainerError(StorageError):
+    """Container storage error"""
+
+    pass
+
+
+class ContainerIndexError(ContainerError):
+    """Container index persistence or recovery error"""
+
+    pass

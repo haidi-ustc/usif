@@ -55,6 +55,8 @@ from .exceptions import (
     CorruptedDataError,
     DecodingError,
     IntegrityError,
+    ContainerError,
+    ContainerIndexError,
     EncodingError,
     StorageError,
     SymmetryAnalysisError,
@@ -105,6 +107,8 @@ __all__ = [
     "ValidationError",
     "CorruptedDataError",
     "IntegrityError",
+    "ContainerError",
+    "ContainerIndexError",
     "SymmetryAnalysisError",
     "StorageError",
     # Enums
