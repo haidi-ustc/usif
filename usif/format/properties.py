@@ -9,12 +9,12 @@ import numpy as np
 
 from usif.constants import BinaryFormat
 from usif.exceptions import CorruptedDataError, DecodingError, EncodingError
-from usif.format.binary import (
-    BinaryReader,
+from usif.format.binary.limits import (
     MAX_CUSTOM_PROPERTY_COUNT,
     MAX_KNOWN_PROPERTY_COUNT,
     MAX_PROPERTY_VALUE_SIZE,
 )
+from usif.format.binary.reader import BinaryReader
 from usif.properties.atomic import AtomicProperties
 from usif.properties.registry import PropertyRegistry
 from usif.properties.serializer import PropertySerializer

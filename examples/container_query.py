@@ -3,9 +3,12 @@
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from pymatgen.core import Lattice, Structure
-from usif import StructureContainer, USIF, USIFStructure
+
+from usif import USIF, StructureContainer, USIFStructure
+
 
 def main() -> None:
     pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
@@ -24,6 +27,7 @@ def main() -> None:
             energies = sorted(structure.structure_properties.energy for _, structure in results)
             print(f"Query energies: {energies}")
             print(f"Container stats: {container.stats()['total_structures']} structures")
+
 
 if __name__ == "__main__":
     main()

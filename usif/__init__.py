@@ -52,12 +52,12 @@ from .converter import StructureConverter
 # Core functionality
 from .encoder import USIF
 from .exceptions import (
-    CorruptedDataError,
-    DecodingError,
-    IntegrityError,
     ContainerError,
     ContainerIndexError,
+    CorruptedDataError,
+    DecodingError,
     EncodingError,
+    IntegrityError,
     StorageError,
     SymmetryAnalysisError,
     USIFError,
@@ -70,10 +70,10 @@ from .properties import (
     PropertyDefinition,
     PropertyRegistry,
     PropertyRegistryInstance,
-    default_registry,
-    isolated_registry,
     PropertySerializer,
     StructureProperties,
+    default_registry,
+    isolated_registry,
 )
 
 # Structure system

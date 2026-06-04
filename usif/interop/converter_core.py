@@ -65,12 +65,12 @@ from pymatgen.symmetry.analyzer import PointGroupAnalyzer, SpacegroupAnalyzer
 
 from usif.constants import StorageMode, StructureType, SymmetryConstants
 from usif.exceptions import ValidationError
-from usif.symmetry import POINT_GROUP_ALIASES, SymmetryOperations
 from usif.properties.atomic import AtomicProperties
 from usif.properties.structure import StructureProperties
 from usif.structures.metadata import SYMMETRY_METADATA_KEY, SymmetryMetadata
 from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
 from usif.structures.structure import USIFStructure
+from usif.symmetry import POINT_GROUP_ALIASES, SymmetryOperations
 
 logger = logging.getLogger(__name__)
 

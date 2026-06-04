@@ -60,18 +60,18 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from usif.constants import BinaryFormat, CompressionType, SymmetryConstants
 from usif.encoder import USIF
 from usif.exceptions import (
+    ContainerError,
+    ContainerIndexError,
     CorruptedDataError,
     DecodingError,
     StorageError,
-    ContainerError,
-    ContainerIndexError,
     ValidationError,
 )
+from usif.format.binary import BinaryReader
 from usif.storage.file_store import ChunkedFileStore
 from usif.storage.groups import USIFGroup
 from usif.storage.indexes import ContainerIndexes
 from usif.storage.query import QueryEngine
-from usif.format.binary import BinaryReader
 from usif.structures.structure import USIFStructure
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,7 @@
 """Defensive binary helpers for USIF codecs."""
 
+from usif.format.binary.header import HEADER_SIZE, USIFHeader
+from usif.format.binary.integrity import validate_geometry_hash
 from usif.format.binary.limits import (
     MAX_ATOM_COUNT,
     MAX_COMPRESSED_SIZE,
@@ -11,12 +13,10 @@ from usif.format.binary.limits import (
     MAX_STRING_LENGTH,
     MAX_SYMMETRIC_SITE_COUNT,
 )
-from usif.format.binary.reader import BinaryReader
-from usif.format.binary.writer import BinaryWriter
-from usif.format.binary.header import HEADER_SIZE, USIFHeader
-from usif.format.binary.integrity import validate_geometry_hash
 from usif.format.binary.property_codec import PropertyCodec
+from usif.format.binary.reader import BinaryReader
 from usif.format.binary.structure_codec import StructureBinaryCodec
+from usif.format.binary.writer import BinaryWriter
 
 __all__ = [
     "BinaryReader",

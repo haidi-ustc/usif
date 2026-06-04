@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from usif import (
+    USIF,
     AtomicProperties,
     AtomSite,
     CompressionType,
@@ -15,7 +16,6 @@ from usif import (
     StructureConverter,
     StructureProperties,
     StructureType,
-    USIF,
     USIFStructure,
     ValidationError,
     WyckoffSite,

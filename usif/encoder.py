@@ -36,7 +36,6 @@ from usif.format.binary import (
     validate_geometry_hash,
 )
 from usif.properties.atomic import AtomicProperties
-from usif.properties.registry import default_registry
 from usif.properties.structure import StructureProperties
 from usif.structures.structure import USIFStructure
 from usif.version import FORMAT_VERSION

@@ -50,8 +50,8 @@ See Also:
 import logging
 
 from usif.constants import SymmetryConstants
-from usif.symmetry import SymmetryReducer
 from usif.structures.structure import USIFStructure
+from usif.symmetry import SymmetryReducer
 
 logger = logging.getLogger(__name__)
 

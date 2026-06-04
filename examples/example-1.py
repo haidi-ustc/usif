@@ -2,9 +2,20 @@
 """Legacy example 1: basic binary round trip."""
 import sys
 from pathlib import Path
+
 import numpy as np
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from usif import CompressionType, StorageMode, StructureProperties, StructureType, USIF, USIFStructure, WyckoffSite
+from usif import (
+    USIF,
+    CompressionType,
+    StorageMode,
+    StructureProperties,
+    StructureType,
+    USIFStructure,
+    WyckoffSite,
+)
+
 
 def main() -> None:
     structure = USIFStructure(
@@ -23,6 +34,7 @@ def main() -> None:
     print(f"Atoms: {decoded.num_atoms()}")
     print(f"Encoded bytes: {len(data)}")
     print(f"Geometry hash: {geometry_hash.hex()[:16]}...")
+
 
 if __name__ == "__main__":
     main()

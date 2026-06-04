@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from usif import (
+    USIF,
     CompressionType,
     ContainerIndexError,
     CorruptedDataError,
@@ -15,7 +16,6 @@ from usif import (
     StructureContainer,
     StructureProperties,
     StructureType,
-    USIF,
     USIFStructure,
     WyckoffSite,
 )
