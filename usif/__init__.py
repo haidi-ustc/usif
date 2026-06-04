@@ -54,6 +54,7 @@ from .encoder import USIF
 from .exceptions import (
     CorruptedDataError,
     DecodingError,
+    IntegrityError,
     EncodingError,
     StorageError,
     SymmetryAnalysisError,
@@ -103,6 +104,7 @@ __all__ = [
     "DecodingError",
     "ValidationError",
     "CorruptedDataError",
+    "IntegrityError",
     "SymmetryAnalysisError",
     "StorageError",
     # Enums

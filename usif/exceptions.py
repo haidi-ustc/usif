@@ -61,6 +61,12 @@ class CorruptedDataError(DecodingError):
     pass
 
 
+class IntegrityError(CorruptedDataError):
+    """Integrity check failed for encoded USIF data"""
+
+    pass
+
+
 class SymmetryAnalysisError(USIFError):
     """Symmetry analysis error"""
 

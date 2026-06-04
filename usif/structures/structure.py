@@ -577,6 +577,8 @@ class USIFStructure(MSONable):
         charges: Optional[np.ndarray] = None,
         magmoms: Optional[np.ndarray] = None,
         force_symmetric: bool = False,
+        drop_atomic_properties: bool = False,
+        fallback_full_atomic: bool = False,
         **kwargs,
     ) -> "USIFStructure":
         """Create a USIFStructure from a file path, pymatgen object, or ASE Atoms."""
@@ -590,6 +592,8 @@ class USIFStructure(MSONable):
             charges=charges,
             magmoms=magmoms,
             force_symmetric=force_symmetric,
+            drop_atomic_properties=drop_atomic_properties,
+            fallback_full_atomic=fallback_full_atomic,
             **kwargs,
         )
 
@@ -603,6 +607,8 @@ class USIFStructure(MSONable):
         charges: Optional[np.ndarray] = None,
         magmoms: Optional[np.ndarray] = None,
         force_symmetric: bool = False,
+        drop_atomic_properties: bool = False,
+        fallback_full_atomic: bool = False,
         **kwargs,
     ) -> "USIFStructure":
         """Create USIFStructure from a pymatgen Structure or Molecule."""
@@ -616,6 +622,8 @@ class USIFStructure(MSONable):
             charges=charges,
             magmoms=magmoms,
             force_symmetric=force_symmetric,
+            drop_atomic_properties=drop_atomic_properties,
+            fallback_full_atomic=fallback_full_atomic,
             **kwargs,
         )
 
@@ -647,17 +655,3 @@ class USIFStructure(MSONable):
 
         return load_structure(cls, filename)
 
-    def __getattr__(self, name: str):
-        """Allow access to 'from' as an alias for 'from_source' (since 'from' is a reserved keyword)"""
-        if name == "from":
-            return self.from_source
-        raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute '{name}'"
-        )
-
-    @classmethod
-    def __getattr__(cls, name: str):  # noqa: F811
-        """Allow class-level access to 'from' as an alias for 'from_source'"""
-        if name == "from":
-            return cls.from_source
-        raise AttributeError(f"'{cls.__name__}' has no attribute '{name}'")
