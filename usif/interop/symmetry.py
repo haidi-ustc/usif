@@ -177,6 +177,16 @@ class SymmetryReducer:
                     WyckoffSite(rep.specie.Z, len(equiv_sites), tuple(rep.frac_coords))
                 )
 
+            spacegroup_number = sga.get_space_group_number()
+            lossless = SymmetryOperations.crystal_sites_match(
+                pmg_structure, spacegroup_number, wyckoff_sites
+            )
+            if not lossless:
+                logger.debug(
+                    "Crystal optimization was not lossless; keeping full atomic structure"
+                )
+                return structure
+
             structure.structure_properties.custom[SYMMETRY_METADATA_KEY] = SymmetryMetadata(
                 lossless=True,
                 reconstruction_mode="spacegroup_expansion",
@@ -189,7 +199,7 @@ class SymmetryReducer:
                 structure_type=StructureType.CRYSTAL,
                 storage_mode=StorageMode.SYMMETRIC,
                 lattice_matrix=structure.lattice_matrix,
-                spacegroup=sga.get_space_group_number(),
+                spacegroup=spacegroup_number,
                 wyckoff_sites=wyckoff_sites,
                 structure_properties=structure.structure_properties,
                 formula=structure.formula,
@@ -256,6 +266,15 @@ class SymmetryReducer:
             if total_multiplicity == len(pmg_molecule) and len(point_group_sites) < len(
                 pmg_molecule
             ):
+                lossless = SymmetryOperations.molecular_sites_match(
+                    pmg_molecule, point_group, point_group_sites
+                )
+                if not lossless:
+                    logger.debug(
+                        "Molecule optimization was not lossless; keeping full atomic structure"
+                    )
+                    return structure
+
                 structure.structure_properties.custom[SYMMETRY_METADATA_KEY] = SymmetryMetadata(
                     lossless=True,
                     reconstruction_mode="point_group_expansion",
