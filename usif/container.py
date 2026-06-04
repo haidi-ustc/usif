@@ -115,7 +115,8 @@ class StructureContainer:
         self._index_lock = threading.RLock()  # NEW: Lock for index operations
         self._file_lock = threading.RLock()  # NEW: Lock for file I/O operations
         self._indexes = ContainerIndexes()
-        self._hash_index = self._indexes.hash_index
+        self._hash_index = self._indexes.hash_index  # record_hash -> (chunk, offset, size)
+        self._geometry_index = self._indexes.geometry_index
         self._name_index = self._indexes.name_index
         self._formula_index = self._indexes.formula_index
         self._property_index = self._indexes.property_index
@@ -265,40 +266,51 @@ class StructureContainer:
             logger.error(f"Failed to read group hierarchy: {e}")
 
     def _build_secondary_indexes(self) -> None:
-        """Build secondary indexes for fast querying (thread-safe, all structures)"""
+        """Build secondary indexes for fast querying (thread-safe, all structures)."""
         logger.info("Building secondary indexes...")
 
-        # FIXED: Index all structures, not just first 10
         all_hashes = list(self._hash_index.keys())
         total = len(all_hashes)
 
-        with self._index_lock:  # FIXED: Thread-safe index building
-            for i, struct_hash in enumerate(all_hashes):
-                try:
-                    structure = self.get(struct_hash)
-                    if structure:
-                        self._formula_index[structure.formula].append(struct_hash)
+        with self._index_lock:
+            self._indexes.clear_secondary()
 
-                        props = structure.structure_properties.get_all_properties()
-                        for prop_name, value in props.items():
-                            if isinstance(value, (int, float)):
-                                bucket = round(value, 3)
-                                self._property_index[prop_name][bucket].append(
-                                    struct_hash
-                                )
-                            else:
-                                self._property_index[prop_name][value].append(
-                                    struct_hash
-                                )
+        for i, stored_hash in enumerate(all_hashes):
+            try:
+                structure = self.get(stored_hash)
+                if structure:
+                    record_hash = self.encoder.get_record_hash(structure)
+                    if record_hash != stored_hash:
+                        self._migrate_primary_hash(stored_hash, record_hash)
+                    self._update_secondary_indexes(structure, record_hash)
 
-                    # Log progress for large containers
-                    if (i + 1) % 100 == 0:
-                        logger.info(f"Indexed {i + 1}/{total} structures...")
+                if (i + 1) % 100 == 0:
+                    logger.info(f"Indexed {i + 1}/{total} structures...")
 
-                except Exception as e:
-                    logger.warning(f"Failed to index structure {struct_hash[:16]}: {e}")
+            except Exception as e:
+                logger.warning(f"Failed to index structure {stored_hash[:16]}: {e}")
 
         logger.info(f"Secondary indexing complete: {total} structures indexed")
+
+    def _migrate_primary_hash(self, old_hash: str, new_hash: str) -> None:
+        """Migrate legacy geometry-hash keys to record-hash keys in memory."""
+        with self._index_lock:
+            if old_hash not in self._hash_index or new_hash in self._hash_index:
+                return
+            self._hash_index[new_hash] = self._hash_index.pop(old_hash)
+
+            for name, value in list(self._name_index.items()):
+                if value == old_hash:
+                    self._name_index[name] = new_hash
+
+            self._replace_group_hash(self.root_group, old_hash, new_hash)
+
+    def _replace_group_hash(self, group: USIFGroup, old_hash: str, new_hash: str) -> None:
+        for struct_name, value in list(group.structures.items()):
+            if value == old_hash:
+                group.structures[struct_name] = new_hash
+        for subgroup in group.subgroups.values():
+            self._replace_group_hash(subgroup, old_hash, new_hash)
 
     def _start_prefetch_thread(self) -> None:
         """Start background thread for prefetching"""
@@ -334,7 +346,7 @@ class StructureContainer:
 
         Adds a USIFStructure to the container with HDF5-like hierarchical organization.
         Structures can be organized in groups and have associated attributes/metadata.
-        Duplicate structures (same hash) are automatically detected and not stored twice.
+        Duplicate records (same record hash, including properties) are automatically detected and not stored twice.
 
         Args:
             structure: USIFStructure instance to add
@@ -343,7 +355,7 @@ class StructureContainer:
             attributes: Optional dictionary of attributes/metadata (HDF5-like)
 
         Returns:
-            str: Structure hash (unique identifier)
+            str: Record hash (unique identifier including properties)
 
         Raises:
             ValueError: If container is opened in read-only mode
@@ -370,12 +382,12 @@ class StructureContainer:
 
         try:
             usif_data = self.encoder.encode(structure)
-            struct_hash = self.encoder.get_structure_hash(structure)
+            struct_hash = self.encoder.get_record_hash(structure)
 
             # FIXED: Thread-safe check and index updates
             with self._index_lock:
                 if struct_hash in self._hash_index:
-                    logger.info(f"Structure {struct_hash[:16]} already exists")
+                    logger.info(f"Record {struct_hash[:16]} already exists")
                     return struct_hash
 
             # FIXED: Thread-safe file I/O operations
@@ -552,6 +564,18 @@ class StructureContainer:
                 results.append((hash_val, structure))
 
         return results
+
+    def get_by_geometry_hash(self, geometry_hash: str) -> List[USIFStructure]:
+        """Return all records that share a geometry hash."""
+        with self._index_lock:
+            record_hashes = list(self._geometry_index.get(geometry_hash, []))
+
+        structures = []
+        for record_hash in record_hashes:
+            structure = self.get(record_hash)
+            if structure is not None:
+                structures.append(structure)
+        return structures
 
     def get_group(self, path: str) -> Optional[USIFGroup]:
         """

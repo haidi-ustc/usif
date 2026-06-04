@@ -4,14 +4,21 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
 
+from usif.format.hashing import calculate_geometry_hash
 from usif.structures.structure import USIFStructure
 
 
 @dataclass
 class ContainerIndexes:
-    """Primary and secondary indexes used by StructureContainer."""
+    """Primary and secondary indexes used by StructureContainer.
+
+    ``hash_index`` is kept for backward compatibility with existing code, but
+    its keys are now record hashes. ``geometry_index`` maps a geometry hash to
+    one or more record hashes.
+    """
 
     hash_index: Dict[str, Tuple[int, int, int]] = field(default_factory=dict)
+    geometry_index: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
     name_index: Dict[str, str] = field(default_factory=dict)
     formula_index: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
     property_index: Dict[str, Dict[Any, List[str]]] = field(
@@ -20,16 +27,29 @@ class ContainerIndexes:
     group_index: Dict[str, Any] = field(default_factory=dict)
     structure_attributes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
-    def update_secondary(self, structure: USIFStructure, struct_hash: str) -> None:
-        self.formula_index[structure.formula].append(struct_hash)
+    def clear_secondary(self) -> None:
+        """Clear rebuildable secondary indexes."""
+        self.geometry_index.clear()
+        self.formula_index.clear()
+        self.property_index.clear()
+
+    def update_secondary(self, structure: USIFStructure, record_hash: str) -> None:
+        geometry_hash = calculate_geometry_hash(structure).hex()
+        if record_hash not in self.geometry_index[geometry_hash]:
+            self.geometry_index[geometry_hash].append(record_hash)
+
+        if record_hash not in self.formula_index[structure.formula]:
+            self.formula_index[structure.formula].append(record_hash)
 
         props = structure.structure_properties.get_all_properties()
         for prop_name, value in props.items():
             if isinstance(value, (int, float, str, bool, tuple)):
-                self.property_index[prop_name][value].append(struct_hash)
+                if record_hash not in self.property_index[prop_name][value]:
+                    self.property_index[prop_name][value].append(record_hash)
             elif isinstance(value, dict):
                 for sub_key, sub_val in value.items():
                     if isinstance(sub_val, (int, float, str, bool, tuple)):
                         composite_key = f"{prop_name}.{sub_key}"
-                        self.property_index[composite_key][sub_val].append(struct_hash)
+                        if record_hash not in self.property_index[composite_key][sub_val]:
+                            self.property_index[composite_key][sub_val].append(record_hash)
             # Unhashable or unsupported types (list, set, complex objects) are skipped
