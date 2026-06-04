@@ -582,9 +582,9 @@ class USIFStructure(MSONable):
         **kwargs,
     ) -> "USIFStructure":
         """Create a USIFStructure from a file path, pymatgen object, or ASE Atoms."""
-        from usif.structures.source import from_source
+        from usif.io.facade import from_source as _from_source
 
-        return from_source(
+        return _from_source(
             source,
             forces=forces,
             stress=stress,
@@ -612,9 +612,9 @@ class USIFStructure(MSONable):
         **kwargs,
     ) -> "USIFStructure":
         """Create USIFStructure from a pymatgen Structure or Molecule."""
-        from usif.structures.source import from_pymatgen
+        from usif.io.facade import from_pymatgen as _from_pymatgen
 
-        return from_pymatgen(
+        return _from_pymatgen(
             pmg_obj,
             forces=forces,
             stress=stress,
@@ -634,9 +634,9 @@ class USIFStructure(MSONable):
         **kwargs,
     ) -> Any:
         """Convert structure to a supported object or file format."""
-        from usif.structures.source import convert_to
+        from usif.io.facade import convert_to as _convert_to
 
-        return convert_to(self, filename=filename, fmt=fmt, **kwargs)
+        return _convert_to(self, filename=filename, fmt=fmt, **kwargs)
 
     def save(
         self,
@@ -644,14 +644,14 @@ class USIFStructure(MSONable):
         compression: CompressionType = CompressionType.GZIP,
     ) -> None:
         """Save structure to USIF binary or MSON JSON based on file extension."""
-        from usif.structures.io import save_structure
+        from usif.io.facade import save_structure as _save_structure
 
-        save_structure(self, filename, compression=compression)
+        _save_structure(self, filename, compression=compression)
 
     @classmethod
     def load(cls, filename: Union[str, Path]) -> "USIFStructure":
         """Load structure from USIF binary or MSON JSON based on file extension."""
-        from usif.structures.io import load_structure
+        from usif.io.facade import load_structure as _load_structure
 
-        return load_structure(cls, filename)
+        return _load_structure(cls, filename)
 
