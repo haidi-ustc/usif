@@ -45,18 +45,13 @@ See Also:
     - USIFGroup: Group organization
 """
 
-import json
 import logging
 import mmap
-import os
 import queue
 import struct
 import threading
-import time
-import zlib
-from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from usif.constants import BinaryFormat, CompressionType, QueryConstants
 from usif.encoder import USIF
@@ -68,17 +63,29 @@ from usif.exceptions import (
     StorageError,
     ValidationError,
 )
-from usif.format.binary import BinaryReader
-from usif.storage.file_store import ChunkedFileStore
+from usif.storage.attributes import AttributeCodecMixin
+from usif.storage.cache import StructureCache
+from usif.storage.group_ops import GroupOperationsMixin
 from usif.storage.groups import USIFGroup
+from usif.storage.index_persistence import IndexPersistenceMixin
 from usif.storage.indexes import ContainerIndexes
+from usif.storage.io_ops import StorageIOMixin
+from usif.storage.prefetch import PrefetchMixin
 from usif.storage.query import QueryEngine
+from usif.storage.recovery import RecoveryMixin
 from usif.structures.structure import USIFStructure
 
 logger = logging.getLogger(__name__)
 
 
-class StructureContainer:
+class StructureContainer(
+    AttributeCodecMixin,
+    GroupOperationsMixin,
+    StorageIOMixin,
+    IndexPersistenceMixin,
+    PrefetchMixin,
+    RecoveryMixin,
+):
     """
     Container for storing multiple USIF structures with indexing
     Thread-safe implementation with proper error handling
@@ -119,10 +126,8 @@ class StructureContainer:
         self.use_mmap = use_mmap
         self.num_workers = max(1, min(num_workers, 32))
 
-        # Thread-safe cache
-        self._cache = OrderedDict()
-        self._cache_lock = threading.RLock()
-        self._cache_size = cache_size
+        # Thread-safe decoded-structure cache
+        self._cache = StructureCache(cache_size)
 
         # Indexes with thread-safe lock
         self._index_lock = threading.RLock()  # NEW: Lock for index operations
@@ -211,313 +216,6 @@ class StructureContainer:
         self._file.write(header)
         self._file.flush()
 
-
-    @staticmethod
-    def _encode_attribute_value(value: Any) -> bytes:
-        """Encode container metadata as stable JSON bytes.
-
-        Container and group attributes are intentionally restricted to
-        JSON-serializable values so their Python types survive persistence
-        instead of being collapsed to strings.
-        """
-        try:
-            return json.dumps(
-                value,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-            ).encode("utf-8")
-        except (TypeError, ValueError) as e:
-            raise ValidationError(
-                f"Container attributes must be JSON-serializable; got {type(value).__name__}"
-            ) from e
-
-    @staticmethod
-    def _decode_attribute_value(data: bytes) -> Any:
-        """Decode JSON metadata bytes, with a small legacy-string fallback."""
-        value_text = data.decode("utf-8")
-        try:
-            return json.loads(value_text)
-        except json.JSONDecodeError:
-            # Pre-5.1 containers wrote str(value). Keeping this fallback makes
-            # corrupted/older fixtures readable without carrying the old lossy
-            # codec forward.
-            try:
-                return float(value_text) if "." in value_text else int(value_text)
-            except ValueError:
-                return value_text
-
-    @classmethod
-    def _normalise_attributes(cls, attributes: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate and normalize attributes to JSON round-trip semantics."""
-        normalised: Dict[str, Any] = {}
-        for attr_name, attr_value in attributes.items():
-            if not isinstance(attr_name, str):
-                raise ValidationError(
-                    f"Container attribute names must be strings; got {type(attr_name).__name__}"
-                )
-            normalised[attr_name] = cls._decode_attribute_value(
-                cls._encode_attribute_value(attr_value)
-            )
-        return normalised
-
-    def _record_structure_metadata(
-        self,
-        struct_hash: str,
-        name: Optional[str],
-        group: str,
-        attributes: Optional[Dict[str, Any]],
-    ) -> None:
-        """Record aliases, group membership, and attributes for a stored record."""
-        if name:
-            self._name_index[name] = struct_hash
-            if attributes is not None:
-                self._structure_attributes[name] = self._normalise_attributes(attributes)
-
-        target_group = self._get_or_create_group(group)
-        display_name = name or struct_hash[:16]
-        target_group.add_structure(display_name, struct_hash)
-
-    def _read_enhanced_index(self) -> None:
-        """Read container header and load the newest valid index generation."""
-        try:
-            if self._mmap:
-                data = bytes(self._mmap[:])
-            else:
-                self._file.seek(0)
-                data = self._file.read()
-
-            if len(data) < self.HEADER_SIZE:
-                raise CorruptedDataError(
-                    f"Container is too short: {len(data)} < {self.HEADER_SIZE}"
-                )
-
-            reader = BinaryReader(data[: self.HEADER_SIZE], context="USIF container header")
-            magic = reader.read_bytes(7, "container magic")
-            if magic != self.CONTAINER_MAGIC:
-                if magic == b"USIF\x00\x00\x00":
-                    raise StorageError(
-                        f"File {self.filename} is a USIF structure file, not a container. "
-                        f"Use USIFStructure.load() to open it."
-                    )
-                raise CorruptedDataError("Invalid enhanced USIF container")
-
-            reader.read_u8("container version")
-            reader.read_u32("structure count")
-            data_offset = reader.read_u64("data offset")
-            index_offset = reader.read_u64("index offset")
-            reader.read_u64("group offset")
-
-            self._data_offset = data_offset
-            self._index_offset = index_offset
-
-            if index_offset > 0:
-                try:
-                    self._deserialize_index_at(data, index_offset)
-                except ContainerIndexError as e:
-                    logger.warning("Header index generation is invalid: %s", e)
-                    recovered = self._find_latest_valid_index_offset(data)
-                    if recovered is None:
-                        raise
-                    logger.info("Recovered container index generation at offset %s", recovered)
-                    self._deserialize_index_at(data, recovered)
-                    self._index_offset = recovered
-
-            self._build_secondary_indexes()
-
-        except (StorageError, CorruptedDataError, ContainerIndexError):
-            raise
-        except Exception as e:
-            logger.error(f"Failed to read index: {e}")
-            raise StorageError(f"Failed to read container index: {e}") from e
-
-    def _clear_loaded_indexes(self) -> None:
-        """Clear index state before loading a persisted generation."""
-        self._hash_index.clear()
-        self._geometry_index.clear()
-        self._name_index.clear()
-        self._formula_index.clear()
-        self._property_index.clear()
-        self._group_index.clear()
-        self._structure_attributes.clear()
-        self.root_group = USIFGroup("/")
-        with self._cache_lock:
-            self._cache.clear()
-
-    def _deserialize_index_at(self, data: bytes, offset: int) -> None:
-        """Load either a checksummed P1 index block or legacy raw index payload."""
-        if offset < self.HEADER_SIZE or offset >= len(data):
-            raise ContainerIndexError(
-                f"Index offset {offset} is outside container size {len(data)}"
-            )
-
-        if data[offset : offset + len(self.INDEX_MAGIC)] == self.INDEX_MAGIC:
-            header_size = struct.calcsize(self.INDEX_HEADER_FORMAT)
-            if offset + header_size > len(data):
-                raise ContainerIndexError("Truncated index manifest header")
-            magic, generation, payload_size, checksum, _reserved = struct.unpack(
-                self.INDEX_HEADER_FORMAT, data[offset : offset + header_size]
-            )
-            if magic != self.INDEX_MAGIC:
-                raise ContainerIndexError("Invalid index magic")
-            payload_start = offset + header_size
-            payload_end = payload_start + payload_size
-            commit_end = payload_end + len(self.INDEX_COMMIT)
-            if commit_end > len(data):
-                raise ContainerIndexError("Truncated index payload or commit marker")
-            if data[payload_end:commit_end] != self.INDEX_COMMIT:
-                raise ContainerIndexError("Missing index commit marker")
-            payload = data[payload_start:payload_end]
-            actual_checksum = zlib.crc32(payload) & 0xFFFFFFFF
-            if actual_checksum != checksum:
-                raise ContainerIndexError(
-                    f"Index checksum mismatch: header {checksum:#x}, actual {actual_checksum:#x}"
-                )
-            self._clear_loaded_indexes()
-            try:
-                self._deserialize_indexes_from_payload(payload, strict=True)
-            except Exception as e:
-                raise ContainerIndexError(f"Invalid index payload: {e}") from e
-            self._index_generation = generation
-            return
-
-        # Legacy P0/v4 index payload: read to EOF and parse without checksum.
-        payload = data[offset:]
-        self._clear_loaded_indexes()
-        try:
-            self._deserialize_indexes_from_payload(payload, strict=False)
-            self._index_generation = 0
-        except Exception as e:
-            raise ContainerIndexError(f"Failed to read legacy index payload: {e}") from e
-
-    def _find_latest_valid_index_offset(self, data: bytes) -> Optional[int]:
-        """Scan append-only index generations and return the newest valid offset."""
-        best = None
-        best_generation = -1
-        search_from = self.HEADER_SIZE
-        while True:
-            offset = data.find(self.INDEX_MAGIC, search_from)
-            if offset < 0:
-                break
-            try:
-                header_size = struct.calcsize(self.INDEX_HEADER_FORMAT)
-                magic, generation, payload_size, checksum, _reserved = struct.unpack(
-                    self.INDEX_HEADER_FORMAT, data[offset : offset + header_size]
-                )
-                payload_start = offset + header_size
-                payload_end = payload_start + payload_size
-                commit_end = payload_end + len(self.INDEX_COMMIT)
-                if magic == self.INDEX_MAGIC and commit_end <= len(data):
-                    payload = data[payload_start:payload_end]
-                    if (
-                        data[payload_end:commit_end] == self.INDEX_COMMIT
-                        and (zlib.crc32(payload) & 0xFFFFFFFF) == checksum
-                        and generation > best_generation
-                    ):
-                        best = offset
-                        best_generation = generation
-            except Exception:
-                pass
-            search_from = offset + 1
-        return best
-
-    def _read_group_hierarchy(self, group_offset: int) -> None:
-        """Read group hierarchy from file"""
-        try:
-            self._file.seek(group_offset)
-
-            num_groups = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[0]
-
-            for _ in range(num_groups):
-                name_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
-                name = self._file.read(name_len).decode("utf-8")
-
-                num_structures = struct.unpack(BinaryFormat.UINT32, self._file.read(4))[
-                    0
-                ]
-                group = self.create_group(name)
-
-                for _ in range(num_structures):
-                    struct_name_len = struct.unpack(
-                        BinaryFormat.UINT16, self._file.read(2)
-                    )[0]
-                    struct_name = self._file.read(struct_name_len).decode("utf-8")
-                    hash_len = struct.unpack(BinaryFormat.UINT16, self._file.read(2))[0]
-                    struct_hash = self._file.read(hash_len).decode("utf-8")
-
-                    group.add_structure(struct_name, struct_hash)
-                    self._name_index[struct_name] = struct_hash
-        except Exception as e:
-            logger.error(f"Failed to read group hierarchy: {e}")
-
-    def _build_secondary_indexes(self) -> None:
-        """Build secondary indexes for fast querying (thread-safe, all structures)."""
-        logger.info("Building secondary indexes...")
-
-        all_hashes = list(self._hash_index.keys())
-        total = len(all_hashes)
-
-        with self._index_lock:
-            self._indexes.clear_secondary()
-
-        for i, stored_hash in enumerate(all_hashes):
-            try:
-                structure = self.get(stored_hash)
-                if structure:
-                    record_hash = self.encoder.get_record_hash(structure)
-                    if record_hash != stored_hash:
-                        self._migrate_primary_hash(stored_hash, record_hash)
-                    self._update_secondary_indexes(structure, record_hash)
-
-                if (i + 1) % 100 == 0:
-                    logger.info(f"Indexed {i + 1}/{total} structures...")
-
-            except Exception as e:
-                logger.warning(f"Failed to index structure {stored_hash[:16]}: {e}")
-
-        logger.info(f"Secondary indexing complete: {total} structures indexed")
-
-    def _migrate_primary_hash(self, old_hash: str, new_hash: str) -> None:
-        """Migrate legacy geometry-hash keys to record-hash keys in memory."""
-        with self._index_lock:
-            if old_hash not in self._hash_index or new_hash in self._hash_index:
-                return
-            self._hash_index[new_hash] = self._hash_index.pop(old_hash)
-
-            for name, value in list(self._name_index.items()):
-                if value == old_hash:
-                    self._name_index[name] = new_hash
-
-            self._replace_group_hash(self.root_group, old_hash, new_hash)
-
-    def _replace_group_hash(self, group: USIFGroup, old_hash: str, new_hash: str) -> None:
-        for struct_name, value in list(group.structures.items()):
-            if value == old_hash:
-                group.structures[struct_name] = new_hash
-        for subgroup in group.subgroups.values():
-            self._replace_group_hash(subgroup, old_hash, new_hash)
-
-    def _start_prefetch_thread(self) -> None:
-        """Start background thread for prefetching"""
-
-        def prefetch_worker():
-            while True:
-                try:
-                    hashes = self._prefetch_queue.get(timeout=1.0)
-                    if hashes is None:
-                        break
-                    for h in hashes:
-                        with self._cache_lock:
-                            if h not in self._cache:
-                                self.get(h)
-                    self._prefetch_queue.task_done()
-                except queue.Empty:
-                    continue
-                except Exception as e:
-                    logger.error(f"Prefetch error: {e}")
-
-        self._prefetch_thread = threading.Thread(target=prefetch_worker, daemon=True)
-        self._prefetch_thread.start()
 
     def add(
         self,
@@ -623,42 +321,6 @@ class StructureContainer:
         """
         return self.add(structure, name=name, group=group, attributes=attributes)
 
-    def _file_store(self) -> ChunkedFileStore:
-        """Create a chunked storage adapter for current file handles."""
-        return ChunkedFileStore(self._file, self._mmap, self.CHUNK_SIZE)
-
-    def _allocate_space(self, size: int) -> Tuple[int, int]:
-        """Allocate space in chunked storage."""
-        return self._file_store().allocate(size)
-
-    def _write_to_chunk(self, chunk_id: int, offset: int, data: bytes) -> None:
-        """Write data to specific chunk."""
-        self._file_store().write(chunk_id, offset, data)
-
-    def _get_or_create_group(self, path: str) -> USIFGroup:
-        """Get or create group by path"""
-        if path == "/":
-            return self.root_group
-
-        parts = [p for p in path.split("/") if p]
-        current = self.root_group
-
-        full_path = "/"
-        for part in parts:
-            full_path += part + "/"
-            if part not in current.subgroups:
-                current.subgroups[part] = USIFGroup(part)
-                self._group_index[full_path] = current.subgroups[part]
-            current = current.subgroups[part]
-
-        return current
-
-    def _update_secondary_indexes(
-        self, structure: USIFStructure, struct_hash: str
-    ) -> None:
-        """Update secondary indexes for a structure (thread-safe)."""
-        with self._index_lock:
-            self._indexes.update_secondary(structure, struct_hash)
 
     def get(self, identifier: str) -> Optional[USIFStructure]:
         """
@@ -680,10 +342,9 @@ class StructureContainer:
             >>> # Get by hash
             >>> structure = container.get("a1b2c3d4e5f6...")
         """
-        with self._cache_lock:
-            if identifier in self._cache:
-                self._cache.move_to_end(identifier)
-                return self._cache[identifier]
+        cached = self._cache.get(identifier)
+        if cached is not None:
+            return cached
 
         # FIXED: Thread-safe index lookups
         with self._index_lock:
@@ -698,10 +359,7 @@ class StructureContainer:
         try:
             structure, _ = self.encoder.decode(usif_data)
 
-            with self._cache_lock:
-                self._cache[identifier] = structure
-                if len(self._cache) > self._cache_size:
-                    self._cache.popitem(last=False)
+            self._cache.put(identifier, structure)
 
             return structure
 
@@ -714,10 +372,6 @@ class StructureContainer:
             )
             raise StorageError(f"Failed to decode stored structure {identifier}: {e}") from e
 
-    def _read_from_chunk(self, chunk_id: int, offset: int, size: int) -> bytes:
-        """Read data from specific chunk (thread-safe)."""
-        with self._file_lock:
-            return self._file_store().read(chunk_id, offset, size)
 
     def query(
         self,
@@ -758,474 +412,6 @@ class StructureContainer:
                 structures.append(structure)
         return structures
 
-    def get_group(self, path: str) -> Optional[USIFGroup]:
-        """
-        Get group by path (HDF5-like group access)
-
-        Retrieves a group from the container's hierarchical organization.
-        Groups can contain structures and subgroups, similar to HDF5 groups.
-
-        Args:
-            path: Group path (e.g., "/crystals/NaCl" or "/molecules")
-
-        Returns:
-            USIFGroup if found, None otherwise
-
-        Example:
-            >>> group = container.get_group("/crystals/NaCl")
-            >>> if group:
-            ...     structures = group.list_structures()
-        """
-        return self.root_group.get_subgroup(path)
-
-    def create_group(self, path: str) -> USIFGroup:
-        """
-        Create group hierarchy (HDF5-like group creation)
-
-        Creates a new group or returns existing group at the specified path.
-        Parent groups are created automatically if they don't exist.
-
-        Args:
-            path: Group path (e.g., "/crystals/NaCl")
-
-        Returns:
-            USIFGroup: Created or existing group
-
-        Raises:
-            ValueError: If container is read-only
-
-        Example:
-            >>> container.create_group("/crystals/NaCl")
-            >>> container.create_group("/molecules/H2O")
-        """
-        if self.mode == "r":
-            raise ValueError("Cannot create groups in read-only container")
-        return self._get_or_create_group(path)
-
-    def set_structure_attributes(self, name: str, attributes: Dict[str, Any]) -> None:
-        """
-        Set attributes for a named structure (HDF5-like attributes)
-
-        Attaches metadata attributes to a named structure, similar to HDF5
-        dataset attributes. Useful for storing additional information like
-        calculation parameters, timestamps, etc.
-
-        Args:
-            name: Structure name (must exist in container)
-            attributes: Dictionary of attribute name-value pairs
-
-        Raises:
-            ValueError: If structure name not found
-
-        Example:
-            >>> container.set_structure_attributes("NaCl_001", {
-            ...     "temperature": 300,
-            ...     "pressure": 0.0,
-            ...     "calculator": "VASP"
-            ... })
-        """
-        if self.mode == "r":
-            raise ValueError("Cannot set attributes in read-only container")
-        if name not in self._name_index:
-            raise ValueError(f"Structure '{name}' not found")
-        self._structure_attributes[name] = self._normalise_attributes(attributes)
-
-    def get_structure_attributes(self, name: str) -> Optional[Dict[str, Any]]:
-        """
-        Get attributes for a named structure (HDF5-like attributes)
-
-        Retrieves metadata attributes associated with a named structure.
-
-        Args:
-            name: Structure name
-
-        Returns:
-            Dict of attributes if found, None otherwise
-
-        Example:
-            >>> attrs = container.get_structure_attributes("NaCl_001")
-            >>> if attrs:
-            ...     print(f"Temperature: {attrs.get('temperature')}")
-        """
-        return self._structure_attributes.get(name)
-
-    def set_group_attribute(self, group_path: str, name: str, value: Any) -> None:
-        """
-        Set attribute on a group (HDF5-like group attributes)
-
-        Attaches metadata attributes to a group, similar to HDF5 group attributes.
-
-        Args:
-            group_path: Path to group
-            name: Attribute name
-            value: Attribute value
-
-        Raises:
-            ValueError: If container is read-only
-
-        Example:
-            >>> container.set_group_attribute("/crystals", "description", "Crystal structures")
-        """
-        if self.mode == "r":
-            raise ValueError("Cannot set attributes in read-only container")
-        group = self._get_or_create_group(group_path)
-        group.set_attribute(name, value)
-
-    def get_group_attribute(
-        self, group_path: str, name: str, default: Any = None
-    ) -> Any:
-        """
-        Get attribute from a group (HDF5-like group attributes)
-
-        Retrieves a metadata attribute from a group.
-
-        Args:
-            group_path: Path to group
-            name: Attribute name
-            default: Default value if attribute not found
-
-        Returns:
-            Attribute value or default
-
-        Example:
-            >>> desc = container.get_group_attribute("/crystals", "description", "N/A")
-        """
-        group = self.get_group(group_path)
-        if group:
-            return group.get_attribute(name, default)
-        return default
-
-    def prefetch(self, identifiers: List[str]) -> None:
-        """
-        Prefetch structures for faster access
-
-        Queues structures for background loading to improve subsequent access
-        performance. Useful when you know which structures will be accessed next.
-
-        Args:
-            identifiers: List of structure identifiers (hashes or names) to prefetch
-
-        Example:
-            >>> container.prefetch(["NaCl_001", "NaCl_002", "NaCl_003"])
-            >>> # Structures will be loaded in background
-        """
-        if self._prefetch_queue:
-            self._prefetch_queue.put(identifiers)
-
-    def get_batch_parallel(
-        self, identifiers: List[str]
-    ) -> List[Optional[USIFStructure]]:
-        """
-        Batch read using multiple threads (optimized)
-
-        Retrieves multiple structures in parallel using thread pool execution.
-        Much faster than sequential get() calls for large batches.
-
-        Args:
-            identifiers: List of structure identifiers (hashes or names)
-
-        Returns:
-            List[Optional[USIFStructure]]: List of structures in same order as identifiers
-            (None for structures that couldn't be loaded)
-
-        Example:
-            >>> identifiers = ["NaCl_001", "NaCl_002", "NaCl_003"]
-            >>> structures = container.get_batch_parallel(identifiers)
-            >>> for ident, struct in zip(identifiers, structures):
-            ...     if struct:
-            ...         print(f"{ident}: {struct.formula}")
-        """
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
-        if not identifiers:
-            return []
-
-        results = [None] * len(identifiers)
-
-        with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
-            future_to_request = {
-                executor.submit(self.get, ident): (idx, ident)
-                for idx, ident in enumerate(identifiers)
-            }
-
-            for future in as_completed(future_to_request):
-                idx, ident = future_to_request[future]
-                try:
-                    results[idx] = future.result()
-                except Exception as e:
-                    logger.error(f"Failed to get structure {ident}: {e}")
-                    results[idx] = None
-
-        return results
-
-    def _write_enhanced_index(self) -> None:
-        """Write a checksummed, append-only index generation and commit it."""
-        if self.mode == "r" or not self._file:
-            return
-
-        with self._file_lock:
-            payload = self._serialize_indexes()
-            generation = max(self._index_generation + 1, int(time.time_ns()))
-            checksum = zlib.crc32(payload) & 0xFFFFFFFF
-            manifest = struct.pack(
-                self.INDEX_HEADER_FORMAT,
-                self.INDEX_MAGIC,
-                generation,
-                len(payload),
-                checksum,
-                b"\x00" * 4,
-            )
-            index_block = manifest + payload + self.INDEX_COMMIT
-
-            try:
-                self._file.seek(0, 2)
-                index_offset = self._file.tell()
-                self._file.write(index_block)
-                self._file.flush()
-                os.fsync(self._file.fileno())
-
-                # Update header after the generation is durably committed.
-                self._file.seek(8)
-                self._file.write(struct.pack(BinaryFormat.UINT32, len(self._hash_index)))
-                self._file.seek(20)
-                self._file.write(struct.pack(BinaryFormat.UINT64, index_offset))
-                self._file.seek(54)
-                self._file.write(struct.pack(BinaryFormat.UINT64, int(time.time())))
-                self._file.flush()
-                os.fsync(self._file.fileno())
-                self._index_offset = index_offset
-                self._index_generation = generation
-            except Exception as e:
-                raise ContainerIndexError(f"Failed to write enhanced index: {e}") from e
-
-    def _deserialize_indexes(self) -> None:
-        """Deserialize a legacy index payload from the current file position."""
-        payload = self._file.read()
-        self._deserialize_indexes_from_payload(payload, strict=False)
-
-    def _deserialize_indexes_from_payload(self, payload: bytes, *, strict: bool = True) -> None:
-        """Deserialize indexes from an in-memory payload."""
-        reader = BinaryReader(payload, context="container index payload")
-
-        # Read hash/record index.
-        num_hashes = reader.read_u32("hash index count")
-        for _ in range(num_hashes):
-            struct_hash = reader.read_string_u16("record hash")
-            chunk_id = reader.read_u32("chunk id")
-            offset = reader.read_u64("chunk offset")
-            size = reader.read_u32("record byte size")
-            self._hash_index[struct_hash] = (chunk_id, offset, size)
-
-        # Read name index.
-        num_names = reader.read_u32("name index count")
-        for _ in range(num_names):
-            name = reader.read_string_u16("structure name")
-            struct_hash = reader.read_string_u16("named record hash")
-            self._name_index[name] = struct_hash
-
-        # Read structure attributes.
-        num_attrs = reader.read_u32("structure attribute count")
-        for _ in range(num_attrs):
-            name = reader.read_string_u16("attribute structure name")
-            num_attr_pairs = reader.read_u16("structure attribute pair count")
-            attrs = {}
-            for _ in range(num_attr_pairs):
-                attr_name = reader.read_string_u16("attribute name")
-                value_len = reader.read_u32("attribute value length")
-                value_bytes = reader.read_bytes(value_len, "attribute value")
-                attrs[attr_name] = self._decode_attribute_value(value_bytes)
-            self._structure_attributes[name] = attrs
-
-        # Read group hierarchy.
-        group_data_len = reader.read_u32("group hierarchy length")
-        if group_data_len > 0:
-            group_data = reader.read_bytes(group_data_len, "group hierarchy")
-            self._deserialize_group_hierarchy(group_data)
-
-        if strict:
-            reader.assert_consumed("container index payload")
-
-    def _deserialize_group_hierarchy(self, data: bytes) -> None:
-        """Deserialize group hierarchy from bytes with bounds checking."""
-        reader = BinaryReader(data, context="container group hierarchy")
-
-        def deserialize_group(parent_path: str = "/") -> USIFGroup:
-            name = reader.read_string_u16("group name")
-            group = USIFGroup(name)
-
-            if parent_path == "/":
-                full_path = f"/{name}/" if name else "/"
-            else:
-                full_path = f"{parent_path}{name}/"
-
-            if full_path != "/":
-                self._group_index[full_path] = group
-
-            num_structs = reader.read_u32("group structure count")
-            for _ in range(num_structs):
-                struct_name = reader.read_string_u16("group structure name")
-                struct_hash = reader.read_string_u16("group structure hash")
-                group.structures[struct_name] = struct_hash
-
-            num_attrs = reader.read_u16("group attribute count")
-            for _ in range(num_attrs):
-                attr_name = reader.read_string_u16("group attribute name")
-                value_len = reader.read_u32("group attribute value length")
-                value_bytes = reader.read_bytes(value_len, "group attribute value")
-                group.attributes[attr_name] = self._decode_attribute_value(value_bytes)
-
-            num_subgroups = reader.read_u32("group subgroup count")
-            for _ in range(num_subgroups):
-                subgroup = deserialize_group(full_path)
-                group.subgroups[subgroup.name] = subgroup
-
-            return group
-
-        self.root_group = deserialize_group("/")
-        reader.assert_consumed("container group hierarchy")
-
-    def _serialize_indexes(self) -> bytes:
-        """Serialize all indexes to bytes for persistence"""
-        data = bytearray()
-
-        # Serialize hash index
-        data.extend(struct.pack(BinaryFormat.UINT32, len(self._hash_index)))
-        for struct_hash, (chunk_id, offset, size) in self._hash_index.items():
-            hash_bytes = struct_hash.encode("utf-8")
-            data.extend(struct.pack(BinaryFormat.UINT16, len(hash_bytes)))
-            data.extend(hash_bytes)
-            data.extend(struct.pack(BinaryFormat.UINT32, chunk_id))
-            data.extend(struct.pack(BinaryFormat.UINT64, offset))
-            data.extend(struct.pack(BinaryFormat.UINT32, size))
-
-        # Serialize name index
-        data.extend(struct.pack(BinaryFormat.UINT32, len(self._name_index)))
-        for name, struct_hash in self._name_index.items():
-            name_bytes = name.encode("utf-8")
-            data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
-            data.extend(name_bytes)
-            hash_bytes = struct_hash.encode("utf-8")
-            data.extend(struct.pack(BinaryFormat.UINT16, len(hash_bytes)))
-            data.extend(hash_bytes)
-
-        # Serialize structure attributes
-        data.extend(struct.pack(BinaryFormat.UINT32, len(self._structure_attributes)))
-        for name, attrs in self._structure_attributes.items():
-            name_bytes = name.encode("utf-8")
-            data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
-            data.extend(name_bytes)
-            data.extend(struct.pack(BinaryFormat.UINT16, len(attrs)))
-            for attr_name, attr_value in attrs.items():
-                attr_name_bytes = attr_name.encode("utf-8")
-                data.extend(struct.pack(BinaryFormat.UINT16, len(attr_name_bytes)))
-                data.extend(attr_name_bytes)
-                value_bytes = self._encode_attribute_value(attr_value)
-                data.extend(struct.pack(BinaryFormat.UINT32, len(value_bytes)))
-                data.extend(value_bytes)
-
-        # Serialize group hierarchy
-        group_data = self._serialize_group_hierarchy()
-        data.extend(struct.pack(BinaryFormat.UINT32, len(group_data)))
-        data.extend(group_data)
-
-        return bytes(data)
-
-    def _serialize_group_hierarchy(self) -> bytes:
-        """Serialize group hierarchy to bytes (HDF5-like group structure)"""
-
-        def serialize_group(group: USIFGroup) -> bytes:
-            data = bytearray()
-
-            # Group name
-            name_bytes = group.name.encode("utf-8")
-            data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
-            data.extend(name_bytes)
-
-            # Structures in group
-            data.extend(struct.pack(BinaryFormat.UINT32, len(group.structures)))
-            for struct_name, struct_hash in group.structures.items():
-                name_bytes = struct_name.encode("utf-8")
-                data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
-                data.extend(name_bytes)
-                hash_bytes = struct_hash.encode("utf-8")
-                data.extend(struct.pack(BinaryFormat.UINT16, len(hash_bytes)))
-                data.extend(hash_bytes)
-
-            # Attributes
-            data.extend(struct.pack(BinaryFormat.UINT16, len(group.attributes)))
-            for attr_name, attr_value in group.attributes.items():
-                name_bytes = attr_name.encode("utf-8")
-                data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
-                data.extend(name_bytes)
-                value_bytes = self._encode_attribute_value(attr_value)
-                data.extend(struct.pack(BinaryFormat.UINT32, len(value_bytes)))
-                data.extend(value_bytes)
-
-            # Subgroups
-            data.extend(struct.pack(BinaryFormat.UINT32, len(group.subgroups)))
-            for subgroup in group.subgroups.values():
-                data.extend(serialize_group(subgroup))
-
-            return bytes(data)
-
-        return serialize_group(self.root_group)
-
-    def rebuild_index(self, *, persist: bool = False) -> int:
-        """Rebuild the primary record index by scanning USIF records in the file.
-
-        This recovery path is intentionally conservative: it restores record hashes
-        and secondary indexes for structure bytes that can be decoded, but names,
-        groups, and attributes cannot be reconstructed if the persisted index was
-        lost.  When ``persist`` is true and the container is writable, a new
-        checksummed index generation is written after rebuilding.
-
-        Returns:
-            Number of recovered records.
-        """
-        if not self._file:
-            raise StorageError("Cannot rebuild index on a closed container")
-
-        with self._index_lock, self._file_lock:
-            self._file.seek(0)
-            file_data = self._file.read()
-            scan_limit = self._index_offset if self._index_offset > self.HEADER_SIZE else len(file_data)
-
-            recovered = []
-            pos = self.HEADER_SIZE
-            while pos + USIF.HEADER_SIZE <= scan_limit:
-                if file_data[pos : pos + 7] != b"USIF\x00\x00\x00":
-                    pos += 1
-                    continue
-
-                try:
-                    compressed_size = struct.unpack(
-                        BinaryFormat.UINT32, file_data[pos + 12 : pos + 16]
-                    )[0]
-                    record_size = USIF.HEADER_SIZE + compressed_size
-                    if record_size <= USIF.HEADER_SIZE or pos + record_size > scan_limit:
-                        pos += 1
-                        continue
-                    record_data = file_data[pos : pos + record_size]
-                    structure, _ = self.encoder.decode(record_data)
-                    record_hash = self.encoder.get_record_hash(structure)
-                    chunk_id = pos // self.CHUNK_SIZE
-                    chunk_offset = pos % self.CHUNK_SIZE
-                    recovered.append((record_hash, (chunk_id, chunk_offset, record_size), structure))
-                    pos += record_size
-                except Exception:
-                    pos += 1
-
-            self._clear_loaded_indexes()
-            for record_hash, location, structure in recovered:
-                self._hash_index[record_hash] = location
-                self._indexes.update_secondary(structure, record_hash)
-
-            if persist:
-                if self.mode == "r":
-                    raise ValueError("Cannot persist rebuilt index in read-only mode")
-                self._write_enhanced_index()
-
-            return len(recovered)
 
     def stats(self) -> Dict[str, Any]:
         """
@@ -1268,8 +454,7 @@ class StructureContainer:
             for bucket_hashes in prop_dict.values()
         )
 
-        with self._cache_lock:
-            cache_size = len(self._cache)
+        cache_size = len(self._cache)
 
         return {
             "total_structures": total_structures,
@@ -1363,45 +548,4 @@ class StructureContainer:
             if structure:
                 yield struct_hash, structure
 
-    def walk_groups(self, group_path: str = "/") -> Iterator[Tuple[str, USIFGroup]]:
-        """
-        Walk through group hierarchy (HDF5-like walk functionality)
 
-        Args:
-            group_path: Starting group path
-
-        Yields:
-            Tuple of (path, group) for each group in hierarchy
-        """
-        group = self.get_group(group_path) if group_path != "/" else self.root_group
-        if not group:
-            return
-
-        yield group_path, group
-
-        for subgroup_name, subgroup in group.subgroups.items():
-            if group_path == "/":
-                new_path = f"/{subgroup_name}"
-            else:
-                new_path = f"{group_path}/{subgroup_name}"
-            yield from self.walk_groups(new_path)
-
-    def list_groups(self) -> List[str]:
-        """List all groups in container"""
-        return list(self._group_index.keys())
-
-    def get_structures_in_group(
-        self, group_path: str
-    ) -> List[Tuple[str, USIFStructure]]:
-        """Get all structures in a specific group"""
-        group = self.get_group(group_path)
-        if not group:
-            return []
-
-        results = []
-        for name, struct_hash in group.structures.items():
-            structure = self.get(struct_hash)
-            if structure:
-                results.append((name, structure))
-
-        return results

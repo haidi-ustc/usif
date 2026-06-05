@@ -147,7 +147,7 @@ The encoding system handles binary serialization, compression, and integrity che
 
 ### 4. Container System
 
-The container system provides HDF5-like storage for multiple structures.
+The container system provides HDF5-like storage for multiple structures. In v5.2, `StructureContainer` is a coordination layer over focused storage helpers rather than a monolithic implementation: `attributes.py` owns typed JSON metadata, `cache.py` owns the decoded-structure LRU cache, `group_ops.py` owns hierarchy and group attributes, `io_ops.py` owns chunked file reads/writes, `index_persistence.py` owns append-only CRC-protected index generations, `prefetch.py` owns background/batch reads, and `recovery.py` owns data-section scanning.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

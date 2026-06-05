@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.2.0
+
+- Split `usif.storage.container` into focused storage components: attribute codec, LRU cache, group operations, chunked I/O adapter, index persistence, prefetch/batch reads, and recovery scanner.
+- Reduced `StructureContainer` to a coordination layer while preserving public container APIs.
+- Removed obsolete unchecked container compatibility paths for raw legacy index payloads and lossy string attribute decoding.
+- Added P2 architecture tests to enforce the new storage boundaries and prevent the monolith from returning.
+- Kept binary `FORMAT_VERSION` at 5 because the USIF record format did not change.
+
 ## 5.1.0
 
 ### P0/P1 baseline and container reliability

@@ -121,6 +121,8 @@ Run the full container example:
 python examples/container_query.py
 ```
 
+Container internals are split across focused modules under `usif.storage`: `container.py` coordinates the public API, while attribute encoding, LRU caching, chunked I/O, group operations, index persistence, prefetch/batch reads, and recovery scanning live in separate modules.
+
 ## Conversion with pymatgen and ASE
 
 ```python

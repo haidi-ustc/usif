@@ -70,3 +70,42 @@ def test_registry_default_factory_and_isolated_registry():
     registry.register(PropertyDefinition("p2_isolated_prop", float))
     assert registry.exists("p2_isolated_prop")
     assert not PropertyRegistry.exists("p2_isolated_prop")
+
+
+def test_storage_container_is_decomposed_into_focused_modules():
+    """P2 keeps StructureContainer as coordinator, not a monolithic storage class."""
+    from pathlib import Path
+
+    from usif.storage.attributes import AttributeCodecMixin
+    from usif.storage.cache import StructureCache
+    from usif.storage.group_ops import GroupOperationsMixin
+    from usif.storage.index_persistence import IndexPersistenceMixin
+    from usif.storage.io_ops import StorageIOMixin
+    from usif.storage.prefetch import PrefetchMixin
+    from usif.storage.recovery import RecoveryMixin
+    from usif.storage.container import StructureContainer
+
+    container_lines = Path("usif/storage/container.py").read_text().count("\n") + 1
+    assert container_lines < 700
+    assert issubclass(StructureContainer, AttributeCodecMixin)
+    assert issubclass(StructureContainer, GroupOperationsMixin)
+    assert issubclass(StructureContainer, IndexPersistenceMixin)
+    assert issubclass(StructureContainer, StorageIOMixin)
+    assert issubclass(StructureContainer, PrefetchMixin)
+    assert issubclass(StructureContainer, RecoveryMixin)
+    assert StructureCache is not None
+
+
+def test_p2_removed_legacy_container_code_paths():
+    """No unchecked legacy index/attribute fallback remains in storage modules."""
+    from pathlib import Path
+
+    storage_text = "\n".join(
+        path.read_text()
+        for path in Path("usif/storage").glob("*.py")
+        if path.name != "__init__.py"
+    )
+    assert "str(value)" not in storage_text
+    assert "_read_group_hierarchy" not in storage_text
+    assert "_deserialize_indexes(" not in storage_text
+    assert "strict=False" not in storage_text
