@@ -33,11 +33,10 @@ class AttributeCodecMixin:
 
     @staticmethod
     def _decode_attribute_value(data: bytes) -> Any:
-        """Decode JSON metadata bytes.
+        """Decode strict JSON metadata bytes.
 
-        P2 intentionally removes the old lossy stringified-value fallback: current
-        container metadata is a strict JSON contract, so malformed payloads are
-        treated as index corruption by callers.
+        Container metadata is a typed JSON contract. Malformed bytes are
+        surfaced to callers as index or validation failures.
         """
         return json.loads(data.decode("utf-8"))
 

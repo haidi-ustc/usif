@@ -117,8 +117,10 @@ class TestStructureContainer(unittest.TestCase):
             container.add(self.structure, name="test_structure")
             stats = container.stats()
             self.assertIsInstance(stats, dict)
-            self.assertIn("total_structures", stats)
-            self.assertGreater(stats["total_structures"], 0)
+            self.assertIn("records", stats)
+            self.assertGreater(stats["records"], 0)
+            self.assertIn("record_bytes", stats)
+            self.assertIn("storage", stats)
 
     def test_container_len(self):
         """Test container length"""
@@ -133,19 +135,12 @@ class TestStructureContainer(unittest.TestCase):
             self.assertIn(struct_hash, container)
             self.assertIn("test_structure", container)
 
-    def test_add_structure_method(self):
-        """Test add_structure method (alias for add)"""
-        with StructureContainer(self.temp_path, mode="w") as container:
-            struct_hash = container.add_structure(self.structure, name="test_structure")
-            self.assertIsNotNone(struct_hash)
-            retrieved = container.get("test_structure")
-            self.assertIsNotNone(retrieved)
 
     def test_structure_attributes(self):
         """Test structure attributes (HDF5-like)"""
         with StructureContainer(self.temp_path, mode="w") as container:
             attrs = {"author": "test", "date": "2024-01-01"}
-            container.add_structure(
+            container.add(
                 self.structure, name="test_structure", attributes=attrs
             )
             retrieved_attrs = container.get_structure_attributes("test_structure")
@@ -178,7 +173,7 @@ class TestStructureContainer(unittest.TestCase):
         """Test group list methods"""
         with StructureContainer(self.temp_path, mode="w") as container:
             group = container.create_group("/materials")
-            container.add_structure(self.structure, name="test", group="/materials")
+            container.add(self.structure, name="test", group="/materials")
 
             structures = group.list_structures()
             self.assertIn("test", structures)

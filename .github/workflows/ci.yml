@@ -83,8 +83,8 @@ jobs:
           usif --version
           python - <<'PY'
           import usif
-          assert usif.__version__ == "7.0.0"
-          assert usif.RELEASE_RECORD == "20260605.015"
+          assert usif.__version__ == "7.1.0"
+          assert usif.RELEASE_RECORD == "20260605.016"
           from usif import USIF, USIFStructure
           from usif.storage import StructureContainer
           print("USIF wheel smoke OK", usif.__version__)

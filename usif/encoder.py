@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""Public USIF binary encoder/decoder facade.
+"""Public USIF binary encoder/decoder API.
 
-The implementation is intentionally thin: header parsing, payload structure
-encoding, property encoding, compression, and integrity checks live in
-``usif.format.binary`` modules.  This preserves the historical ``USIF`` public
-API while making the binary codec independently testable.
+Header parsing, payload structure encoding, property encoding, compression, and
+integrity checks live in focused ``usif.format.binary`` modules. ``USIF`` is the
+stable user-facing codec entry point.
 """
 
-import logging
 from pathlib import Path
 from typing import Optional, Tuple, Union
 
@@ -39,7 +37,6 @@ from usif.properties.structure import StructureProperties
 from usif.structures.structure import USIFStructure
 from usif.version import FORMAT_VERSION
 
-logger = logging.getLogger(__name__)
 
 
 class USIF:
@@ -111,10 +108,8 @@ class USIF:
         try:
             header = USIFHeader.parse(data)
             if header.version != self.VERSION:
-                logger.warning(
-                    "Version mismatch: file version %s, expected %s",
-                    header.version,
-                    self.VERSION,
+                raise CorruptedDataError(
+                    f"Unsupported USIF record version {header.version}; expected {self.VERSION}"
                 )
 
             actual_compressed_size = len(data) - self.HEADER_SIZE

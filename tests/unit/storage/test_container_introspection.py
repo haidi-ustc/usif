@@ -42,11 +42,16 @@ def test_container_lists_and_stats_do_not_decode_records(tmp_path, monkeypatch):
         stats = container.stats()
 
     assert stats["records"] == 2
-    assert stats["total_structures"] == 2
     assert stats["unique_formulas"] == 2
     assert "energy" in stats["properties"]
     assert stats["file_size_bytes"] > 0
     assert stats["index_size_bytes"] > 0
+    assert stats["record_bytes"] > 0
+    assert stats["cache"]["entries"] == 0
+    assert stats["storage"]["chunk_size_bytes"] > 0
+    assert stats["record_bytes"] > 0
+    assert stats["cache"]["entries"] >= 0
+    assert stats["storage"]["chunk_size_bytes"] > 0
 
 
 def test_enhanced_query_filters(tmp_path):

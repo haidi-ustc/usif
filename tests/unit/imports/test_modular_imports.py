@@ -136,12 +136,14 @@ class TestModularImports(unittest.TestCase):
             "usif.interop.converter_core",
             "usif.interop.symmetry",
             "usif.io",
-                "usif.structures.io",
-                "usif.structures.source",
-                "usif.utils",
-                "usif.utils.optimizer",
-                "usif.utils.benchmark",
-                "usif.utils.mp_downloader",
+            "usif.structures.io",
+            "usif.structures.source",
+            "usif.utils",
+            "usif.utils.optimizer",
+            "usif.utils.benchmark",
+            "usif.utils.mp_downloader",
+            "usif.format.properties",
+            "usif.symmetry.metadata",
         ):
             with self.subTest(module=module):
                 with self.assertRaises(ModuleNotFoundError):

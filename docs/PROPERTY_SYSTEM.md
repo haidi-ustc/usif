@@ -1,6 +1,6 @@
 # USIF Property System
 
-This document describes the current property model implemented by `usif.properties`, `usif.format.properties`, and `usif.properties.serializer`.
+This document describes the current property model implemented by `usif.properties`, `usif.format.binary.property_codec`, and `usif.properties.serializer`.
 
 ## 1. Property layers
 
@@ -33,7 +33,7 @@ Custom properties are stored in the `custom` dictionary on `StructureProperties`
 
 ## 3. Registry model
 
-The 6.0 registry is instance-based:
+The registry is instance-based:
 
 ```python
 from usif import DEFAULT_REGISTRY, PropertyDefinition, create_default_registry
@@ -112,7 +112,7 @@ for each custom property:
   bytes custom_value_utf8
 ```
 
-Known properties are serialized by the public `PropertySerializer` facade according to their definitions. Since USIF 6.8.0, the implementation lives in focused modules under `usif.properties.serializers`: `scalar`, `vector`, `tensor`, `json_value`, `numpy_value`, `validation`, `size`, and `dispatch`. Custom values are encoded as JSON text with the prefix `__USIF_JSON__:` when JSON-compatible.
+Known properties are serialized by the public `PropertySerializer` facade according to their definitions. The public `PropertySerializer` delegates to focused modules under `usif.properties.serializers`: `scalar`, `vector`, `tensor`, `json_value`, `numpy_value`, `validation`, `size`, and `dispatch`. Custom values are encoded as JSON text with the prefix `__USIF_JSON__:` when JSON-compatible.
 
 ## 8. Value serialization
 
@@ -155,14 +155,14 @@ This policy is shared by services, pymatgen importers, ASE importers, and `Symme
 
 ## Official JSON structure documents
 
-USIF 6.1.0 adds the official service-level JSON schema `usif.structure.json.v1`. It serializes `USIFStructure.as_dict()` through `usif.services.structure_to_json_dict()` and stores `StructureProperties` as an explicit dictionary containing `energy`, `stress`, `volume`, `pressure`, `temperature`, and `custom`. JSON custom values preserve standard JSON-compatible values including dicts, lists, strings, numbers, booleans, and `null`.
+The service-level JSON schema `usif.structure.json.v1` serializes `USIFStructure.as_dict()` through `usif.services.structure_to_json_dict()` and stores `StructureProperties` as an explicit dictionary containing `energy`, `stress`, `volume`, `pressure`, `temperature`, and `custom`. JSON custom values preserve standard JSON-compatible values including dicts, lists, strings, numbers, booleans, and `null`.
 
 Use `save_structure_json()` / `load_structure_json()` directly, or `save_structure()` / `load_structure()` with `.json` or `.usif.json` paths.
 
 
 ## 11. Ergonomic property management API
 
-USIF 6.2.0 added a uniform property-management API for both structure-level and atom-level properties. The API is shape-aware and supports scalar, vector, tensor, and custom values without requiring callers to manipulate the `custom` dictionaries directly.
+USIF provides a uniform property-management API for both structure-level and atom-level properties. The API is shape-aware and supports scalar, vector, tensor, and custom values without requiring callers to manipulate the `custom` dictionaries directly.
 
 Structure-level properties:
 
@@ -200,7 +200,7 @@ Custom properties are normalized to JSON-compatible values. Numpy scalars and ar
 
 ## 12. Unit metadata and aliases
 
-USIF 6.8.0 adds unit metadata to the ergonomic property API. Setters accept an
+The ergonomic property API stores unit metadata. Setters accept an
 optional `units=` argument and normalize common Unicode/ASCII aliases. Unit
 metadata is declarative: setters store and round-trip the unit string but do not
 automatically convert numerical values.

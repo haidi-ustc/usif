@@ -17,6 +17,8 @@ REMOVED_COMPATIBILITY_MODULES = (
     "usif.utils.optimizer",
     "usif.utils.benchmark",
     "usif.utils.mp_downloader",
+    "usif.format.properties",
+    "usif.symmetry.metadata",
 )
 
 
@@ -236,8 +238,9 @@ def test_container_persists_secondary_indexes_for_large_reads():
     assert "SECONDARY_INDEX_MAGIC" in source
     assert "_serialize_secondary_indexes" in source
     assert "_deserialize_secondary_indexes" in source
-    assert "_ensure_secondary_indexes_loaded" in source
-    assert "Current containers persist secondary indexes" in source
+    assert "_ensure_secondary_indexes_loaded" not in source
+    assert "Missing secondary index section" in source
+    assert "SIDX0002" in source
 
 
 def test_rebuild_index_uses_streaming_record_scan():
@@ -267,3 +270,44 @@ def test_storage_public_api_hides_internal_mixins():
         "QueryEngine",
     ):
         assert not hasattr(storage, internal_name)
+
+
+def test_binary_property_codec_has_single_canonical_module():
+    assert not Path("usif/format/properties.py").exists()
+    source = Path("usif/format/binary/property_codec.py").read_text()
+    assert "usif.format.properties" not in source
+    assert "historical" not in source.lower()
+    assert "class PropertyCodec" in source
+
+
+def test_runtime_code_has_no_migration_phase_terms():
+    forbidden = (
+        "historical",
+        "legacy",
+        "backward-compatible",
+        "compatibility facade",
+        "transitional",
+        "old fallback",
+        "older payload",
+        "P1 ",
+        "P2 ",
+        "P3 ",
+        "alias for add",
+    )
+    for path in Path("usif").rglob("*.py"):
+        text = path.read_text().lower()
+        for term in forbidden:
+            assert term.lower() not in text, f"{path} contains {term!r}"
+
+
+def test_container_public_api_has_no_transition_helpers():
+    from usif.storage.container import StructureContainer
+
+    assert not hasattr(StructureContainer, "add_structure")
+    source = Path("usif/storage/container.py").read_text()
+    assert "decode_records" not in source
+    assert "total_structures" not in source
+
+
+def test_symmetry_metadata_is_not_a_forwarding_module():
+    assert not Path("usif/symmetry/metadata.py").exists()

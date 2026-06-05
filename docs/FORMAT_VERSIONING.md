@@ -10,7 +10,7 @@ The public Python package version lives in `pyproject.toml`:
 
 ```toml
 [project]
-version = "7.0.0"
+version = "7.1.0"
 ```
 
 This value changes for every published package release.  Source-tree imports read
@@ -23,9 +23,9 @@ The release audit record also lives in `pyproject.toml`:
 ```toml
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 15
-record = "20260605.015"
-id = "usif-20260605-015"
+sequence = 16
+record = "20260605.016"
+id = "usif-20260605-016"
 ```
 
 Rules:
@@ -39,7 +39,7 @@ Rules:
 ## `.usif` binary record format version
 
 The single-structure `.usif` binary record format is versioned independently by
-`usif.version.FORMAT_VERSION`.  In 7.0.0 it remains:
+`usif.version.FORMAT_VERSION`.  In 7.1.0 it remains:
 
 ```python
 FORMAT_VERSION = 5
@@ -71,6 +71,6 @@ The generated `release-checks.txt` can be distributed next to the package archiv
 and `sha256sums.txt` for auditability.
 
 
-## 7.0 release note
+## 7.1 release note
 
-`6.9.0` was intentionally skipped. The next published line after `6.8.0` is `7.0.0`, recorded as `20260605.015`. This is a package-version decision only; `FORMAT_VERSION = 5` remains unchanged.
+`7.1.0` is a legacy-cleanup package release recorded as `20260605.016`. It keeps the `.usif` binary record `FORMAT_VERSION = 5` and tightens the `.usifc` container manifest line to container version 2 with `USIFIDX2` / `SIDX0002` index markers.

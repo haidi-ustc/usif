@@ -109,12 +109,14 @@ class RecordStore:
         use_mmap: bool,
         chunk_size: int,
         magic: bytes,
+        container_version: int,
     ) -> None:
         self.filename = Path(filename).resolve()
         self.mode = mode
         self.use_mmap = use_mmap
         self.chunk_size = chunk_size
         self.magic = magic
+        self.container_version = container_version
         self.file_obj: Optional[BinaryIO] = None
         self.mmap_obj: Optional[mmap.mmap] = None
 
@@ -148,14 +150,14 @@ class RecordStore:
             self.use_mmap = False
             self.mmap_obj = None
 
-    def write_header(self, *, compression_value: int) -> None:
+    def write_header(self, *, compression_value: int, container_version: int) -> None:
         """Write a fresh container header."""
         if self.file_obj is None:
             raise StorageError("RecordStore is not open")
         timestamp = int(time.time())
         header = bytearray(self.HEADER_SIZE)
         header[0:7] = self.magic
-        header[7:8] = struct.pack(BinaryFormat.UINT8, 1)
+        header[7:8] = struct.pack(BinaryFormat.UINT8, container_version)
         header[8:12] = struct.pack(BinaryFormat.UINT32, 0)
         header[12:20] = struct.pack(BinaryFormat.UINT64, self.HEADER_SIZE)
         header[20:28] = struct.pack(BinaryFormat.UINT64, 0)

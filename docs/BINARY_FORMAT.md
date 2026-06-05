@@ -116,7 +116,7 @@ Crystal coordinates are fractional; molecule coordinates are Cartesian.
 
 ## 7. Property section layout
 
-Property sections are implemented by `usif.format.properties.PropertyCodec` and `usif.properties.serializer.PropertySerializer`.
+Property sections are implemented by `usif.format.binary.property_codec.PropertyCodec` and `usif.properties.serializer.PropertySerializer`.
 
 Each structure property section and each atomic property section has the same high-level shape:
 
@@ -162,7 +162,7 @@ Per-atom count encoding uses:
 
 When decoding a single `AtomSite`, `num_atoms=1` is used for that atom's property section.
 
-## 9. Integrity and compatibility policy
+## 9. Integrity and version policy
 
 `USIF.decode()` validates:
 
@@ -174,4 +174,4 @@ When decoding a single `AtomSite`, `num_atoms=1` is used for that atom's propert
 6. property bounds and registry-defined values;
 7. geometry hash against the decoded structure.
 
-A header version mismatch logs a warning but the current decoder still attempts to decode if the physical layout can be parsed. This is a best-effort decode behavior, not a promise of long-term binary compatibility.
+A header version mismatch is rejected with `CorruptedDataError`. Current decoders only accept the declared `FORMAT_VERSION` for the physical layout they implement.

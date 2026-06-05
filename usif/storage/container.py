@@ -1,49 +1,18 @@
-#!/usr/bin/env python3
-"""
-USIF Structure Container Module
+"""USIF container storage API.
 
-This module provides a container system for storing and managing multiple USIF structures
-with HDF5-like hierarchical organization, indexing, and efficient storage.
+``StructureContainer`` stores multiple USIF records in one ``.usifc`` file with
+record-hash deduplication, name/group indexes, typed JSON metadata, persisted
+formula/property/geometry indexes, validation, recovery, and query helpers.
 
-Main Classes:
-    StructureContainer: Container for multiple structures with indexing
-    USIFGroup: HDF5-like group for hierarchical organization
-
-Features:
-    - Store multiple structures in a single file
-    - HDF5-like hierarchical groups and attributes
-    - Indexing by formula, spacegroup, properties
-    - Thread-safe operations
-    - Efficient storage with deduplication
-    - Query and filter structures
-
-Usage:
-    >>> from usif import USIFStructure
+Example:
     >>> from usif.storage import StructureContainer
-    >>>
-    >>> # Create container
-    >>> container = StructureContainer('structures.usifc')
-    >>>
-    >>> # Add structures
-    >>> container.add('structure1', structure1)
-    >>> container.add('structure2', structure2)
-    >>>
-    >>> # Organize in groups
-    >>> container.create_group('crystals')
-    >>> container.add('crystals/NaCl', nacl_structure)
-    >>>
-    >>> # Query structures
-    >>> results = container.query(formula='NaCl', energy_max=-10.0)
-    >>>
-    >>> # Get structure
-    >>> structure = container.get('structure1')
-    >>>
-    >>> # Save and close
-    >>> container.close()
-
-See Also:
-    - USIFStructure: Individual structure representation
-    - USIFGroup: Group organization
+    >>> with StructureContainer("structures.usifc", mode="w") as container:
+    ...     container.add(structure1, name="structure1")
+    ...     container.add(structure2, name="structure2")
+    ...     container.add(nacl_structure, name="NaCl", group="/crystals")
+    >>> with StructureContainer("structures.usifc", mode="r") as container:
+    ...     results = container.query(formula="NaCl", has_property="energy")
+    ...     structure = container.get("NaCl")
 """
 
 import logging
@@ -96,15 +65,14 @@ class StructureContainer(
     PrefetchMixin,
     RecoveryMixin,
 ):
-    """
-    Container for storing multiple USIF structures with indexing
-    Thread-safe implementation with proper error handling
-    """
+    """Thread-safe container for indexed multi-structure storage."""
 
     CONTAINER_MAGIC = b"USIFC\x00\x00"
-    INDEX_MAGIC = b"USIFIDX1"
+    CONTAINER_VERSION = 2
+    INDEX_MAGIC = b"USIFIDX2"
     INDEX_COMMIT = b"USIFDONE"
     INDEX_HEADER_FORMAT = "<8sQQI4s"
+    HEADER_SIZE = 64
     CHUNK_SIZE = 64 * 1024 * 1024  # 64 MB chunks
 
     def __init__(
@@ -151,14 +119,15 @@ class StructureContainer(
         self._group_index = self._indexes.group_index
         self._structure_attributes = self._indexes.structure_attributes
 
-        # Composed file, record, and index stores.  _file/_mmap remain internal
-        # aliases for storage mixins that still need low-level access.
+        # Low-level handles are owned by RecordStore and exposed internally only
+        # to storage components that operate on validated byte ranges.
         self._record_store = RecordStore(
             self.filename,
             mode=mode,
             use_mmap=use_mmap,
             chunk_size=self.CHUNK_SIZE,
             magic=self.CONTAINER_MAGIC,
+            container_version=self.CONTAINER_VERSION,
         )
         self._index_store = ContainerIndexStore(
             self._record_store,
@@ -167,6 +136,7 @@ class StructureContainer(
             index_commit=self.INDEX_COMMIT,
             index_header_format=self.INDEX_HEADER_FORMAT,
             header_size=64,
+            container_version=self.CONTAINER_VERSION,
         )
         self._file = None
         self._mmap = None
@@ -179,7 +149,7 @@ class StructureContainer(
         self._prefetch_thread = None
 
         # Data offsets
-        self._data_offset = self.HEADER_SIZE = 64
+        self._data_offset = self.HEADER_SIZE
         self._index_offset = 0
         self._index_generation = 0
 
@@ -200,7 +170,10 @@ class StructureContainer(
 
     def _write_header(self) -> None:
         """Write container header through the composed record store."""
-        self._record_store.write_header(compression_value=self.encoder.compression.value)
+        self._record_store.write_header(
+            compression_value=self.encoder.compression.value,
+            container_version=self.CONTAINER_VERSION,
+        )
 
 
     def add(
@@ -282,30 +255,6 @@ class StructureContainer(
         except Exception as e:
             logger.error(f"Failed to add structure: {e}")
             raise StorageError(f"Failed to add structure: {e}") from e
-
-    def add_structure(
-        self,
-        structure: USIFStructure,
-        name: Optional[str] = None,
-        group: str = "/",
-        attributes: Optional[Dict[str, Any]] = None,
-    ) -> str:
-        """
-        Add structure to container (alias for add, more explicit name)
-
-        This method provides a more intuitive name for adding structures,
-        similar to HDF5 dataset creation.
-
-        Args:
-            structure: USIF structure to add
-            name: Optional name for the structure
-            group: Group path (default is root)
-            attributes: Optional attributes/metadata for the structure
-
-        Returns:
-            Structure hash
-        """
-        return self.add(structure, name=name, group=group, attributes=attributes)
 
 
     def get(self, identifier: str) -> Optional[USIFStructure]:
@@ -416,12 +365,7 @@ class StructureContainer(
 
 
 
-    def validate(
-        self,
-        *,
-        level: str = "index",
-        decode_records: Optional[bool] = None,
-    ) -> ContainerValidationResult:
+    def validate(self, *, level: str = "index") -> ContainerValidationResult:
         """Validate container consistency at an explicit assurance level.
 
         Args:
@@ -429,15 +373,10 @@ class StructureContainer(
                 ``"records"`` also reads each record byte range and checks the
                 USIF header/length. ``"full"`` decodes every structure and
                 verifies its record hash.
-            decode_records: Transitional convenience flag. When provided,
-                ``True`` maps to ``level="full"`` and ``False`` maps to
-                ``level="index"``. Prefer ``level`` in new code.
 
         Returns:
             ContainerValidationResult with errors, warnings, and summary counts.
         """
-        if decode_records is not None:
-            level = "full" if decode_records else "index"
         with self._index_lock:
             return ContainerValidator(self).validate(level=level)
 
@@ -464,13 +403,12 @@ class StructureContainer(
             return sorted(groups)
 
     def stats(self) -> Dict[str, Any]:
-        """Get lightweight container statistics without decoding records."""
+        """Return lightweight container statistics without decoding records."""
         with self._index_lock:
-            total_structures = len(self._record_index)
-            total_groups = len(self._group_index) + 1  # include root group
-            total_size = sum(size for _, _, size in self._record_index.values())
-            avg_size = total_size / total_structures if total_structures else 0
-            record_index_size = total_structures * 44
+            record_count = len(self._record_index)
+            group_count = len(self._group_index) + 1  # include root group
+            record_bytes = sum(size for _, _, size in self._record_index.values())
+            record_index_size = record_count * 44
             secondary_index_size = sum(
                 len(hashes) * 16 for hashes in self._formula_index.values()
             ) + sum(
@@ -480,35 +418,30 @@ class StructureContainer(
             )
             formulas = sorted(self._formula_index)
             properties = sorted(self._property_index)
-            groups = sorted({_display_group_path(path) for path in self._group_index} | {"/"})
+            group_paths = sorted(
+                {_display_group_path(path) for path in self._group_index} | {"/"}
+            )
 
         file_size = self.filename.stat().st_size if self.filename.exists() else 0
-        compression_ratio = (total_size / file_size) if file_size else 0.0
-        cache_size = len(self._cache)
+        compression_ratio = (record_bytes / file_size) if file_size else 0.0
 
         return {
-            # Legacy descriptive keys retained as aliases for clarity.
-            "total_structures": total_structures,
-            "total_groups": total_groups,
-            "total_size_bytes": total_size,
-            "average_structure_size": avg_size,
-            "record_index_size": record_index_size,
-            "secondary_index_size": secondary_index_size,
-            "cache_size": cache_size,
-            "cache_hit_ratio": 0.0,
-            "compression_enabled": self.encoder.compression != CompressionType.NONE,
-            "mmap_enabled": self.use_mmap,
-            "chunk_size": self.CHUNK_SIZE,
-            # 6.8 compact/introspection aliases.
-            "records": total_structures,
-            "groups": total_groups,
+            "records": record_count,
+            "groups": group_count,
             "unique_formulas": len(formulas),
             "formulas": formulas,
             "properties": properties,
-            "group_paths": groups,
+            "group_paths": group_paths,
+            "record_bytes": record_bytes,
             "file_size_bytes": file_size,
             "index_size_bytes": record_index_size + secondary_index_size,
             "compression_ratio": compression_ratio,
+            "cache": {"entries": len(self._cache)},
+            "storage": {
+                "compression": self.encoder.compression.name.lower(),
+                "mmap": self.use_mmap,
+                "chunk_size_bytes": self.CHUNK_SIZE,
+            },
         }
 
     def close(self) -> None:
@@ -533,8 +466,8 @@ class StructureContainer(
             ...     structure = container.get("NaCl_001")
         """
         write_error = None
-        # Write indexes before closing if in write mode.  P1 makes index
-        # persistence failures visible instead of only logging a warning.
+        # Write indexes before closing if in write or append mode. Persistence
+        # failures are surfaced to callers after resources are released.
         if self.mode in ("w", "a") and self._file:
             try:
                 self._write_enhanced_index()

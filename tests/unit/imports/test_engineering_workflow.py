@@ -143,7 +143,7 @@ def test_core_docs_match_current_code_boundaries():
     container = docs["CONTAINER_FORMAT.md"]
     for expected in (
         "`b\"USIFC\\x00\\x00\"`",
-        "`b\"USIFIDX1\"`",
+        "`b\"USIFIDX2\"`",
         "`b\"USIFDONE\"`",
         "record_hash",
         "geometry_hash",

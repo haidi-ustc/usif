@@ -54,7 +54,7 @@ fixtures, and future optional native ASE conversion paths.
 
 ## Deprecation policy
 
-The 7.x line should avoid reintroducing broad backward-compatible facades.  When a
+The 7.x line keeps public entry points narrow and avoids broad forwarding modules.  When a
 public API must change:
 
 1. Add a changelog entry explaining the reason.

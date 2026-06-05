@@ -6,7 +6,7 @@ from usif.format.hashing import (
     calculate_payload_digest,
     calculate_record_hash,
 )
-from usif.format.properties import PropertyCodec
+from usif.format.binary.property_codec import PropertyCodec
 
 __all__ = [
     "PropertyCodec",

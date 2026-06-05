@@ -1,5 +1,18 @@
 # Changelog
 
+## 7.1.0
+
+- Completed the 7.1 cleanup line for runtime code and current documentation.
+- Moved the real `PropertyCodec` implementation into `usif.format.binary.property_codec` and removed the forwarding `usif.format.properties` module.
+- Removed the `StructureContainer.add_structure()` alias; `StructureContainer.add()` is the single public insertion API.
+- Removed the `decode_records` validation flag; container validation now uses only explicit levels: `index`, `records`, and `full`.
+- Simplified `StructureContainer.stats()` to one stable schema with nested `cache` and `storage` sections.
+- Removed the `usif.symmetry.metadata` forwarding module; symmetry metadata remains canonical under `usif.structures.metadata` and top-level `usif` exports.
+- Tightened `.usif` decoding to reject unsupported record format versions instead of attempting best-effort decode.
+- Bumped `.usifc` container header version to `2` and require persisted secondary indexes in the current index payload.
+- Kept binary `FORMAT_VERSION` at 5 because the `.usif` single-record layout did not change.
+- Updated release metadata to the date record `20260605.016` and release ID `usif-20260605-016`.
+
 ## 7.0.0
 
 - Promoted USIF to the 7.0 long-term stable architecture line.

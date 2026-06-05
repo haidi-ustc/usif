@@ -40,7 +40,7 @@ The header is written by `RecordStore.write_header()` and parsed by `ContainerIn
 | Offset | Size | Type | Field | Description |
 |---:|---:|---|---|---|
 | 0 | 7 | bytes | magic | `b"USIFC\x00\x00"` |
-| 7 | 1 | uint8 | container_version | current value `1` |
+| 7 | 1 | uint8 | container_version | current value `2` |
 | 8 | 4 | uint32 | structure_count | number of stored unique records |
 | 12 | 8 | uint64 | data_offset | first record area offset, currently `64` |
 | 20 | 8 | uint64 | index_offset | byte offset of latest committed index block, or `0` |
@@ -91,7 +91,7 @@ Index blocks are written by `ContainerIndexStore.write_index_block()`.
 
 | Field | Type | Description |
 |---|---|---|
-| index_magic | 8 bytes | `b"USIFIDX1"` |
+| index_magic | 8 bytes | `b"USIFIDX2"` |
 | generation | uint64 | monotonic generation value, currently derived from `time.time_ns()` |
 | payload_size | uint64 | serialized index payload size |
 | checksum | uint32 | CRC32 of the payload |
@@ -139,7 +139,7 @@ repeated structure_attribute_entry_count times:
 uint32 group_hierarchy_length
 bytes  group_hierarchy_payload
 
-bytes[8] secondary_index_magic = b"SIDX0001"
+bytes[8] secondary_index_magic = b"SIDX0002"
 uint32   secondary_index_payload_length
 bytes    secondary_index_payload_json_utf8
 ```
@@ -202,7 +202,7 @@ If the header index offset is invalid, `ContainerIndexStore.find_latest_valid_in
 | `records` | `index` plus record byte ranges and USIF headers | bounded record reads, no full decode |
 | `full` | `records` plus full structure decode and record-hash verification | strongest and slowest |
 
-The older `decode_records=True` convenience flag maps to `level="full"`; new code should use `level`.
+Validation uses the explicit `level` argument only: `"index"`, `"records"`, or `"full"`.
 
 ## 12. Threading model
 
@@ -215,17 +215,15 @@ The container uses:
 
 Thread safety is intended for concurrent reads and guarded in-process writes. Cross-process concurrent writes are not supported.
 
-## 6.8 Container Introspection and Query Notes
+## Container introspection and query notes
 
-USIF 6.8.0 keeps the `.usifc` binary layout compatible while adding public
-container introspection helpers built from persisted indexes:
+Current containers expose public introspection helpers built from persisted indexes:
 
 - `list_names()` returns named structure aliases.
 - `list_formulas()` returns formulas present in the formula index.
 - `list_properties()` returns indexed property and dotted custom-property names.
 - `list_groups()` returns normalized public group paths.
-- `stats()` returns lightweight counts, file/index sizes, indexed property names,
-  formula lists, group paths, and compression ratio without decoding stored records.
+- `stats()` returns the canonical statistics schema with counts, file/index sizes, indexed property names, formula lists, group paths, compression ratio, and nested cache/storage details without decoding stored records.
 
 Queries can now use `has_property`, `property_range=(name, min, max)`, and
 `custom={"metadata.family": "hydride"}`. These filters resolve against the

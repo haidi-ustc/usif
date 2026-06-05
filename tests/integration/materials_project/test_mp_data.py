@@ -364,14 +364,14 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
         # Note: Container might need explicit flush or structures might not be immediately visible
         # This is a known limitation - we verify that structures were added successfully
         # The actual persistence depends on container implementation
-        if stats["total_structures"] == 0:
+        if stats["records"] == 0:
             # If stats show 0, it might be a container implementation issue
             # But we verified structures were added, so we'll skip the stats check
             # and just verify the file exists and container can be opened
             self.assertIsNotNone(stats)
         else:
-            self.assertGreater(stats["total_structures"], 0)
-            self.assertGreater(stats["total_groups"], 0)
+            self.assertGreater(stats["records"], 0)
+            self.assertGreater(stats["groups"], 0)
 
             # Query structures
             results = container.query(group=f"/mp_data/{group_name}")

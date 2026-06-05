@@ -186,8 +186,8 @@ def test_container_recovers_previous_valid_index_generation(tmp_path):
         assert recovered.get("second") is None
 
 
-def test_rebuild_index_recovers_records_when_header_index_is_missing(tmp_path):
-    path = tmp_path / "rebuild.usifc"
+def test_container_rejects_records_without_committed_index(tmp_path):
+    path = tmp_path / "missing_index.usifc"
     with StructureContainer(
         path, mode="w", compression=CompressionType.NONE, use_mmap=False
     ) as container:
@@ -197,9 +197,5 @@ def test_rebuild_index_recovers_records_when_header_index_is_missing(tmp_path):
         f.seek(20)
         f.write(struct.pack(BinaryFormat.UINT64, 0))
 
-    with StructureContainer(
-        path, mode="a", compression=CompressionType.NONE, use_mmap=False
-    ) as container:
-        assert len(container) == 0
-        assert container.rebuild_index() == 1
-        assert len(container) == 1
+    with pytest.raises(ContainerIndexError, match="records but no committed index"):
+        StructureContainer(path, mode="r", compression=CompressionType.NONE, use_mmap=False)

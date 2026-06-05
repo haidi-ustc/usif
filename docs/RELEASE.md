@@ -42,8 +42,8 @@ python -m venv /tmp/usif-wheel-smoke
 /tmp/usif-wheel-smoke/bin/python -m pip install dist/*.whl
 /tmp/usif-wheel-smoke/bin/python - <<'PY'
 import usif
-assert usif.__version__ == "7.0.0"
-assert usif.RELEASE_RECORD == "20260605.015"
+assert usif.__version__ == "7.1.0"
+assert usif.RELEASE_RECORD == "20260605.016"
 from usif import USIF, USIFStructure
 from usif.storage import StructureContainer
 print("USIF wheel smoke OK", usif.__version__)
@@ -52,4 +52,4 @@ PY
 
 ## Artifact hygiene
 
-Source archives should not contain local caches, generated build outputs, or historical planning archives unless intentionally requested. Keep the published package focused on runtime code, tests, current docs, examples, and deterministic fixtures.
+Source archives should not contain local caches, generated build outputs, or planning archives unless intentionally requested. Keep the published package focused on runtime code, tests, current docs, examples, and deterministic fixtures.

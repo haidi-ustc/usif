@@ -38,6 +38,7 @@ class ContainerIndexStore:
         index_commit: bytes,
         index_header_format: str,
         header_size: int,
+        container_version: int,
     ) -> None:
         self.record_store = record_store
         self.container_magic = container_magic
@@ -45,6 +46,7 @@ class ContainerIndexStore:
         self.index_commit = index_commit
         self.index_header_format = index_header_format
         self.header_size = header_size
+        self.container_version = container_version
 
     @property
     def file_obj(self):
@@ -77,8 +79,13 @@ class ContainerIndexStore:
                     "Use usif.services.load_structure() to open it."
                 )
             raise CorruptedDataError("Invalid USIF container")
+        version = reader.read_u8("container version")
+        if version != self.container_version:
+            raise ContainerIndexError(
+                f"Unsupported USIF container version {version}; expected {self.container_version}"
+            )
         return ContainerHeader(
-            version=reader.read_u8("container version"),
+            version=version,
             structure_count=reader.read_u32("structure count"),
             data_offset=reader.read_u64("data offset"),
             index_offset=reader.read_u64("index offset"),

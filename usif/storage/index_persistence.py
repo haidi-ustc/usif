@@ -21,7 +21,7 @@ from usif.storage.indexes import make_index_key
 
 logger = logging.getLogger(__name__)
 
-SECONDARY_INDEX_MAGIC = b"SIDX0001"
+SECONDARY_INDEX_MAGIC = b"SIDX0002"
 
 
 class IndexPersistenceMixin:
@@ -37,22 +37,29 @@ class IndexPersistenceMixin:
         """
         try:
             header = self._index_store.read_container_header(self.filename)
+            if header.version != self.CONTAINER_VERSION:
+                raise ContainerIndexError(
+                    f"Unsupported USIF container version {header.version}; "
+                    f"expected {self.CONTAINER_VERSION}"
+                )
             self._data_offset = header.data_offset
             self._index_offset = header.index_offset
 
-            if header.index_offset > 0:
-                try:
-                    self._deserialize_index_at(header.index_offset)
-                except ContainerIndexError as e:
-                    logger.warning("Header index generation is invalid: %s", e)
-                    recovered = self._find_latest_valid_index_offset()
-                    if recovered is None:
-                        raise
-                    logger.info("Recovered container index generation at offset %s", recovered)
-                    self._deserialize_index_at(recovered)
-                    self._index_offset = recovered
+            if header.index_offset <= 0:
+                if header.structure_count and self.mode != "a":
+                    raise ContainerIndexError("Container header has records but no committed index")
+                return
 
-            self._ensure_secondary_indexes_loaded()
+            try:
+                self._deserialize_index_at(header.index_offset)
+            except ContainerIndexError as e:
+                logger.warning("Header index generation is invalid: %s", e)
+                recovered = self._find_latest_valid_index_offset()
+                if recovered is None:
+                    raise
+                logger.info("Recovered container index generation at offset %s", recovered)
+                self._deserialize_index_at(recovered)
+                self._index_offset = recovered
 
         except (StorageError, CorruptedDataError, ContainerIndexError):
             raise
@@ -85,51 +92,6 @@ class IndexPersistenceMixin:
     def _find_latest_valid_index_offset(self) -> Optional[int]:
         """Return the newest valid append-only index generation offset."""
         return self._index_store.find_latest_valid_index_offset()
-
-    def _ensure_secondary_indexes_loaded(self) -> None:
-        """Build secondary indexes only when loading an older index payload.
-
-        Current index generations persist formula, geometry, and property
-        secondary indexes.  Older payloads are still recoverable by rebuilding
-        once from records.
-        """
-        if self._indexes.secondary_indexes_complete:
-            return
-        self._build_secondary_indexes()
-
-    def _build_secondary_indexes(self) -> None:
-        """Build secondary indexes for fast querying (thread-safe, all structures)."""
-        logger.info("Building secondary indexes from records...")
-
-        all_hashes = list(self._record_index.keys())
-        total = len(all_hashes)
-
-        with self._index_lock:
-            self._indexes.clear_secondary()
-
-        for i, stored_hash in enumerate(all_hashes):
-            try:
-                structure = self.get(stored_hash)
-                if structure:
-                    self._update_secondary_indexes(structure, stored_hash)
-
-                if (i + 1) % 100 == 0:
-                    logger.info(f"Indexed {i + 1}/{total} structures...")
-
-            except Exception as e:
-                logger.warning(f"Failed to index structure {stored_hash[:16]}: {e}")
-
-        with self._index_lock:
-            self._indexes.secondary_indexes_complete = True
-
-        logger.info(f"Secondary indexing complete: {total} structures indexed")
-
-    def _update_secondary_indexes(
-        self, structure: USIFStructure, struct_hash: str
-    ) -> None:
-        """Update secondary indexes for a structure (thread-safe)."""
-        with self._index_lock:
-            self._indexes.update_secondary(structure, struct_hash)
 
     def _write_enhanced_index(self) -> None:
         """Write a checksummed, append-only index generation and commit it."""
@@ -188,15 +150,15 @@ class IndexPersistenceMixin:
             group_data = reader.read_bytes(group_data_len, "group hierarchy")
             self._deserialize_group_hierarchy(group_data)
 
-        # Current containers persist secondary indexes after the primary manifest.
-        # Older payloads end here and are rebuilt once from records.
-        if reader.remaining > 0:
-            magic = reader.read_bytes(len(SECONDARY_INDEX_MAGIC), "secondary index magic")
-            if magic != SECONDARY_INDEX_MAGIC:
-                raise ContainerIndexError("Invalid secondary index magic")
-            secondary_len = reader.read_u32("secondary index payload length")
-            secondary_payload = reader.read_bytes(secondary_len, "secondary index payload")
-            self._deserialize_secondary_indexes(secondary_payload)
+        # Current index payloads always contain persisted secondary indexes.
+        if reader.remaining <= 0:
+            raise ContainerIndexError("Missing secondary index section")
+        magic = reader.read_bytes(len(SECONDARY_INDEX_MAGIC), "secondary index magic")
+        if magic != SECONDARY_INDEX_MAGIC:
+            raise ContainerIndexError("Invalid secondary index magic")
+        secondary_len = reader.read_u32("secondary index payload length")
+        secondary_payload = reader.read_bytes(secondary_len, "secondary index payload")
+        self._deserialize_secondary_indexes(secondary_payload)
 
         reader.assert_consumed("container index payload")
 

@@ -2,13 +2,10 @@
 
 from usif.symmetry.analysis import extract_point_group_sites, extract_wyckoff_sites
 from usif.symmetry.equivalence import POINT_GROUP_ALIASES, SymmetryOperations
-from usif.symmetry.metadata import SYMMETRY_METADATA_KEY, SymmetryMetadata
 from usif.symmetry.policies import SymmetryPolicy
 
 __all__ = [
     "POINT_GROUP_ALIASES",
-    "SYMMETRY_METADATA_KEY",
-    "SymmetryMetadata",
     "SymmetryOperations",
     "SymmetryPolicy",
     "SymmetryReducer",

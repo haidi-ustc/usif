@@ -63,7 +63,7 @@ def main() -> None:
             print(f"Halide query count: {len(halides)}")
             print(f"Stable NaCl query count: {len(stable_nacl)}")
             print(f"Validation ok: {validation.ok}")
-            print(f"Container total structures: {container.stats()['total_structures']}")
+            print(f"Container records: {container.stats()['records']}")
 
 
 if __name__ == "__main__":

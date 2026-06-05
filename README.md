@@ -13,7 +13,7 @@ loaded = load_structure("nacl.usif")
 print(loaded.formula)
 ```
 
-## Current 7.0 API boundaries
+## Current 7.1 API boundaries
 
 | Area | Canonical import | Responsibility |
 |---|---|---|
@@ -35,7 +35,7 @@ ASE support requires both ASE and pymatgen. The ASE adapter depends on pymatgen 
 
 ## Documentation site
 
-USIF 7.0.0 includes a productized plain-Markdown documentation site under `docs/site/`. Start with:
+USIF 7.1.0 includes a productized plain-Markdown documentation site under `docs/site/`. Start with:
 
 - `docs/site/index.md`
 - `docs/site/quickstart.md`
@@ -67,7 +67,7 @@ Runtime dependencies are declared in `pyproject.toml`: `numpy`, `pymatgen`, `mon
 
 ## Command-line interface
 
-USIF 7.0.0 adds an official Typer-powered `usif` console script. It is designed for quick file inspection, conversion, validation, and container operations without writing a Python script.
+USIF 7.1.0 adds an official Typer-powered `usif` console script. It is designed for quick file inspection, conversion, validation, and container operations without writing a Python script.
 
 ```bash
 usif version
@@ -154,7 +154,7 @@ python examples/01_manual_structure_binary_roundtrip.py
 
 ## Property management
 
-USIF 7.0.0 provides shape-aware property helpers for structure-level and atom-level values:
+USIF 7.1.0 provides shape-aware property helpers for structure-level and atom-level values:
 
 ```python
 from usif import AtomicProperties, StructureProperties
@@ -184,13 +184,13 @@ structure.set_atom_property(1, "site_label", "Cl1")
 Custom values are normalized to JSON-compatible scalars, lists, dictionaries, booleans, and `None`, so they round-trip through binary `.usif`, JSON `.json` / `.usif.json`, and container `.usifc` records.
 
 
-USIF 7.0.0 keeps `PropertySerializer` as the stable public facade while splitting the implementation into focused modules under `usif.properties.serializers`. This makes scalar, vector, tensor, JSON-safe custom values, validation, and size estimation easier to test and maintain without changing user-facing property APIs.
+USIF 7.1.0 keeps `PropertySerializer` as the stable public facade while splitting the implementation into focused modules under `usif.properties.serializers`. This makes scalar, vector, tensor, JSON-safe custom values, validation, and size estimation easier to test and maintain without changing user-facing property APIs.
 
-USIF 7.0.0 also stores unit metadata for built-in and custom properties. Unit strings are normalized but values are not automatically converted: `Å²`, `Å^2`, `Ang^2`, and `angstrom^2` all store as `Å^2`; `eV/Ang` stores as `eV/Å`. Use `get_units(name)` to read canonical unit metadata.
+USIF 7.1.0 also stores unit metadata for built-in and custom properties. Unit strings are normalized but values are not automatically converted: `Å²`, `Å^2`, `Ang^2`, and `angstrom^2` all store as `Å^2`; `eV/Ang` stores as `eV/Å`. Use `get_units(name)` to read canonical unit metadata.
 
 ## Official JSON structure files
 
-USIF 7.0.0+ formally supports human-readable JSON alongside binary `.usif` files. Use `.json` or `.usif.json` with the same service functions:
+USIF 7.1.0+ formally supports human-readable JSON alongside binary `.usif` files. Use `.json` or `.usif.json` with the same service functions:
 
 ```python
 from pathlib import Path
@@ -262,7 +262,7 @@ python examples/02_container_write_query_validate.py
 
 Container implementation is split across focused modules under `usif.storage`, but the public storage package intentionally exports only `StructureContainer`, `USIFGroup`, and `ContainerValidationResult`. Internal record/index/cache/query modules are imported from their concrete submodules when needed by contributors.
 
-USIF 7.0.0 persists formula, geometry, and property secondary indexes inside the `.usifc` index generation. Opening a large container no longer needs to decode every record just to query by formula, property, group, or geometry. Validation is explicit and cost-aware: `validate(level="index")` checks metadata only, `validate(level="records")` verifies byte ranges and USIF record headers, and `validate(level="full")` decodes every structure and verifies record hashes.
+USIF 7.1.0 persists formula, geometry, and property secondary indexes inside the `.usifc` index generation. Opening a large container no longer needs to decode every record just to query by formula, property, group, or geometry. Validation is explicit and cost-aware: `validate(level="index")` checks metadata only, `validate(level="records")` verifies byte ranges and USIF record headers, and `validate(level="full")` decodes every structure and verifies record hashes.
 
 ## Conversion with pymatgen and ASE
 
@@ -361,13 +361,13 @@ structure = convert_mp_to_usif(docs[0])
 
 ```toml
 [project]
-version = "7.0.0"
+version = "7.1.0"
 
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 15
-record = "20260605.015"
-id = "usif-20260605-015"
+sequence = 16
+record = "20260605.016"
+id = "usif-20260605-016"
 ```
 
 `FORMAT_VERSION = 5` is the `.usif` binary record format version and changes only when the binary record layout changes. See `docs/FORMAT_VERSIONING.md` for the distinction between package versions, date-based release records, `.usif` record format versions, and `.usifc` container metadata. See `docs/API_STABILITY.md` for the 7.x public API stability policy.
@@ -404,7 +404,7 @@ python examples/10_materials_project_dataset.py --help
 
 ### Container introspection and enhanced query filters
 
-USIF 7.0.0 adds lightweight container introspection APIs that use persisted
+USIF 7.1.0 adds lightweight container introspection APIs that use persisted
 indexes instead of decoding every record:
 
 ```python

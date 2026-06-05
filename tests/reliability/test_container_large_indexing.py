@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import struct
-
 import numpy as np
 import pytest
 
 from usif import CompressionType, StorageMode, StructureProperties, StructureType, USIFStructure, WyckoffSite
-from usif.constants import BinaryFormat
 from usif.storage import StructureContainer
 
 
@@ -29,20 +26,17 @@ def make_structure(formula: str = "H", energy: float = -1.0, x: float = 0.0) -> 
 
 
 @pytest.mark.reliability
-def test_persisted_secondary_indexes_allow_query_without_rebuild(tmp_path, monkeypatch):
+def test_persisted_secondary_indexes_are_loaded_from_index_payload(tmp_path):
     path = tmp_path / "persisted_indexes.usifc"
     with StructureContainer(path, mode="w", compression=CompressionType.NONE, use_mmap=False) as container:
         container.add(make_structure("H", -1.0, 0.0), name="h1", group="/hydrides")
         container.add(make_structure("H", -2.0, 0.2), name="h2", group="/hydrides")
         container.add(make_structure("He", -0.1, 0.4), name="he")
 
-    def fail_rebuild(self):  # pragma: no cover - executed only on regression
-        raise AssertionError("secondary indexes should have been loaded from the index payload")
-
-    monkeypatch.setattr(StructureContainer, "_build_secondary_indexes", fail_rebuild)
-
     with StructureContainer(path, mode="r", use_mmap=False) as container:
         assert container._indexes.secondary_indexes_complete is True
+        assert container.list_formulas() == ["H", "He"]
+        assert "metadata.family" in container.list_properties()
         assert len(container.query(formula="H")) == 2
         assert len(container.query(properties={"metadata.family": "hydride"})) == 3
         assert len(container.query(properties={"dipole": [0.2, 0.0, 1.0]})) == 1
@@ -81,13 +75,10 @@ def test_rebuild_index_scans_records_without_reading_entire_file(tmp_path, monke
     with StructureContainer(path, mode="w", compression=CompressionType.NONE, use_mmap=False) as container:
         container.add(make_structure(), name="first")
 
-    with open(path, "r+b") as handle:
-        handle.seek(20)
-        handle.write(struct.pack(BinaryFormat.UINT64, 0))
-
     read_sizes = []
 
     with StructureContainer(path, mode="a", compression=CompressionType.NONE, use_mmap=False) as container:
+        assert container._index_offset > container.HEADER_SIZE
         original_read = container._file.read
 
         def tracked_read(size=-1):
@@ -97,6 +88,7 @@ def test_rebuild_index_scans_records_without_reading_entire_file(tmp_path, monke
             return original_read(size)
 
         monkeypatch.setattr(container._file, "read", tracked_read)
+        container._clear_loaded_indexes()
         assert container.rebuild_index() == 1
 
     assert read_sizes

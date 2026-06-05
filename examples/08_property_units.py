@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import numpy as np
 
@@ -48,15 +49,15 @@ def build_structure() -> USIFStructure:
 
 def main() -> None:
     structure = build_structure()
-    output = Path("property_units.usif.json")
-    save_structure(structure, output)
-    loaded = load_structure(output)
+    with TemporaryDirectory() as tmpdir:
+        output = Path(tmpdir) / "property_units.usif.json"
+        save_structure(structure, output)
+        loaded = load_structure(output)
 
     print("Angstrom alias:", Units.normalize_unit("Ang^2"))
     print("Energy units:", loaded.structure_properties.get_units("energy"))
     print("Quadrupole units:", loaded.structure_properties.get_units("quadrupole"))
     print("Force units:", loaded.atom_sites[0].properties.get_units("force"))
-    output.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

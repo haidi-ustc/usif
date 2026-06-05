@@ -302,21 +302,14 @@ class TestEncoderComprehensive(unittest.TestCase):
             decoded.structure_properties.custom, structure.structure_properties.custom
         )
 
-    def test_version_mismatch_warning(self):
-        """Test version mismatch handling"""
-        # Create data with different version
+    def test_version_mismatch_is_rejected(self):
+        """Test strict record version handling."""
         encoded = self.encoder.encode(self.periodic_symmetric)
-        # Modify version byte
         modified = bytearray(encoded)
-        modified[7] = 99  # Invalid version
+        modified[7] = 99
 
-        # Should decode but log warning (we can't easily test logging, but it shouldn't crash)
-        try:
-            decoded, _ = self.encoder.decode(bytes(modified))
-            # If it decodes, that's fine - version mismatch is just a warning
-        except (DecodingError, CorruptedDataError):
-            # If it fails due to other corruption, that's also acceptable
-            pass
+        with self.assertRaises(CorruptedDataError):
+            self.encoder.decode(bytes(modified))
 
     def test_empty_formula(self):
         """Test encoding with empty formula"""
