@@ -6,7 +6,8 @@ from usif import (
     USIF,
     CompressionType,
     PropertyDefinition,
-    PropertyRegistry,
+    DEFAULT_REGISTRY,
+    create_default_registry,
     StorageMode,
     StructureProperties,
     StructureType,
@@ -16,15 +17,15 @@ from usif import (
 
 
 def test_create_isolated_registry_does_not_pollute_global_registry():
-    registry = PropertyRegistry.create_isolated()
+    registry = create_default_registry()
     registry.register(PropertyDefinition("isolated_scalar", float))
 
     assert registry.exists("isolated_scalar")
-    assert not PropertyRegistry.exists("isolated_scalar")
+    assert not DEFAULT_REGISTRY.exists("isolated_scalar")
 
 
 def test_encoder_uses_injected_registry_for_builtin_style_property():
-    registry = PropertyRegistry.create_isolated()
+    registry = create_default_registry()
     registry.register(PropertyDefinition("isolated_energy", float))
 
     props = StructureProperties()

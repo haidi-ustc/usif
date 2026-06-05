@@ -1,5 +1,22 @@
 # Changelog
 
+## 5.5.0
+
+- Added composed `RecordStore` and `ContainerIndexStore` components for container file and index I/O.
+- Moved chunk allocation/read/write behind `RecordStore` instead of constructing file adapters in the container.
+- Reworked container index loading to read the fixed header and referenced index block instead of materializing the whole `.usifc` file.
+- Added bounded streaming recovery scan for invalid header index offsets.
+- Updated storage architecture tests to enforce composed store boundaries and bounded index reads.
+
+## 5.4.0
+
+- Replaced the dual property registry implementation with a single instance-based `PropertyRegistry`.
+- Added `DEFAULT_REGISTRY` and `create_default_registry()` as the canonical registry entry points.
+- Removed `PropertyRegistryInstance`, class-level registry methods, and registry compatibility facades.
+- Removed encoder private compatibility helpers and the `calculate_structure_hash()` alias.
+- Renamed container `hash_index` terminology to `record_index`.
+- Removed library-module demo blocks from the property registry implementation.
+
 ## 5.3.0
 
 - Removed backward-compatibility modules: `usif.converter`, `usif.container`, `usif.interop.converter_core`, `usif.interop.symmetry`, and `usif.io.facade`.

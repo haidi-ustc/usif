@@ -26,13 +26,13 @@ def test_encoder_is_thin_facade_and_binary_modules_are_importable():
     assert "structure_codec.decode_body" in inspect.getsource(USIF.decode)
 
 
-def test_deleted_backward_compatibility_modules_are_gone():
+def test_removed_adapter_facades_are_gone():
     for module in REMOVED_COMPATIBILITY_MODULES:
         try:
             importlib.import_module(module)
         except ModuleNotFoundError:
             continue
-        raise AssertionError(f"legacy compatibility module still importable: {module}")
+        raise AssertionError(f"removed facade module still importable: {module}")
 
 
 def test_canonical_interop_adapters_own_conversion_logic():
@@ -69,40 +69,41 @@ def test_io_public_helpers_delegate_directly_to_structure_modules():
     assert "usif.structures.io" in inspect.getsource(USIFStructure.save)
 
 
-def test_registry_default_factory_and_isolated_registry():
-    from usif import PropertyDefinition, PropertyRegistry, default_registry, isolated_registry
+def test_registry_default_factory_creates_isolated_registry():
+    from usif import DEFAULT_REGISTRY, PropertyDefinition, create_default_registry
 
-    assert default_registry() is PropertyRegistry
-    registry = isolated_registry()
+    registry = create_default_registry()
     registry.register(PropertyDefinition("storage_arch_isolated_prop", float))
     assert registry.exists("storage_arch_isolated_prop")
-    assert not PropertyRegistry.exists("storage_arch_isolated_prop")
+    assert not DEFAULT_REGISTRY.exists("storage_arch_isolated_prop")
 
 
-def test_storage_container_is_decomposed_into_focused_modules():
-    """StructureContainer remains a coordinator, not a monolithic storage class."""
-    from usif.storage.attributes import AttributeCodecMixin
-    from usif.storage.cache import StructureCache
-    from usif.storage.group_ops import GroupOperationsMixin
-    from usif.storage.index_persistence import IndexPersistenceMixin
-    from usif.storage.io_ops import StorageIOMixin
-    from usif.storage.prefetch import PrefetchMixin
-    from usif.storage.recovery import RecoveryMixin
+def test_storage_container_uses_composed_record_and_index_stores():
+    """StructureContainer delegates low-level storage to composed stores."""
     from usif.storage.container import StructureContainer
+    from usif.storage.index_store import ContainerIndexStore
+    from usif.storage.record_store import RecordStore
 
     container_lines = Path("usif/storage/container.py").read_text().count("\n") + 1
-    assert container_lines < 700
-    assert issubclass(StructureContainer, AttributeCodecMixin)
-    assert issubclass(StructureContainer, GroupOperationsMixin)
-    assert issubclass(StructureContainer, IndexPersistenceMixin)
-    assert issubclass(StructureContainer, StorageIOMixin)
-    assert issubclass(StructureContainer, PrefetchMixin)
-    assert issubclass(StructureContainer, RecoveryMixin)
-    assert StructureCache is not None
+    assert container_lines < 600
+    source = inspect.getsource(StructureContainer.__init__)
+    assert "RecordStore(" in source
+    assert "ContainerIndexStore(" in source
+    assert RecordStore is not None
+    assert ContainerIndexStore is not None
 
 
-def test_removed_legacy_container_code_paths():
-    """No unchecked legacy index/attribute fallback remains in storage modules."""
+def test_container_index_reader_does_not_materialize_entire_file():
+    """Index loading reads bounded blocks through ContainerIndexStore."""
+    source = Path("usif/storage/index_persistence.py").read_text()
+    assert "bytes(self._mmap[:])" not in source
+    assert "self._file.read()" not in source
+    assert "read_index_block_at" in source
+    assert "find_latest_valid_index_offset" in source
+
+
+def test_removed_obsolete_container_code_paths():
+    """No unchecked obsolete index/attribute fallback remains in storage modules."""
     storage_text = "\n".join(
         path.read_text()
         for path in Path("usif/storage").glob("*.py")

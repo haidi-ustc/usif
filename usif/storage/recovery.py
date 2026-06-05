@@ -59,7 +59,7 @@ class RecoveryMixin:
 
             self._clear_loaded_indexes()
             for record_hash, location, structure in recovered:
-                self._hash_index[record_hash] = location
+                self._record_index[record_hash] = location
                 self._indexes.update_secondary(structure, record_hash)
 
             if persist:

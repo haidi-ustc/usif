@@ -47,14 +47,12 @@ See Also:
 """
 
 import logging
-import mmap
 import queue
-import struct
 import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from usif.constants import BinaryFormat, CompressionType, QueryConstants
+from usif.constants import CompressionType, QueryConstants
 from usif.encoder import USIF
 from usif.exceptions import (
     ContainerError,
@@ -73,6 +71,8 @@ from usif.storage.indexes import ContainerIndexes
 from usif.storage.io_ops import StorageIOMixin
 from usif.storage.prefetch import PrefetchMixin
 from usif.storage.query import QueryEngine
+from usif.storage.record_store import RecordStore
+from usif.storage.index_store import ContainerIndexStore
 from usif.storage.recovery import RecoveryMixin
 from usif.structures.structure import USIFStructure
 
@@ -131,10 +131,10 @@ class StructureContainer(
         self._cache = StructureCache(cache_size)
 
         # Indexes with thread-safe lock
-        self._index_lock = threading.RLock()  # NEW: Lock for index operations
-        self._file_lock = threading.RLock()  # NEW: Lock for file I/O operations
+        self._index_lock = threading.RLock()
+        self._file_lock = threading.RLock()
         self._indexes = ContainerIndexes()
-        self._hash_index = self._indexes.hash_index  # record_hash -> (chunk, offset, size)
+        self._record_index = self._indexes.record_index  # record_hash -> (chunk, offset, size)
         self._geometry_index = self._indexes.geometry_index
         self._name_index = self._indexes.name_index
         self._formula_index = self._indexes.formula_index
@@ -142,7 +142,23 @@ class StructureContainer(
         self._group_index = self._indexes.group_index
         self._structure_attributes = self._indexes.structure_attributes
 
-        # File and mmap
+        # Composed file, record, and index stores.  _file/_mmap remain internal
+        # aliases for storage mixins that still need low-level access.
+        self._record_store = RecordStore(
+            self.filename,
+            mode=mode,
+            use_mmap=use_mmap,
+            chunk_size=self.CHUNK_SIZE,
+            magic=self.CONTAINER_MAGIC,
+        )
+        self._index_store = ContainerIndexStore(
+            self._record_store,
+            container_magic=self.CONTAINER_MAGIC,
+            index_magic=self.INDEX_MAGIC,
+            index_commit=self.INDEX_COMMIT,
+            index_header_format=self.INDEX_HEADER_FORMAT,
+            header_size=64,
+        )
         self._file = None
         self._mmap = None
 
@@ -158,64 +174,24 @@ class StructureContainer(
         self._index_offset = 0
         self._index_generation = 0
 
-        # Initialize
-        if mode == "r":
-            if not self.filename.exists():
-                raise FileNotFoundError(f"File not found: {self.filename}")
-            self._file = open(self.filename, "rb")
-            if use_mmap:
-                try:
-                    self._mmap = mmap.mmap(
-                        self._file.fileno(), 0, access=mmap.ACCESS_READ
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to create mmap: {e}")
-                    self.use_mmap = False
+        # Initialize record/index stores.
+        self._record_store.open()
+        self._file = self._record_store.file_obj
+        self._mmap = self._record_store.mmap_obj
+        self.use_mmap = self._record_store.use_mmap
+
+        if mode in ("r", "a") and self.filename.exists() and self.filename.stat().st_size > 0:
             self._read_enhanced_index()
-        elif mode in ["w", "a"]:
-            if mode == "a" and self.filename.exists():
-                self._file = open(self.filename, "r+b")
-                if use_mmap:
-                    try:
-                        self._mmap = mmap.mmap(self._file.fileno(), 0)
-                    except Exception as e:
-                        logger.warning(f"Failed to create mmap: {e}")
-                        self.use_mmap = False
-                self._read_enhanced_index()
-            else:
-                # Use w+b to allow both writing and reading
-                # Don't use mmap for new files (file is initially empty)
-                self._file = open(self.filename, "w+b")
-                self.use_mmap = False  # Disable mmap for new write mode
-                self._write_header()
+        elif mode in ("w", "a"):
+            self._write_header()
 
         # Start prefetch thread
         if self._prefetch_queue and num_workers > 0:
             self._start_prefetch_thread()
 
     def _write_header(self) -> None:
-        """Write container header"""
-        header = bytearray(self.HEADER_SIZE)
-        header[0:7] = self.CONTAINER_MAGIC
-        header[7:8] = struct.pack(BinaryFormat.UINT8, 1)  # Version
-        header[8:12] = struct.pack(BinaryFormat.UINT32, 0)  # num_structures
-        header[12:20] = struct.pack(
-            BinaryFormat.UINT64, self.HEADER_SIZE
-        )  # data_offset
-        header[20:28] = struct.pack(BinaryFormat.UINT64, 0)  # index_offset
-        header[28:36] = struct.pack(BinaryFormat.UINT64, 0)  # group_offset
-        header[36:44] = struct.pack(BinaryFormat.UINT64, 0)  # attribute_offset
-        header[44:45] = struct.pack(BinaryFormat.UINT8, self.encoder.compression.value)
-        header[45:46] = struct.pack(BinaryFormat.UINT8, 1)  # use_chunking
-
-        import time
-
-        timestamp = int(time.time())
-        header[46:54] = struct.pack(BinaryFormat.UINT64, timestamp)
-        header[54:62] = struct.pack(BinaryFormat.UINT64, timestamp)
-
-        self._file.write(header)
-        self._file.flush()
+        """Write container header through the composed record store."""
+        self._record_store.write_header(compression_value=self.encoder.compression.value)
 
 
     def add(
@@ -274,7 +250,7 @@ class StructureContainer(
             # fully indexed. Duplicate records are deduplicated at the byte-store
             # level, but new aliases/groups/attributes are still recorded.
             with self._index_lock:
-                if struct_hash in self._hash_index:
+                if struct_hash in self._record_index:
                     logger.info(f"Record {struct_hash[:16]} already exists")
                     self._record_structure_metadata(struct_hash, name, group, attributes)
                     self._indexes.update_secondary(structure, struct_hash)
@@ -284,7 +260,7 @@ class StructureContainer(
                     chunk_id, chunk_offset = self._allocate_space(len(usif_data))
                     self._write_to_chunk(chunk_id, chunk_offset, usif_data)
 
-                self._hash_index[struct_hash] = (chunk_id, chunk_offset, len(usif_data))
+                self._record_index[struct_hash] = (chunk_id, chunk_offset, len(usif_data))
                 self._record_structure_metadata(struct_hash, name, group, attributes)
                 self._indexes.update_secondary(structure, struct_hash)
 
@@ -347,14 +323,13 @@ class StructureContainer(
         if cached is not None:
             return cached
 
-        # FIXED: Thread-safe index lookups
         with self._index_lock:
             struct_hash = self._name_index.get(identifier, identifier)
 
-            if struct_hash not in self._hash_index:
+            if struct_hash not in self._record_index:
                 return None
 
-            chunk_id, chunk_offset, size = self._hash_index[struct_hash]
+            chunk_id, chunk_offset, size = self._record_index[struct_hash]
         usif_data = self._read_from_chunk(chunk_id, chunk_offset, size)
 
         try:
@@ -427,7 +402,7 @@ class StructureContainer(
                 - total_groups: Number of groups
                 - total_size_bytes: Total size of all structures
                 - average_structure_size: Average structure size in bytes
-                - hash_index_size: Size of hash index
+                - record_index_size: Size of record index
                 - secondary_index_size: Size of secondary indexes
                 - cache_size: Number of structures in cache
                 - cache_hit_ratio: Cache hit ratio (currently 0.0)
@@ -440,13 +415,13 @@ class StructureContainer(
             >>> print(f"Total structures: {stats['total_structures']}")
             >>> print(f"Total size: {stats['total_size_bytes'] / 1024 / 1024:.2f} MB")
         """
-        total_structures = len(self._hash_index)
+        total_structures = len(self._record_index)
         total_groups = len(self._group_index)
 
-        total_size = sum(size for _, _, size in self._hash_index.values())
+        total_size = sum(size for _, _, size in self._record_index.values())
         avg_size = total_size / total_structures if total_structures else 0
 
-        hash_index_size = total_structures * 44
+        record_index_size = total_structures * 44
         secondary_index_size = sum(
             len(hashes) * 16 for hashes in self._formula_index.values()
         ) + sum(
@@ -462,7 +437,7 @@ class StructureContainer(
             "total_groups": total_groups,
             "total_size_bytes": total_size,
             "average_structure_size": avg_size,
-            "hash_index_size": hash_index_size,
+            "record_index_size": record_index_size,
             "secondary_index_size": secondary_index_size,
             "cache_size": cache_size,
             "cache_hit_ratio": 0.0,
@@ -510,13 +485,9 @@ class StructureContainer(
             self._prefetch_queue.put(None)
             self._prefetch_thread.join(timeout=5.0)
 
-        if self._mmap:
-            self._mmap.close()
-            self._mmap = None
-
-        if self._file:
-            self._file.close()
-            self._file = None
+        self._record_store.close()
+        self._file = None
+        self._mmap = None
 
         if write_error is not None:
             raise ContainerIndexError(f"Failed to write index on close: {write_error}") from write_error
@@ -538,13 +509,13 @@ class StructureContainer(
         return False
 
     def __len__(self):
-        return len(self._hash_index)
+        return len(self._record_index)
 
     def __contains__(self, identifier: str):
-        return identifier in self._hash_index or identifier in self._name_index
+        return identifier in self._record_index or identifier in self._name_index
 
     def __iter__(self):
-        for struct_hash in self._hash_index:
+        for struct_hash in self._record_index:
             structure = self.get(struct_hash)
             if structure:
                 yield struct_hash, structure

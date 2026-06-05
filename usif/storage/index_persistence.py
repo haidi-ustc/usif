@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import logging
-import os
 import struct
 import time
-import zlib
 from typing import Optional
 
 from usif.constants import BinaryFormat
@@ -25,48 +23,28 @@ class IndexPersistenceMixin:
     """Append-only, checksummed container index persistence."""
 
     def _read_enhanced_index(self) -> None:
-        """Read container header and load the newest valid index generation."""
+        """Read the container header and load the newest valid index generation.
+
+        The normal path reads only the fixed header plus the referenced index
+        block, instead of materializing the entire container file in memory.
+        A bounded streaming scan is used only when the header points to a bad
+        generation.
+        """
         try:
-            if self._mmap:
-                data = bytes(self._mmap[:])
-            else:
-                self._file.seek(0)
-                data = self._file.read()
+            header = self._index_store.read_container_header(self.filename)
+            self._data_offset = header.data_offset
+            self._index_offset = header.index_offset
 
-            if len(data) < self.HEADER_SIZE:
-                raise CorruptedDataError(
-                    f"Container is too short: {len(data)} < {self.HEADER_SIZE}"
-                )
-
-            reader = BinaryReader(data[: self.HEADER_SIZE], context="USIF container header")
-            magic = reader.read_bytes(7, "container magic")
-            if magic != self.CONTAINER_MAGIC:
-                if magic == b"USIF\x00\x00\x00":
-                    raise StorageError(
-                        f"File {self.filename} is a USIF structure file, not a container. "
-                        f"Use USIFStructure.load() to open it."
-                    )
-                raise CorruptedDataError("Invalid enhanced USIF container")
-
-            reader.read_u8("container version")
-            reader.read_u32("structure count")
-            data_offset = reader.read_u64("data offset")
-            index_offset = reader.read_u64("index offset")
-            reader.read_u64("group offset")
-
-            self._data_offset = data_offset
-            self._index_offset = index_offset
-
-            if index_offset > 0:
+            if header.index_offset > 0:
                 try:
-                    self._deserialize_index_at(data, index_offset)
+                    self._deserialize_index_at(header.index_offset)
                 except ContainerIndexError as e:
                     logger.warning("Header index generation is invalid: %s", e)
-                    recovered = self._find_latest_valid_index_offset(data)
+                    recovered = self._find_latest_valid_index_offset()
                     if recovered is None:
                         raise
                     logger.info("Recovered container index generation at offset %s", recovered)
-                    self._deserialize_index_at(data, recovered)
+                    self._deserialize_index_at(recovered)
                     self._index_offset = recovered
 
             self._build_secondary_indexes()
@@ -79,7 +57,7 @@ class IndexPersistenceMixin:
 
     def _clear_loaded_indexes(self) -> None:
         """Clear index state before loading a persisted generation."""
-        self._hash_index.clear()
+        self._record_index.clear()
         self._geometry_index.clear()
         self._name_index.clear()
         self._formula_index.clear()
@@ -89,80 +67,25 @@ class IndexPersistenceMixin:
         self.root_group = USIFGroup("/")
         self._cache.clear()
 
-    def _deserialize_index_at(self, data: bytes, offset: int) -> None:
+    def _deserialize_index_at(self, offset: int) -> None:
         """Load a checksummed index manifest at ``offset``."""
-        if offset < self.HEADER_SIZE or offset >= len(data):
-            raise ContainerIndexError(
-                f"Index offset {offset} is outside container size {len(data)}"
-            )
-
-        if data[offset : offset + len(self.INDEX_MAGIC)] != self.INDEX_MAGIC:
-            raise ContainerIndexError("Missing index manifest magic")
-
-        header_size = struct.calcsize(self.INDEX_HEADER_FORMAT)
-        if offset + header_size > len(data):
-            raise ContainerIndexError("Truncated index manifest header")
-        magic, generation, payload_size, checksum, _reserved = struct.unpack(
-            self.INDEX_HEADER_FORMAT, data[offset : offset + header_size]
-        )
-        if magic != self.INDEX_MAGIC:
-            raise ContainerIndexError("Invalid index magic")
-        payload_start = offset + header_size
-        payload_end = payload_start + payload_size
-        commit_end = payload_end + len(self.INDEX_COMMIT)
-        if commit_end > len(data):
-            raise ContainerIndexError("Truncated index payload or commit marker")
-        if data[payload_end:commit_end] != self.INDEX_COMMIT:
-            raise ContainerIndexError("Missing index commit marker")
-        payload = data[payload_start:payload_end]
-        actual_checksum = zlib.crc32(payload) & 0xFFFFFFFF
-        if actual_checksum != checksum:
-            raise ContainerIndexError(
-                f"Index checksum mismatch: header {checksum:#x}, actual {actual_checksum:#x}"
-            )
+        block = self._index_store.read_index_block_at(offset)
         self._clear_loaded_indexes()
         try:
-            self._deserialize_indexes_from_payload(payload)
+            self._deserialize_indexes_from_payload(block.payload)
         except Exception as e:
             raise ContainerIndexError(f"Invalid index payload: {e}") from e
-        self._index_generation = generation
+        self._index_generation = block.generation
 
-    def _find_latest_valid_index_offset(self, data: bytes) -> Optional[int]:
-        """Scan append-only index generations and return the newest valid offset."""
-        best = None
-        best_generation = -1
-        search_from = self.HEADER_SIZE
-        while True:
-            offset = data.find(self.INDEX_MAGIC, search_from)
-            if offset < 0:
-                break
-            try:
-                header_size = struct.calcsize(self.INDEX_HEADER_FORMAT)
-                magic, generation, payload_size, checksum, _reserved = struct.unpack(
-                    self.INDEX_HEADER_FORMAT, data[offset : offset + header_size]
-                )
-                payload_start = offset + header_size
-                payload_end = payload_start + payload_size
-                commit_end = payload_end + len(self.INDEX_COMMIT)
-                if magic == self.INDEX_MAGIC and commit_end <= len(data):
-                    payload = data[payload_start:payload_end]
-                    if (
-                        data[payload_end:commit_end] == self.INDEX_COMMIT
-                        and (zlib.crc32(payload) & 0xFFFFFFFF) == checksum
-                        and generation > best_generation
-                    ):
-                        best = offset
-                        best_generation = generation
-            except Exception:
-                pass
-            search_from = offset + 1
-        return best
+    def _find_latest_valid_index_offset(self) -> Optional[int]:
+        """Return the newest valid append-only index generation offset."""
+        return self._index_store.find_latest_valid_index_offset()
 
     def _build_secondary_indexes(self) -> None:
         """Build secondary indexes for fast querying (thread-safe, all structures)."""
         logger.info("Building secondary indexes...")
 
-        all_hashes = list(self._hash_index.keys())
+        all_hashes = list(self._record_index.keys())
         total = len(all_hashes)
 
         with self._index_lock:
@@ -197,33 +120,11 @@ class IndexPersistenceMixin:
         with self._file_lock:
             payload = self._serialize_indexes()
             generation = max(self._index_generation + 1, int(time.time_ns()))
-            checksum = zlib.crc32(payload) & 0xFFFFFFFF
-            manifest = struct.pack(
-                self.INDEX_HEADER_FORMAT,
-                self.INDEX_MAGIC,
-                generation,
-                len(payload),
-                checksum,
-                b"\x00" * 4,
-            )
-            index_block = manifest + payload + self.INDEX_COMMIT
-
             try:
-                self._file.seek(0, 2)
-                index_offset = self._file.tell()
-                self._file.write(index_block)
-                self._file.flush()
-                os.fsync(self._file.fileno())
-
-                # Update header after the generation is durably committed.
-                self._file.seek(8)
-                self._file.write(struct.pack(BinaryFormat.UINT32, len(self._hash_index)))
-                self._file.seek(20)
-                self._file.write(struct.pack(BinaryFormat.UINT64, index_offset))
-                self._file.seek(54)
-                self._file.write(struct.pack(BinaryFormat.UINT64, int(time.time())))
-                self._file.flush()
-                os.fsync(self._file.fileno())
+                index_offset = self._index_store.write_index_block(payload, generation)
+                self._index_store.update_header_after_index(
+                    structure_count=len(self._record_index), index_offset=index_offset
+                )
                 self._index_offset = index_offset
                 self._index_generation = generation
             except Exception as e:
@@ -234,13 +135,13 @@ class IndexPersistenceMixin:
         reader = BinaryReader(payload, context="container index payload")
 
         # Read hash/record index.
-        num_hashes = reader.read_u32("hash index count")
+        num_hashes = reader.read_u32("record index count")
         for _ in range(num_hashes):
             struct_hash = reader.read_string_u16("record hash")
             chunk_id = reader.read_u32("chunk id")
             offset = reader.read_u64("chunk offset")
             size = reader.read_u32("record byte size")
-            self._hash_index[struct_hash] = (chunk_id, offset, size)
+            self._record_index[struct_hash] = (chunk_id, offset, size)
 
         # Read name index.
         num_names = reader.read_u32("name index count")
@@ -313,9 +214,9 @@ class IndexPersistenceMixin:
         """Serialize all indexes to bytes for persistence"""
         data = bytearray()
 
-        # Serialize hash index
-        data.extend(struct.pack(BinaryFormat.UINT32, len(self._hash_index)))
-        for struct_hash, (chunk_id, offset, size) in self._hash_index.items():
+        # Serialize record index
+        data.extend(struct.pack(BinaryFormat.UINT32, len(self._record_index)))
+        for struct_hash, (chunk_id, offset, size) in self._record_index.items():
             hash_bytes = struct_hash.encode("utf-8")
             data.extend(struct.pack(BinaryFormat.UINT16, len(hash_bytes)))
             data.extend(hash_bytes)

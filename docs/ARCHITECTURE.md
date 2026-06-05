@@ -171,7 +171,7 @@ The container system provides HDF5-like storage for multiple structures. Since v
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
 │  │    Indexes   │  │    Groups    │  │    Cache     │     │
 │  │              │  │              │  │              │     │
-│  │ - hash_index │  │ - hierarchy  │  │ - LRU cache  │     │
+│  │ - record_index │  │ - hierarchy  │  │ - LRU cache  │     │
 │  │ - formula    │  │ - attributes │  │ - thread-safe│     │
 │  │ - properties │  │              │  │              │     │
 │  └──────────────┘  └──────────────┘  └──────────────┘     │
@@ -329,7 +329,7 @@ Binary Data
 ### Adding New Property Types
 
 1. Define property in `PropertyDefinition`
-2. Register in `PropertyRegistry`
+2. Register with an injected `PropertyRegistry` instance or `DEFAULT_REGISTRY`
 3. Serialization handled automatically by `PropertySerializer`
 
 ### Adding New Storage Modes
@@ -342,7 +342,7 @@ Binary Data
 ### Adding New Compression Algorithms
 
 1. Add enum value to `CompressionType`
-2. Implement compression/decompression in `USIF._compress_data()` and `_decompress_data()`
+2. Implement compression/decompression through `usif.format.compress_data()` and `decompress_data()`
 3. Update tests
 
 ## Performance Characteristics
@@ -372,3 +372,14 @@ Binary Data
 ### 5.3 interop cleanup
 
 USIF 5.3 removed the old conversion and compatibility facades. `usif.interop.pymatgen.importer` and `usif.interop.pymatgen.exporter` now own pymatgen conversion logic directly. ASE import/export modules convert through those canonical adapters. Container access is canonical through `usif.storage`, and public I/O helpers re-export structure source/I/O functions directly instead of routing through `usif.io.facade`.
+
+
+### USIF 5.5 Storage Composition
+
+`StructureContainer` now composes focused storage services instead of owning all low-level file responsibilities directly:
+
+- `RecordStore` owns file handles, optional memory mapping, fresh header writes, and chunked record allocation/read/write.
+- `ContainerIndexStore` owns fixed header parsing, append-only index block reads/writes, CRC validation, commit marker validation, and bounded recovery scanning.
+- `IndexPersistenceMixin` serializes/deserializes logical index payloads but delegates physical index I/O to `ContainerIndexStore`.
+
+The normal read path loads only the fixed container header and the referenced index block. It no longer converts the full container file into an in-memory byte string before index parsing.

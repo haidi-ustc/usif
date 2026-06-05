@@ -22,7 +22,6 @@ from usif.exceptions import (
 from usif.format import (
     calculate_geometry_hash,
     calculate_record_hash,
-    calculate_structure_hash,
     compress_data,
     decompress_data,
 )
@@ -61,39 +60,6 @@ class USIF:
         self.structure_codec = StructureBinaryCodec(property_registry)
         self.property_codec = self.structure_codec.property_codec
 
-    # Backward-compatible helper methods retained for existing callers/tests.
-    @staticmethod
-    def _json_default(value):
-        return PropertyCodec._json_default(value)
-
-    @staticmethod
-    def _encode_custom_value(value) -> bytes:
-        return PropertyCodec.encode_custom_value(value)
-
-    @staticmethod
-    def _decode_custom_value(value_str):
-        return PropertyCodec.decode_custom_value(value_str)
-
-    def _calculate_hash(self, structure: USIFStructure) -> bytes:
-        """Calculate historical geometry SHA-256 hash of structure."""
-        return calculate_structure_hash(structure)
-
-    def _calculate_record_hash(self, structure: USIFStructure) -> bytes:
-        """Calculate record SHA-256 hash of structure and properties."""
-        return calculate_record_hash(structure)
-
-    def _compress_data(self, data: bytes) -> bytes:
-        return compress_data(data, self.compression)
-
-    def _decompress_data(
-        self,
-        data: bytes,
-        comp_type: CompressionType,
-        *,
-        max_output_size: int = MAX_PAYLOAD_SIZE,
-    ) -> bytes:
-        return decompress_data(data, comp_type, max_output_size=max_output_size)
-
     def _encode_atomic_properties(
         self, props: AtomicProperties, num_atoms: Optional[int] = None
     ) -> bytes:
@@ -118,7 +84,7 @@ class USIF:
         """Encode a :class:`USIFStructure` to USIF binary bytes."""
         try:
             raw_payload = self.structure_codec.encode_body(structure)
-            compressed_payload = self._compress_data(raw_payload)
+            compressed_payload = compress_data(raw_payload, self.compression)
             if len(compressed_payload) > MAX_COMPRESSED_SIZE:
                 raise EncodingError(
                     "Compressed payload size "
@@ -130,7 +96,7 @@ class USIF:
                 raw_size=len(raw_payload),
                 compressed_size=len(compressed_payload),
                 compression_type=self.compression,
-                geometry_hash=self._calculate_hash(structure),
+                geometry_hash=calculate_geometry_hash(structure),
             )
             return header.to_bytes() + compressed_payload
         except (EncodingError, ValidationError):
@@ -159,7 +125,7 @@ class USIF:
                 )
 
             compressed_payload = data[self.HEADER_SIZE :]
-            raw_payload = self._decompress_data(
+            raw_payload = decompress_data(
                 compressed_payload,
                 header.compression_type,
                 max_output_size=header.raw_size,
@@ -182,17 +148,13 @@ class USIF:
         except Exception as exc:
             raise DecodingError(f"Unexpected error during decoding: {exc}") from exc
 
-    def get_structure_hash(self, structure: USIFStructure) -> str:
-        """Return the historical geometry hash as hex."""
-        return self._calculate_hash(structure).hex()
-
     def get_geometry_hash(self, structure: USIFStructure) -> str:
         """Return the geometry-only hash of a structure."""
         return calculate_geometry_hash(structure).hex()
 
     def get_record_hash(self, structure: USIFStructure) -> str:
         """Return the full record hash including formula and properties."""
-        return self._calculate_record_hash(structure).hex()
+        return calculate_record_hash(structure).hex()
 
     def save(self, structure: USIFStructure, filename: Union[str, Path]) -> None:
         """Save a structure to a USIF binary file."""

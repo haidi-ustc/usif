@@ -20,7 +20,8 @@ from usif import (
     EncodingError,
     PointGroupSite,
     PropertyDefinition,
-    PropertyRegistry,
+    DEFAULT_REGISTRY,
+    create_default_registry,
     StorageMode,
     StructureProperties,
     StructureType,
@@ -130,12 +131,12 @@ class TestEncoderComprehensive(unittest.TestCase):
 
     def test_structure_hash(self):
         """Test structure hash calculation"""
-        hash1 = self.encoder.get_structure_hash(self.periodic_symmetric)
-        hash2 = self.encoder.get_structure_hash(self.periodic_symmetric)
+        hash1 = self.encoder.get_geometry_hash(self.periodic_symmetric)
+        hash2 = self.encoder.get_geometry_hash(self.periodic_symmetric)
         self.assertEqual(hash1, hash2)
 
         # Different structure should have different hash
-        hash3 = self.encoder.get_structure_hash(self.periodic_atomic)
+        hash3 = self.encoder.get_geometry_hash(self.periodic_atomic)
         self.assertNotEqual(hash1, hash3)
 
     def test_save_load(self):
@@ -274,7 +275,7 @@ class TestEncoderComprehensive(unittest.TestCase):
 
     def test_registered_custom_properties_roundtrip_to_custom_dict(self):
         """Test registered custom properties remain in custom after decode."""
-        PropertyRegistry.register(
+        DEFAULT_REGISTRY.register(
             PropertyDefinition(
                 name="test_registered_custom",
                 data_type=float,

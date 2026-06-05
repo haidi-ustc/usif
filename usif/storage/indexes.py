@@ -12,12 +12,11 @@ from usif.structures.structure import USIFStructure
 class ContainerIndexes:
     """Primary and secondary indexes used by StructureContainer.
 
-    ``hash_index`` is kept for backward compatibility with existing code, but
-    its keys are now record hashes. ``geometry_index`` maps a geometry hash to
-    one or more record hashes.
+    ``record_index`` maps record hashes to chunk locations. ``geometry_index``
+    maps a geometry hash to one or more record hashes.
     """
 
-    hash_index: Dict[str, Tuple[int, int, int]] = field(default_factory=dict)
+    record_index: Dict[str, Tuple[int, int, int]] = field(default_factory=dict)
     geometry_index: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
     name_index: Dict[str, str] = field(default_factory=dict)
     formula_index: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))

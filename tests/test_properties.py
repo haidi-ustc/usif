@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Tests for USIF properties module
-Test PropertyDefinition, PropertyRegistry, AtomicProperties, StructureProperties
+Test PropertyDefinition, DEFAULT_REGISTRY, AtomicProperties, StructureProperties
 """
 
 import unittest
@@ -11,7 +11,7 @@ import numpy as np
 from usif.exceptions import ValidationError
 from usif.properties.atomic import AtomicProperties
 from usif.properties.definitions import PropertyDefinition
-from usif.properties.registry import PropertyRegistry
+from usif.properties.registry import DEFAULT_REGISTRY
 from usif.properties.structure import StructureProperties
 
 
@@ -84,17 +84,17 @@ class TestPropertyDefinition(unittest.TestCase):
         self.assertEqual(shape, (6,))
 
 
-class TestPropertyRegistry(unittest.TestCase):
-    """Test PropertyRegistry class"""
+class TestDefaultRegistry(unittest.TestCase):
+    """Test default property registry"""
 
     def test_get_builtin_property(self):
         """Test getting built-in properties"""
-        energy_def = PropertyRegistry.get("energy")
+        energy_def = DEFAULT_REGISTRY.get("energy")
         self.assertIsNotNone(energy_def)
         self.assertEqual(energy_def.name, "energy")
         self.assertFalse(energy_def.is_per_atom)
 
-        force_def = PropertyRegistry.get("force")
+        force_def = DEFAULT_REGISTRY.get("force")
         self.assertIsNotNone(force_def)
         self.assertTrue(force_def.is_per_atom)
 
@@ -103,23 +103,23 @@ class TestPropertyRegistry(unittest.TestCase):
         custom_prop = PropertyDefinition(
             name="custom_prop", data_type=float, description="Custom property"
         )
-        PropertyRegistry.register(custom_prop)
+        DEFAULT_REGISTRY.register(custom_prop)
 
-        retrieved = PropertyRegistry.get("custom_prop")
+        retrieved = DEFAULT_REGISTRY.get("custom_prop")
         self.assertIsNotNone(retrieved)
         self.assertEqual(retrieved.name, "custom_prop")
 
     def test_is_atomic_property(self):
         """Test checking if property is atomic"""
-        self.assertTrue(PropertyRegistry.is_atomic_property("force"))
-        self.assertTrue(PropertyRegistry.is_atomic_property("charge"))
-        self.assertFalse(PropertyRegistry.is_atomic_property("energy"))
+        self.assertTrue(DEFAULT_REGISTRY.is_atomic_property("force"))
+        self.assertTrue(DEFAULT_REGISTRY.is_atomic_property("charge"))
+        self.assertFalse(DEFAULT_REGISTRY.is_atomic_property("energy"))
 
     def test_is_structure_property(self):
         """Test checking if property is structure-level"""
-        self.assertTrue(PropertyRegistry.is_structure_property("energy"))
-        self.assertTrue(PropertyRegistry.is_structure_property("volume"))
-        self.assertFalse(PropertyRegistry.is_structure_property("force"))
+        self.assertTrue(DEFAULT_REGISTRY.is_structure_property("energy"))
+        self.assertTrue(DEFAULT_REGISTRY.is_structure_property("volume"))
+        self.assertFalse(DEFAULT_REGISTRY.is_structure_property("force"))
 
 
 class TestAtomicProperties(unittest.TestCase):

@@ -23,8 +23,7 @@ from usif.structures.structure import USIFStructure
 def calculate_geometry_hash(structure: USIFStructure) -> bytes:
     """Calculate the SHA-256 hash of structure geometry only.
 
-    This preserves the historical v4 ``calculate_structure_hash`` semantics and
-    is suitable for geometry lookup, not record-level deduplication.
+    This hash is suitable for geometry lookup, not record-level deduplication.
     """
     data = bytearray()
     data.extend(struct.pack(BinaryFormat.UINT8, structure.structure_type.value))
@@ -62,11 +61,6 @@ def calculate_geometry_hash(structure: USIFStructure) -> bytes:
             )
 
     return hashlib.sha256(bytes(data)).digest()
-
-
-def calculate_structure_hash(structure: USIFStructure) -> bytes:
-    """Backward-compatible alias for :func:`calculate_geometry_hash`."""
-    return calculate_geometry_hash(structure)
 
 
 def calculate_payload_digest(payload: bytes) -> bytes:

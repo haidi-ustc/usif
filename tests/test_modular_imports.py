@@ -23,15 +23,16 @@ class TestModularImports(unittest.TestCase):
     def test_properties_imports(self):
         from usif.properties import (
             AtomicProperties,
+            DEFAULT_REGISTRY,
             PropertyDefinition,
-            PropertyRegistry,
             PropertySerializer,
             StructureProperties,
+            create_default_registry,
         )
 
         self.assertIsNotNone(PropertyDefinition)
         self.assertIsNotNone(PropertySerializer)
-        self.assertIsNotNone(PropertyRegistry)
+        self.assertIsNotNone(DEFAULT_REGISTRY)
         self.assertIsNotNone(AtomicProperties)
         self.assertIsNotNone(StructureProperties)
 
@@ -75,15 +76,16 @@ class TestModularImports(unittest.TestCase):
             AtomicProperties,
             AtomSite,
             CompressionType,
+            DEFAULT_REGISTRY,
             PointGroupSite,
             PropertyDefinition,
-            PropertyRegistry,
             PropertySerializer,
             StorageMode,
             StructureProperties,
             StructureType,
             USIFStructure,
             WyckoffSite,
+            create_default_registry,
         )
 
         self.assertIsNotNone(USIF)
@@ -91,7 +93,7 @@ class TestModularImports(unittest.TestCase):
         self.assertIsNotNone(StructureType)
         self.assertIsNotNone(StorageMode)
         self.assertIsNotNone(CompressionType)
-        self.assertIsNotNone(PropertyRegistry)
+        self.assertIsNotNone(DEFAULT_REGISTRY)
         self.assertIsNotNone(PropertyDefinition)
         self.assertIsNotNone(PropertySerializer)
         self.assertIsNotNone(AtomicProperties)
@@ -103,7 +105,7 @@ class TestModularImports(unittest.TestCase):
     def test_version_info(self):
         from usif import __author__, __version__
 
-        self.assertEqual(__version__, "5.3.0")
+        self.assertEqual(__version__, "5.5.0")
         self.assertIsNotNone(__author__)
 
 

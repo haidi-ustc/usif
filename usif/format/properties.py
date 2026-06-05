@@ -16,7 +16,7 @@ from usif.format.binary.limits import (
 )
 from usif.format.binary.reader import BinaryReader
 from usif.properties.atomic import AtomicProperties
-from usif.properties.registry import PropertyRegistry
+from usif.properties.registry import DEFAULT_REGISTRY
 from usif.properties.serializer import PropertySerializer
 from usif.properties.structure import StructureProperties
 
@@ -27,8 +27,8 @@ CUSTOM_JSON_PREFIX = "__USIF_JSON__:"
 class PropertyCodec:
     """Encode and decode structure and atomic properties with an injectable registry."""
 
-    def __init__(self, registry=PropertyRegistry):
-        self.registry = registry
+    def __init__(self, registry=None):
+        self.registry = registry or DEFAULT_REGISTRY
 
     @staticmethod
     def _json_default(value):

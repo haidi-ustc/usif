@@ -90,14 +90,14 @@ class TestModularStructure(unittest.TestCase):
 
     def test_property_system(self):
         """Test property system with modular structure"""
-        from usif import PropertyDefinition, PropertyRegistry
+        from usif import PropertyDefinition, DEFAULT_REGISTRY
 
         # Test built-in properties
-        force_def = PropertyRegistry.get("force")
+        force_def = DEFAULT_REGISTRY.get("force")
         self.assertIsNotNone(force_def)
         self.assertTrue(force_def.is_per_atom)
 
-        energy_def = PropertyRegistry.get("energy")
+        energy_def = DEFAULT_REGISTRY.get("energy")
         self.assertIsNotNone(energy_def)
         self.assertFalse(energy_def.is_per_atom)
 
@@ -105,9 +105,9 @@ class TestModularStructure(unittest.TestCase):
         custom_prop = PropertyDefinition(
             name="test_prop", data_type=float, description="Test property"
         )
-        PropertyRegistry.register(custom_prop)
+        DEFAULT_REGISTRY.register(custom_prop)
 
-        retrieved = PropertyRegistry.get("test_prop")
+        retrieved = DEFAULT_REGISTRY.get("test_prop")
         self.assertIsNotNone(retrieved)
         self.assertEqual(retrieved.name, "test_prop")
 

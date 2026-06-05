@@ -23,7 +23,7 @@ class QueryEngine:
         if formula:
             candidates = set(self.indexes.formula_index.get(formula, []))
         else:
-            candidates = set(self.indexes.hash_index.keys())
+            candidates = set(self.indexes.record_index.keys())
 
         if properties:
             for prop_name, prop_value in properties.items():

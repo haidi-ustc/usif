@@ -22,13 +22,12 @@ from .exceptions import (
 )
 from .properties import (
     AtomicProperties,
+    DEFAULT_REGISTRY,
     PropertyDefinition,
     PropertyRegistry,
-    PropertyRegistryInstance,
     PropertySerializer,
     StructureProperties,
-    default_registry,
-    isolated_registry,
+    create_default_registry,
 )
 from .structures import (
     SYMMETRY_METADATA_KEY,
@@ -63,9 +62,8 @@ __all__ = [
     "PropertyDefinition",
     "PropertySerializer",
     "PropertyRegistry",
-    "PropertyRegistryInstance",
-    "default_registry",
-    "isolated_registry",
+    "DEFAULT_REGISTRY",
+    "create_default_registry",
     "AtomicProperties",
     "StructureProperties",
     "WyckoffSite",

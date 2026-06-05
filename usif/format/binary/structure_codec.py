@@ -22,7 +22,7 @@ from usif.format.binary.property_codec import PropertyCodec
 from usif.format.binary.reader import BinaryReader
 from usif.format.binary.writer import BinaryWriter
 from usif.properties.atomic import AtomicProperties
-from usif.properties.registry import default_registry
+from usif.properties.registry import DEFAULT_REGISTRY
 from usif.properties.structure import StructureProperties
 from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
 from usif.structures.structure import USIFStructure
@@ -32,7 +32,7 @@ class StructureBinaryCodec:
     """Encode and decode the compressed USIF payload body."""
 
     def __init__(self, property_registry=None):
-        self.property_registry = property_registry or default_registry()
+        self.property_registry = property_registry or DEFAULT_REGISTRY
         self.property_codec = PropertyCodec(self.property_registry)
 
     @staticmethod

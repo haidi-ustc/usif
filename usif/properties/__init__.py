@@ -1,18 +1,8 @@
-"""
-USIF Property System
-
-This package provides property definitions, registries, serialization, and
-containers for atomic and structure-level properties.
-"""
+"""USIF property system."""
 
 from .atomic import AtomicProperties
 from .definitions import PropertyDefinition
-from .registry import (
-    PropertyRegistry,
-    PropertyRegistryInstance,
-    default_registry,
-    isolated_registry,
-)
+from .registry import DEFAULT_REGISTRY, PropertyRegistry, create_default_registry
 from .serializer import PropertySerializer
 from .structure import StructureProperties
 
@@ -20,9 +10,8 @@ __all__ = [
     "PropertyDefinition",
     "PropertySerializer",
     "PropertyRegistry",
-    "PropertyRegistryInstance",
-    "default_registry",
-    "isolated_registry",
+    "DEFAULT_REGISTRY",
+    "create_default_registry",
     "AtomicProperties",
     "StructureProperties",
 ]

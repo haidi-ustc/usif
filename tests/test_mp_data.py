@@ -173,7 +173,7 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
                         )
 
                     # Verify hash (convert to hex for comparison)
-                    expected_hash = self.encoder_gzip.get_structure_hash(original)
+                    expected_hash = self.encoder_gzip.get_geometry_hash(original)
                     if isinstance(hash_val, bytes):
                         hash_val_hex = hash_val.hex()
                     else:
@@ -301,8 +301,8 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
                 original = convert_mp_to_usif(doc)
 
                 # Get hash multiple times
-                hash1 = self.encoder_gzip.get_structure_hash(original)
-                hash2 = self.encoder_gzip.get_structure_hash(original)
+                hash1 = self.encoder_gzip.get_geometry_hash(original)
+                hash2 = self.encoder_gzip.get_geometry_hash(original)
 
                 self.assertEqual(hash1, hash2)
 
