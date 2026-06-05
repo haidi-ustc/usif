@@ -22,11 +22,11 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback when toml
 # Binary format version (integer, incremented only for .usif record format changes).
 FORMAT_VERSION = 5
 
-_FALLBACK_VERSION = "6.10.0"
+_FALLBACK_VERSION = "7.0.0"
 _FALLBACK_RELEASE_DATE = "2026-06-05"
-_FALLBACK_RELEASE_SEQUENCE = 14
-_FALLBACK_RELEASE_RECORD = "20260605.014"
-_FALLBACK_RELEASE_ID = "usif-20260605-014"
+_FALLBACK_RELEASE_SEQUENCE = 15
+_FALLBACK_RELEASE_RECORD = "20260605.015"
+_FALLBACK_RELEASE_ID = "usif-20260605-015"
 
 
 def _find_source_pyproject() -> Path | None:

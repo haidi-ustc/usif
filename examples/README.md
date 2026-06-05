@@ -24,3 +24,5 @@ The Materials Project downloader requires the `mp` extra and an API key. Its `--
 ## Complete documentation site
 
 See `docs/site/` for the productized documentation set: quickstart, concepts, tutorials, cookbook recipes, and public API map.
+
+- `11_cli_workflow.py` — demonstrates the official `usif` CLI entry point for version, convert, inspect, and validate workflows.

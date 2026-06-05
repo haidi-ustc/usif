@@ -63,6 +63,7 @@ def test_ci_workflow_covers_quality_test_and_build_smoke():
         "pytest tests/integration tests/reliability tests/examples",
         "python -m build",
         "dist/*.whl",
+        "usif version",
     ):
         assert expected in text
 
@@ -94,7 +95,7 @@ def test_release_governance_docs_and_script_exist():
     assert "python scripts/check_release_metadata.py" in fmt
 
 
-def test_core_docs_match_current_6_5_code_boundaries():
+def test_core_docs_match_current_code_boundaries():
     docs = {
         name: Path(f"docs/{name}").read_text()
         for name in (
@@ -122,6 +123,7 @@ def test_core_docs_match_current_6_5_code_boundaries():
         "ASE adapter depends on pymatgen",
         "scripts/check_release_metadata.py",
         "docs/site",
+        "usif.cli",
     ):
         assert expected in architecture
 

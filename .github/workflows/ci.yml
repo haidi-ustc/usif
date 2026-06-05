@@ -79,10 +79,12 @@ jobs:
         run: |
           python -m venv /tmp/usif-wheel-smoke
           /tmp/usif-wheel-smoke/bin/python -m pip install dist/*.whl
-          /tmp/usif-wheel-smoke/bin/python - <<'PY'
+          /tmp/usif-wheel-smoke/bin/usif version
+          usif --version
+          python - <<'PY'
           import usif
-          assert usif.__version__ == "6.10.0"
-          assert usif.RELEASE_RECORD == "20260605.014"
+          assert usif.__version__ == "7.0.0"
+          assert usif.RELEASE_RECORD == "20260605.015"
           from usif import USIF, USIFStructure
           from usif.storage import StructureContainer
           print("USIF wheel smoke OK", usif.__version__)

@@ -97,3 +97,10 @@ def test_large_container_workflow_example_runs(capsys):
 def test_materials_project_dataset_example_help_runs(capsys):
     run_script("examples/10_materials_project_dataset.py", "--help")
     assert "Materials Project" in capsys.readouterr().out
+
+
+def test_cli_workflow_example_runs(capsys):
+    run_script("examples/11_cli_workflow.py")
+    out = capsys.readouterr().out
+    assert "CLI workflow completed" in out
+    assert "Formula: NaCl" in out

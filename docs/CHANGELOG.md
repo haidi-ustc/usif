@@ -1,11 +1,18 @@
-## 6.10.0
+# Changelog
 
+## 7.0.0
+
+- Promoted USIF to the 7.0 long-term stable architecture line.
+- Added the official Typer-powered `usif` command-line interface through the `usif = "usif.cli:main"` console script.
+- Added CLI commands for version metadata, structure/container inspection, `.usif` <-> JSON conversion, validation, container statistics, container index listing, and indexed container queries.
+- Added focused CLI tests that exercise the Typer entry point directly without requiring optional pymatgen/ASE objects.
+- Updated documentation, README, release governance, and the docs site to describe CLI usage and public API boundaries.
+- Updated release metadata to the date record `20260605.015` and release ID `usif-20260605-015`.
+- Kept binary `FORMAT_VERSION` at 5 because the `.usif` single-record format layout did not change.
 - Skipped the 6.9 line and added a productized user documentation site under `docs/site/` with quickstart, concepts, tutorials, cookbook recipes, and a public API map.
 - Added documentation-site release guardrails so site pages are packaged, tested, and kept aligned with the current package version and release record.
 - Added `examples/10_materials_project_dataset.py` as a clearer Materials Project dataset example with safe `--help` behavior and explicit local dataset conversion guidance.
 - Updated README and examples documentation to point users from quick-start snippets to the complete documentation site.
-- Updated release metadata to the date record `20260605.014` and release ID `usif-20260605-014`.
-- Kept binary `FORMAT_VERSION` at 5 because the `.usif` single-record format layout did not change.
 
 ## 6.8.0
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "usif"
-version = "6.10.0"
+version = "7.0.0"
 description = "Universal Structure Interchange Format for crystals and molecules"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -28,7 +28,11 @@ dependencies = [
     "pymatgen>=2022.0.0",
     "monty>=2022.0.0",
     "tomli>=2.0.0; python_version < '3.11'",
+    "typer>=0.12.0",
 ]
+
+[project.scripts]
+usif = "usif.cli:main"
 
 [project.optional-dependencies]
 ase = [
@@ -52,6 +56,7 @@ dev = [
     "pip-audit>=2.7.0",
     "build>=1.0.0",
     "tomli>=2.0.0; python_version < '3.11'",
+    "typer>=0.12.0",
 ]
 all = [
     "ase>=3.22.0",
@@ -67,6 +72,7 @@ all = [
     "pip-audit>=2.7.0",
     "build>=1.0.0",
     "tomli>=2.0.0; python_version < '3.11'",
+    "typer>=0.12.0",
 ]
 
 [tool.setuptools]
@@ -75,9 +81,9 @@ packages = {find = {include = ["usif*", "scripts*"]}}
 
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 14
-record = "20260605.014"
-id = "usif-20260605-014"
+sequence = 15
+record = "20260605.015"
+id = "usif-20260605-015"
 
 
 [tool.pytest.ini_options]
@@ -109,7 +115,7 @@ use_parentheses = true
 ensure_newline_before_comments = true
 skip_glob = ["build/*", "dist/*", "*.egg-info/*", "htmlcov/*", ".tox/*", ".venv/*", "venv/*"]
 known_first_party = ["usif"]
-known_third_party = ["ase", "monty", "mp_api", "numpy", "pymatgen", "pytest"]
+known_third_party = ["ase", "click", "monty", "mp_api", "numpy", "pymatgen", "pytest", "typer"]
 
 
 [tool.black]

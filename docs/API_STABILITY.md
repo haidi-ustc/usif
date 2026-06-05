@@ -1,12 +1,12 @@
 # API Stability Policy
 
-USIF 6.x is the stable architecture line.  The public API is intentionally small;
+USIF 7.x is the stable architecture line.  The public API is intentionally small;
 internal modules may keep changing when they improve reliability, performance, or
 maintainability.
 
 ## Public API
 
-The following entry points are considered stable for 6.x minor releases:
+The following entry points are considered stable for 7.x minor releases:
 
 - `usif.USIFStructure`
 - `usif.USIF`
@@ -29,6 +29,7 @@ The following entry points are considered stable for 6.x minor releases:
 - `usif.interop.ase.ASEExporter`
 - `usif.benchmarks.benchmark_compression()`
 - `usif.integrations.materials_project` high-level functions documented in README
+- `usif` console script and `usif.cli.main()` programmatic CLI entry point
 
 ## Internal API
 
@@ -48,12 +49,12 @@ Examples of internal modules:
 ## Experimental API
 
 Features marked experimental in documentation or docstrings may change within the
-6.x line.  Examples include performance markers, large-container benchmarking
+7.x line.  Examples include performance markers, large-container benchmarking
 fixtures, and future optional native ASE conversion paths.
 
 ## Deprecation policy
 
-The 6.x line should avoid reintroducing broad backward-compatible facades.  When a
+The 7.x line should avoid reintroducing broad backward-compatible facades.  When a
 public API must change:
 
 1. Add a changelog entry explaining the reason.
@@ -64,6 +65,6 @@ public API must change:
 
 ## Breaking changes
 
-Breaking changes to the stable public API should normally wait for 7.0.  Breaking
-changes to undocumented internal modules are allowed in 6.x when tests and docs
+Breaking changes to the stable public API should normally wait for 8.0.  Breaking
+changes to undocumented internal modules are allowed in 7.x when tests and docs
 are updated.
