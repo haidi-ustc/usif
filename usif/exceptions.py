@@ -16,9 +16,10 @@ Exception Hierarchy:
 
 Usage:
     >>> from usif import USIFError, EncodingError, DecodingError
+    >>> from usif.services import save_structure
     >>>
     >>> try:
-    ...     structure.save('file.usif')
+    ...     save_structure(structure, 'file.usif')
     ... except EncodingError as e:
     ...     print(f"Encoding failed: {e}")
     ... except USIFError as e:

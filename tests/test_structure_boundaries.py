@@ -1,10 +1,9 @@
-"""Tests for USIFStructure facade delegation boundaries."""
+"""Tests for model/service architecture boundaries."""
 
 import numpy as np
 
 from usif import StorageMode, StructureProperties, StructureType, USIFStructure, WyckoffSite
-from usif.structures.io import load_structure, save_structure
-from usif.structures.source import convert_to, from_pymatgen
+from usif.services import export_structure, import_pymatgen, load_structure, save_structure
 
 
 def make_structure():
@@ -19,28 +18,26 @@ def make_structure():
     )
 
 
-def test_structure_save_load_delegate_to_io_helper(tmp_path):
+def test_services_save_load_roundtrip(tmp_path):
     structure = make_structure()
     path = tmp_path / "structure.usif"
 
     save_structure(structure, path)
-    loaded = load_structure(USIFStructure, path)
+    loaded = load_structure(path)
 
     assert loaded == structure
 
 
-def test_structure_to_delegate_matches_direct_source_helper():
+def test_export_service_converts_to_pymatgen():
     structure = make_structure()
 
-    assert convert_to(structure, fmt="pymatgen").composition.reduced_formula == "Si"
-    assert structure.to(fmt="pymatgen").composition.reduced_formula == "Si"
+    assert export_structure(structure, fmt="pymatgen").composition.reduced_formula == "Si"
 
 
-def test_from_pymatgen_helper_matches_facade():
-    pmg = make_structure().to(fmt="pymatgen")
+def test_import_pymatgen_service_roundtrip():
+    pmg = export_structure(make_structure(), fmt="pymatgen")
 
-    from_helper = from_pymatgen(pmg, force_symmetric=True)
-    from_facade = USIFStructure.from_pymatgen(pmg, force_symmetric=True)
+    imported = import_pymatgen(pmg, force_symmetric=True)
 
-    assert from_helper.formula == from_facade.formula
-    assert from_helper.storage_mode == from_facade.storage_mode
+    assert imported.formula == "Si"
+    assert imported.storage_mode == StorageMode.SYMMETRIC

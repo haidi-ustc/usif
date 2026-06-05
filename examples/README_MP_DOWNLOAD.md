@@ -145,9 +145,9 @@ from examples.download_mp_data import load_structure
 structure, properties = load_structure(Path("data/mp_structures/group_01/mp-12345.json"))
 
 # Use with USIF
-from usif import USIFStructure
+from usif.services import import_pymatgen
 
-usif_structure = USIFStructure.from_pymatgen(
+usif_structure = import_pymatgen(
     structure,
     energy=properties.get("energy"),
     # ... other properties
@@ -160,7 +160,7 @@ Example script to convert MP structures to USIF format:
 
 ```python
 from pathlib import Path
-from usif import USIFStructure
+from usif.services import import_pymatgen
 from examples.download_mp_data import load_structure
 
 # Load all structures from a group
@@ -171,7 +171,7 @@ for json_file in group_dir.glob("*.json"):
     structure, properties = load_structure(json_file)
     
     # Convert to USIF with properties
-    usif_struct = USIFStructure.from_pymatgen(
+    usif_struct = import_pymatgen(
         structure,
         energy=properties.get("energy"),
         # Add other properties as needed

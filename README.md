@@ -4,12 +4,12 @@ USIF is a Python library for representing, converting, encoding, and grouping at
 
 ```python
 from pymatgen.core import Lattice, Structure
-from usif import USIFStructure
+from usif.services import import_structure, load_structure, save_structure
 
 pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-structure = USIFStructure.from_source(pmg, energy=-10.5, calculator="VASP")
-structure.save("nacl.usif")
-loaded = USIFStructure.load("nacl.usif")
+structure = import_structure(pmg, energy=-10.5, calculator="VASP")
+save_structure(structure, "nacl.usif")
+loaded = load_structure("nacl.usif")
 print(loaded.formula)
 ```
 
@@ -37,14 +37,14 @@ Core runtime requirements are Python 3.10+, `numpy`, and `pymatgen`. ASE support
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from pymatgen.core import Lattice, Structure
-from usif import USIFStructure
+from usif.services import import_structure, load_structure, save_structure
 
 with TemporaryDirectory() as tmp:
     pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-    structure = USIFStructure.from_source(pmg, energy=-10.5, calculator="VASP")
+    structure = import_structure(pmg, energy=-10.5, calculator="VASP")
     path = Path(tmp) / "nacl.usif"
-    structure.save(path)
-    loaded = USIFStructure.load(path)
+    save_structure(structure, path)
+    loaded = load_structure(path)
     print(loaded.formula)
 ```
 
@@ -76,10 +76,11 @@ print(structure.num_atoms())
 
 ```python
 from pymatgen.core import Lattice, Structure
-from usif import CompressionType, USIF, USIFStructure
+from usif import CompressionType, USIF
+from usif.services import import_structure
 
 pmg = Structure(Lattice.cubic(3.0), ["Li"], [[0, 0, 0]])
-structure = USIFStructure.from_source(pmg, energy=-1.0)
+structure = import_structure(pmg, energy=-1.0)
 codec = USIF(compression=CompressionType.GZIP)
 data = codec.encode(structure)
 decoded, geometry_hash = codec.decode(data)
@@ -102,14 +103,14 @@ Hash semantics are intentionally separate:
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from pymatgen.core import Lattice, Structure
-from usif import USIFStructure
+from usif.services import import_structure
 from usif.storage import StructureContainer
 
 with TemporaryDirectory() as tmp:
     path = Path(tmp) / "materials.usifc"
     pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-    low = USIFStructure.from_source(pmg, energy=-10.5)
-    high = USIFStructure.from_source(pmg, energy=-10.0)
+    low = import_structure(pmg, energy=-10.5)
+    high = import_structure(pmg, energy=-10.0)
     with StructureContainer(path, mode="w") as container:
         print(container.add(low, name="nacl-low") != container.add(high, name="nacl-high"))
     with StructureContainer(path, mode="r") as container:
@@ -126,16 +127,16 @@ Container internals are split across focused modules under `usif.storage`: `cont
 
 ## Conversion with pymatgen and ASE
 
-USIF 5.3 uses explicit interop adapters instead of a top-level converter facade. Use `PymatgenImporter` / `PymatgenExporter` and `ASEImporter` / `ASEExporter` for direct conversions.
+USIF 5.6 keeps `USIFStructure` as a pure model; use services or explicit interop adapters at application boundaries. Use `PymatgenImporter` / `PymatgenExporter` and `ASEImporter` / `ASEExporter` for direct conversions.
 
 
 ```python
 from pymatgen.core import Lattice, Structure
-from usif import USIFStructure
 from usif.interop.pymatgen import PymatgenExporter
+from usif.services import import_structure
 
 pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-structure = USIFStructure.from_source(pmg, energy=-10.5)
+structure = import_structure(pmg, energy=-10.5)
 round_tripped = PymatgenExporter.to_pymatgen(structure)
 print(round_tripped.composition.reduced_formula)
 ```
@@ -144,10 +145,10 @@ ASE support requires the `ase` extra:
 
 ```python
 from ase import Atoms
-from usif import USIFStructure
+from usif.services import import_structure
 
 atoms = Atoms("H2O", positions=[[0, 0, 0], [0.95, 0, 0], [0.95, 0.95, 0]])
-water = USIFStructure.from_source(atoms, energy=-76.4)
+water = import_structure(atoms, energy=-76.4)
 print(water.formula)
 ```
 

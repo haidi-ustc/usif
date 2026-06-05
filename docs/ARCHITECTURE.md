@@ -371,7 +371,7 @@ Binary Data
 
 ### 5.3 interop cleanup
 
-USIF 5.3 removed the old conversion and compatibility facades. `usif.interop.pymatgen.importer` and `usif.interop.pymatgen.exporter` now own pymatgen conversion logic directly. ASE import/export modules convert through those canonical adapters. Container access is canonical through `usif.storage`, and public I/O helpers re-export structure source/I/O functions directly instead of routing through `usif.io.facade`.
+USIF 5.3 removed the old conversion and compatibility facades. `usif.interop.pymatgen.importer` and `usif.interop.pymatgen.exporter` now own pymatgen conversion logic directly. ASE import/export modules convert through those canonical adapters. Container access is canonical through `usif.storage`.
 
 
 ### USIF 5.5 Storage Composition
@@ -383,3 +383,18 @@ USIF 5.3 removed the old conversion and compatibility facades. `usif.interop.pym
 - `IndexPersistenceMixin` serializes/deserializes logical index payloads but delegates physical index I/O to `ContainerIndexStore`.
 
 The normal read path loads only the fixed container header and the referenced index block. It no longer converts the full container file into an in-memory byte string before index parsing.
+
+
+### USIF 5.6 Model and Services Boundary
+
+`USIFStructure` is now a pure domain model. It owns structure data, validation, equality, display, and Monty dictionary serialization only. It no longer imports or delegates to encoder, storage, pymatgen, ASE, or filesystem helpers.
+
+Application-boundary operations live in `usif.services`:
+
+- `import_structure(source, ...)` accepts a file path, pymatgen object, or ASE object and returns a `USIFStructure`.
+- `import_pymatgen(pmg_obj, ...)` imports pymatgen structures or molecules explicitly.
+- `export_structure(structure, filename=None, fmt=None, ...)` exports to pymatgen/ASE objects or supported file formats.
+- `save_structure(structure, filename, compression=...)` writes `.usif` or Monty JSON.
+- `load_structure(filename)` reads `.usif` or Monty JSON.
+
+Removed model/facade paths include `USIFStructure.from_source`, `USIFStructure.from_pymatgen`, `USIFStructure.to`, `USIFStructure.save`, `USIFStructure.load`, `usif.structures.source`, `usif.structures.io`, and `usif.io`.

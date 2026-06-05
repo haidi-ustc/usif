@@ -1,4 +1,4 @@
-"""Persistence helpers for USIFStructure."""
+"""Persistence services for USIF structures."""
 
 import json
 from pathlib import Path
@@ -6,10 +6,11 @@ from typing import Union
 
 from usif.constants import CompressionType
 from usif.exceptions import StorageError
+from usif.structures import USIFStructure
 
 
 def save_structure(
-    structure,
+    structure: USIFStructure,
     filename: Union[str, Path],
     compression: CompressionType = CompressionType.GZIP,
 ) -> None:
@@ -31,7 +32,7 @@ def save_structure(
         raise StorageError(f"Failed to save structure to {filename}: {e}") from e
 
 
-def load_structure(structure_cls, filename: Union[str, Path]):
+def load_structure(filename: Union[str, Path]) -> USIFStructure:
     """Load a structure from USIF binary or MSON JSON based on file extension."""
     filename = Path(filename)
 
@@ -55,6 +56,6 @@ def load_structure(structure_cls, filename: Union[str, Path]):
     try:
         with open(filename, "r") as f:
             data = json.load(f)
-        return structure_cls.from_dict(data)
+        return USIFStructure.from_dict(data)
     except (IOError, FileNotFoundError) as e:
         raise StorageError(f"Failed to load structure from {filename}: {e}") from e

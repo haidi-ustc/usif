@@ -58,13 +58,31 @@ class TestModularImports(unittest.TestCase):
         self.assertIsNotNone(StructureContainer)
         self.assertIsNotNone(USIFGroup)
 
+
+    def test_services_imports(self):
+        from usif.services import (
+            export_structure,
+            import_pymatgen,
+            import_structure,
+            load_structure,
+            save_structure,
+        )
+
+        self.assertIsNotNone(import_structure)
+        self.assertIsNotNone(import_pymatgen)
+        self.assertIsNotNone(export_structure)
+        self.assertIsNotNone(load_structure)
+        self.assertIsNotNone(save_structure)
+
     def test_removed_compatibility_modules(self):
         for module in (
             "usif.converter",
             "usif.container",
             "usif.interop.converter_core",
             "usif.interop.symmetry",
-            "usif.io.facade",
+            "usif.io",
+                "usif.structures.io",
+                "usif.structures.source",
         ):
             with self.subTest(module=module):
                 with self.assertRaises(ModuleNotFoundError):
@@ -105,7 +123,7 @@ class TestModularImports(unittest.TestCase):
     def test_version_info(self):
         from usif import __author__, __version__
 
-        self.assertEqual(__version__, "5.5.0")
+        self.assertEqual(__version__, "5.6.0")
         self.assertIsNotNone(__author__)
 
 

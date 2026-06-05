@@ -27,6 +27,8 @@ Usage:
     >>> usif_struct = convert_mp_to_usif(docs[0])
 """
 
+from __future__ import annotations
+
 import logging
 import tempfile
 import time
@@ -34,7 +36,7 @@ import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from usif import USIFStructure
+from usif.services import import_pymatgen
 
 logger = logging.getLogger(__name__)
 
@@ -476,7 +478,7 @@ def convert_mp_to_usif(doc: Union[Dict[str, Any], Any]) -> USIFStructure:
         if custom_props:
             properties["custom"] = custom_props
 
-    # Convert using USIFStructure.from_pymatgen
+    # Convert through the application service layer
     # Extract custom properties separately
     custom_props = properties.pop("custom", {})
 
@@ -494,7 +496,7 @@ def convert_mp_to_usif(doc: Union[Dict[str, Any], Any]) -> USIFStructure:
             other_kwargs[k] = v
 
     # Convert - pass built-in properties explicitly, others as kwargs
-    usif_struct = USIFStructure.from_pymatgen(
+    usif_struct = import_pymatgen(
         structure,
         energy=built_in_kwargs.get("energy"),
         volume=built_in_kwargs.get(

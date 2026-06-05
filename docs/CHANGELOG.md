@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.6.0
+
+- Slimmed `USIFStructure` into a pure domain model: removed `from_source()`, `from_pymatgen()`, `to()`, `save()`, and `load()` from the model class.
+- Added `usif.services` as the canonical application boundary for `import_structure()`, `import_pymatgen()`, `export_structure()`, `save_structure()`, and `load_structure()`.
+- Removed obsolete `usif.structures.source`, `usif.structures.io`, and `usif.io` modules.
+- Updated examples, tests, and README to use service functions or explicit interop adapters.
+- Updated Materials Project conversion utilities to import through the service layer instead of model class methods.
+- Kept binary `FORMAT_VERSION` at 5 because the USIF record format did not change.
+
 ## 5.5.0
 
 - Added composed `RecordStore` and `ContainerIndexStore` components for container file and index I/O.

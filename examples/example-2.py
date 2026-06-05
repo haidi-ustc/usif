@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from pymatgen.core import Lattice, Structure
 
-from usif import USIFStructure
+from usif.services import import_structure
 from usif.storage import StructureContainer
 
 
@@ -16,7 +16,7 @@ def make_structure(formula: str, energy: float):
         pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
     else:
         pmg = Structure(Lattice.cubic(3.0), ["Li"], [[0, 0, 0]])
-    return USIFStructure.from_source(pmg, energy=energy)
+    return import_structure(pmg, energy=energy)
 
 
 def main() -> None:

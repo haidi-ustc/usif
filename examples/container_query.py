@@ -7,14 +7,15 @@ from tempfile import TemporaryDirectory
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from pymatgen.core import Lattice, Structure
 
-from usif import USIF, USIFStructure
+from usif import USIF
+from usif.services import import_structure
 from usif.storage import StructureContainer
 
 
 def main() -> None:
     pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-    low_energy = USIFStructure.from_source(pmg, energy=-10.5)
-    high_energy = USIFStructure.from_source(pmg, energy=-10.0)
+    low_energy = import_structure(pmg, energy=-10.5)
+    high_energy = import_structure(pmg, energy=-10.0)
     with TemporaryDirectory() as tmp:
         path = Path(tmp) / "materials.usifc"
         with StructureContainer(path, mode="w") as container:

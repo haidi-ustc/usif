@@ -74,7 +74,7 @@ class ContainerIndexStore:
             if magic == b"USIF\x00\x00\x00":
                 raise StorageError(
                     f"File {filename} is a USIF structure file, not a container. "
-                    "Use USIFStructure.load() to open it."
+                    "Use usif.services.load_structure() to open it."
                 )
             raise CorruptedDataError("Invalid USIF container")
         return ContainerHeader(

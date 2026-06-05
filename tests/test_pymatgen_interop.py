@@ -12,6 +12,7 @@ from pymatgen.core import Lattice, Molecule, Structure
 from usif import StorageMode, StructureType, USIFStructure
 from usif.exceptions import SymmetryAnalysisError
 from usif.interop.pymatgen import PymatgenExporter, PymatgenImporter
+from usif.services import export_structure, load_structure
 
 
 class TestPymatgenInterop(unittest.TestCase):
@@ -132,8 +133,8 @@ class TestPymatgenInterop(unittest.TestCase):
         self.assertEqual(roundtrip_coords, original_coords)
 
 
-class TestUSIFStructureToMethod(unittest.TestCase):
-    """Test USIFStructure.to() method"""
+class TestStructureExportService(unittest.TestCase):
+    """Test canonical structure export service"""
 
     def setUp(self):
         """Set up test fixtures"""
@@ -164,18 +165,18 @@ class TestUSIFStructureToMethod(unittest.TestCase):
 
         try:
             # Test with auto-detection from extension
-            self.usif_structure.to(tmp_path)
+            export_structure(self.usif_structure, tmp_path)
             self.assertTrue(os.path.exists(tmp_path))
 
             # Test with explicit format
             with tempfile.NamedTemporaryFile(suffix=".usif", delete=False) as tmp2:
                 tmp_path2 = tmp2.name
-            self.usif_structure.to(tmp_path2, "usif")
+            export_structure(self.usif_structure, tmp_path2, "usif")
             self.assertTrue(os.path.exists(tmp_path2))
             os.unlink(tmp_path2)
 
             # Test loading back
-            loaded = USIFStructure.load(tmp_path)
+            loaded = load_structure(tmp_path)
             self.assertEqual(loaded.formula, self.usif_structure.formula)
             self.assertEqual(loaded.num_atoms(), self.usif_structure.num_atoms())
         finally:
@@ -185,12 +186,12 @@ class TestUSIFStructureToMethod(unittest.TestCase):
     def test_to_usif_format_missing_filename(self):
         """Test that to() raises error when filename is missing for usif format"""
         with self.assertRaises(ValueError) as context:
-            self.usif_structure.to(None, "usif")
+            export_structure(self.usif_structure, None, "usif")
         self.assertIn("filename is required", str(context.exception))
 
     def test_to_pymatgen_format(self):
         """Test converting to pymatgen format"""
-        pmg_structure = self.usif_structure.to(fmt="pymatgen")
+        pmg_structure = export_structure(self.usif_structure, fmt="pymatgen")
 
         from pymatgen.core import Structure
 
@@ -199,7 +200,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
         self.assertAlmostEqual(pmg_structure.volume, 125.0, places=1)
 
         # Test default (no args) defaults to pymatgen
-        pmg_structure2 = self.usif_structure.to()
+        pmg_structure2 = export_structure(self.usif_structure)
         self.assertIsInstance(pmg_structure2, Structure)
 
         # Test that providing filename with pymatgen raises error
@@ -209,7 +210,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
             tmp_path = tmp.name
         try:
             with self.assertRaises(ValueError) as context:
-                self.usif_structure.to(tmp_path, "pymatgen")
+                export_structure(self.usif_structure, tmp_path, "pymatgen")
             self.assertIn("filename should not be provided", str(context.exception))
         finally:
             import os
@@ -220,7 +221,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
     def test_to_ase_format(self):
         """Test converting to ASE format"""
         try:
-            ase_atoms = self.usif_structure.to(fmt="ase")
+            ase_atoms = export_structure(self.usif_structure, fmt="ase")
 
             from ase import Atoms
 
@@ -237,7 +238,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
                 tmp_path = tmp.name
             try:
                 with self.assertRaises(ValueError) as context:
-                    self.usif_structure.to(tmp_path, "ase")
+                    export_structure(self.usif_structure, tmp_path, "ase")
                 self.assertIn("filename should not be provided", str(context.exception))
             finally:
                 import os
@@ -257,13 +258,13 @@ class TestUSIFStructureToMethod(unittest.TestCase):
 
         try:
             # Test auto-detection from extension
-            self.usif_structure.to(tmp_path)
+            export_structure(self.usif_structure, tmp_path)
             self.assertTrue(os.path.exists(tmp_path))
 
             # Test explicit format
             with tempfile.NamedTemporaryFile(suffix=".cif", delete=False) as tmp2:
                 tmp_path2 = tmp2.name
-            self.usif_structure.to(tmp_path2, "cif")
+            export_structure(self.usif_structure, tmp_path2, "cif")
             self.assertTrue(os.path.exists(tmp_path2))
             os.unlink(tmp_path2)
 
@@ -286,7 +287,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
 
         try:
             # Test auto-detection from extension
-            self.usif_structure.to(tmp_path)
+            export_structure(self.usif_structure, tmp_path)
             self.assertTrue(os.path.exists(tmp_path))
 
             # Verify it's a valid POSCAR file
@@ -307,7 +308,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
 
         try:
             # Test auto-detection from extension
-            self.usif_structure.to(tmp_path)
+            export_structure(self.usif_structure, tmp_path)
             self.assertTrue(os.path.exists(tmp_path))
 
             # Verify it's a valid XYZ file
@@ -323,7 +324,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
     def test_to_file_format_missing_filename(self):
         """Test that to() raises error when filename is missing for file formats"""
         with self.assertRaises(ValueError) as context:
-            self.usif_structure.to(None, "cif")
+            export_structure(self.usif_structure, None, "cif")
         self.assertIn("filename is required", str(context.exception))
 
     def test_to_unsupported_format(self):
@@ -336,7 +337,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
 
         try:
             with self.assertRaises(ValueError) as context:
-                self.usif_structure.to(tmp_path, "unsupported_format")
+                export_structure(self.usif_structure, tmp_path, "unsupported_format")
             self.assertIn("not supported", str(context.exception).lower())
         finally:
             if os.path.exists(tmp_path):
@@ -353,7 +354,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
         self.usif_structure.structure_properties.volume = 125.0
 
         # Convert to pymatgen and back
-        pmg_structure = self.usif_structure.to(fmt="pymatgen")
+        pmg_structure = export_structure(self.usif_structure, fmt="pymatgen")
         usif_back = PymatgenImporter.from_pymatgen(pmg_structure)
 
         # Energy might not be preserved in pymatgen, but structure should be
@@ -378,7 +379,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
         )
 
         # Test to pymatgen
-        pmg_molecule = usif_molecule.to(fmt="pymatgen")
+        pmg_molecule = export_structure(usif_molecule, fmt="pymatgen")
         from pymatgen.core import Molecule
 
         self.assertIsInstance(pmg_molecule, Molecule)
@@ -386,7 +387,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
 
         # Test to ASE
         try:
-            ase_atoms = usif_molecule.to(fmt="ase")
+            ase_atoms = export_structure(usif_molecule, fmt="ase")
             from ase import Atoms
 
             self.assertIsInstance(ase_atoms, Atoms)
@@ -402,7 +403,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
             tmp_path = tmp.name
 
         try:
-            usif_molecule.to(tmp_path)
+            export_structure(usif_molecule, tmp_path)
             self.assertTrue(os.path.exists(tmp_path))
         finally:
             if os.path.exists(tmp_path):

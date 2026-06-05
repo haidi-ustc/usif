@@ -10,7 +10,9 @@ REMOVED_COMPATIBILITY_MODULES = (
     "usif.container",
     "usif.interop.converter_core",
     "usif.interop.symmetry",
-    "usif.io.facade",
+    "usif.io",
+    "usif.structures.io",
+    "usif.structures.source",
 )
 
 
@@ -56,17 +58,32 @@ def test_symmetry_package_is_canonical_import_path():
     assert SymmetryReducer is not None
 
 
-def test_io_public_helpers_delegate_directly_to_structure_modules():
-    from usif.io import convert_to, from_pymatgen, from_source, load_structure, save_structure
+def test_structure_model_has_no_io_or_conversion_methods():
     from usif.structures.structure import USIFStructure
 
-    assert from_source is not None
-    assert from_pymatgen is not None
-    assert convert_to is not None
+    for method_name in ("from_source", "from_pymatgen", "to", "save", "load"):
+        assert not hasattr(USIFStructure, method_name)
+
+    source = inspect.getsource(USIFStructure)
+    assert "usif.services" not in source
+    assert "usif.interop" not in source
+    assert "usif.encoder" not in source
+
+
+def test_services_are_canonical_application_boundary():
+    from usif.services import (
+        export_structure,
+        import_pymatgen,
+        import_structure,
+        load_structure,
+        save_structure,
+    )
+
+    assert import_structure is not None
+    assert import_pymatgen is not None
+    assert export_structure is not None
     assert save_structure is not None
     assert load_structure is not None
-    assert "usif.structures.source" in inspect.getsource(USIFStructure.from_source)
-    assert "usif.structures.io" in inspect.getsource(USIFStructure.save)
 
 
 def test_registry_default_factory_creates_isolated_registry():

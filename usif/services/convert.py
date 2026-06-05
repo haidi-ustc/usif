@@ -1,12 +1,15 @@
-"""Source loading and conversion helpers for USIFStructure."""
+"""Import and export services for USIF structures."""
 
 from pathlib import Path
 from typing import Any, Optional, Union
 
 import numpy as np
 
+from usif.constants import CompressionType
+from usif.structures import USIFStructure
 
-def from_source(
+
+def import_structure(
     source: Union[str, Path, Any],
     forces: Optional[np.ndarray] = None,
     stress: Optional[np.ndarray] = None,
@@ -16,8 +19,8 @@ def from_source(
     force_symmetric: bool = False,
     drop_atomic_properties: bool = False,
     fallback_full_atomic: bool = False,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> USIFStructure:
     """Create a USIFStructure from a file path, pymatgen object, or ASE Atoms."""
     if isinstance(source, (str, Path)):
         file_path = Path(source)
@@ -43,9 +46,7 @@ def from_source(
                     f"Supported formats: CIF, POSCAR, XYZ, etc."
                 ) from e
 
-        from usif.interop.pymatgen.importer import PymatgenImporter
-
-        return PymatgenImporter.from_pymatgen(
+        return import_pymatgen(
             pmg_obj,
             forces=forces,
             stress=stress,
@@ -63,9 +64,7 @@ def from_source(
         from pymatgen.core import Structure as PMGStructure
 
         if isinstance(source, (PMGStructure, PMGMolecule)):
-            from usif.interop.pymatgen.importer import PymatgenImporter
-
-            return PymatgenImporter.from_pymatgen(
+            return import_pymatgen(
                 source,
                 forces=forces,
                 stress=stress,
@@ -107,8 +106,8 @@ def from_source(
     )
 
 
-def from_pymatgen(
-    pmg_obj,
+def import_pymatgen(
+    pmg_obj: Any,
     forces: Optional[np.ndarray] = None,
     stress: Optional[np.ndarray] = None,
     energy: Optional[float] = None,
@@ -117,8 +116,8 @@ def from_pymatgen(
     force_symmetric: bool = False,
     drop_atomic_properties: bool = False,
     fallback_full_atomic: bool = False,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> USIFStructure:
     """Create a USIFStructure from a pymatgen Structure or Molecule."""
     from usif.interop.pymatgen.importer import PymatgenImporter
 
@@ -136,9 +135,13 @@ def from_pymatgen(
     )
 
 
-def convert_to(structure, filename=None, fmt=None, **kwargs):
+def export_structure(
+    structure: USIFStructure,
+    filename: Optional[Union[str, Path]] = None,
+    fmt: Optional[str] = None,
+    **kwargs: Any,
+) -> Any:
     """Convert a USIFStructure to another object or file format."""
-    from usif.constants import CompressionType
     if fmt is None:
         if filename is None:
             fmt = "pymatgen"
@@ -167,9 +170,7 @@ def convert_to(structure, filename=None, fmt=None, **kwargs):
 
     if fmt == "ase":
         if filename is not None:
-            raise ValueError(
-                "filename should not be provided for 'ase' format (returns object)"
-            )
+            raise ValueError("filename should not be provided for 'ase' format (returns object)")
         from usif.interop.ase.exporter import ASEExporter
 
         return ASEExporter.to_ase(structure)
@@ -178,8 +179,10 @@ def convert_to(structure, filename=None, fmt=None, **kwargs):
         raise ValueError(f"filename is required for '{fmt}' format")
 
     if fmt == "usif":
+        from usif.services.io import save_structure
+
         compression = kwargs.get("compression", CompressionType.GZIP)
-        structure.save(filename, compression=compression)
+        save_structure(structure, filename, compression=compression)
         return None
 
     if fmt == "xyz":

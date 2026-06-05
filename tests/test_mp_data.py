@@ -31,6 +31,7 @@ from usif import (
     USIFStructure,
     ValidationError,
 )
+from usif.services import load_structure, save_structure
 from usif.storage import StructureContainer
 from usif.utils.mp_downloader import (
     convert_mp_to_usif,
@@ -219,11 +220,11 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
 
                     # Save
                     filepath = self.temp_dir / f"test_{i}.usif"
-                    original.save(filepath)
+                    save_structure(original, filepath)
                     self.assertTrue(filepath.exists())
 
                     # Load
-                    loaded = USIFStructure.load(filepath)
+                    loaded = load_structure(filepath)
 
                     # Verify round-trip (check key properties, floating point may differ)
                     self.assertEqual(original.structure_type, loaded.structure_type)
