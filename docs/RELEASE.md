@@ -1,10 +1,10 @@
 # Release Process
 
-This project uses `pyproject.toml` as the single packaging configuration source. `setup.cfg` and generated egg-info directories are intentionally not part of the source tree.
+This project uses `pyproject.toml` as the single packaging configuration and release metadata source. See `docs/VERSIONING.md` for the date-based unique release record scheme. `setup.cfg` and generated egg-info directories are intentionally not part of the source tree.
 
 ## Pre-release checklist
 
-1. Update `usif/version.py`.
+1. Update `[project].version` and `[tool.usif.release]` in `pyproject.toml`.
 2. Update `docs/CHANGELOG.md`.
 3. Run formatting, type, security, and dependency checks:
 
@@ -36,7 +36,8 @@ python -m venv /tmp/usif-wheel-smoke
 /tmp/usif-wheel-smoke/bin/python -m pip install dist/*.whl
 /tmp/usif-wheel-smoke/bin/python - <<'PY'
 import usif
-assert usif.__version__ == "5.9.0"
+assert usif.__version__ == "6.0.0"
+assert usif.RELEASE_RECORD == "20260605.001"
 from usif import USIF, USIFStructure
 from usif.storage import StructureContainer
 print("USIF wheel smoke OK", usif.__version__)

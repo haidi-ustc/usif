@@ -9,6 +9,7 @@ include docs/CONTRIBUTING.md
 include docs/PROPERTY_SYSTEM.md
 include docs/RELEASE.md
 include docs/TESTING.md
+include docs/VERSIONING.md
 recursive-include examples *.py *.md
 recursive-include tests *.py
 recursive-include tests/fixtures *.zip

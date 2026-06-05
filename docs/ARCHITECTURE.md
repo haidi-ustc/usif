@@ -432,3 +432,9 @@ USIF 5.9 formalizes the engineering workflow around the architecture. Tests are 
 - `tests/fixtures` for deterministic bundled data.
 
 `tests/conftest.py` assigns pytest markers from the directory layout so CI and local runs can select layers without depending on filename conventions. `pyproject.toml` is the single packaging configuration source, and release artifacts are expected to be built as both sdist and wheel followed by a clean-environment wheel smoke test.
+
+### USIF 6.0 Stable Architecture and Release Metadata Boundary
+
+USIF 6.0 freezes the post-refactor public package boundaries: structures are pure models, services own application I/O, interop adapters own external object conversion, storage owns multi-record containers, and integrations own external data providers. Release metadata is now centralized in `pyproject.toml`: `[project].version` is the public package version and `[tool.usif.release]` is the date-based unique release record. Runtime metadata in `usif.version` mirrors that source for source checkouts and installed artifacts.
+
+`StructureContainer` also exposes `validate()` for explicit consistency checks across record, secondary, group, and attribute indexes. Low-level chunk access is owned by `RecordStore`, avoiding a separate storage facade that did not define an independent boundary.

@@ -40,7 +40,7 @@ A USIF file consists of two main parts:
 | Offset | Size | Field | Type | Description |
 |--------|------|-------|------|-------------|
 | 0-6 | 7 | Magic | bytes | `b'USIF\x00\x00\x00'` |
-| 7 | 1 | Version | uint8 | Format version (currently 4) |
+| 7 | 1 | Version | uint8 | Format version (currently 5) |
 | 8-11 | 4 | Raw Size | uint32 | Uncompressed data size in bytes |
 | 12-15 | 4 | Compressed Size | uint32 | Compressed data size in bytes |
 | 16 | 1 | Compression | uint8 | Compression type (0=None, 1=GZIP) |
@@ -358,7 +358,7 @@ The hash includes:
 ```
 Header (64 bytes):
   [0-6]    'USIF\x00\x00\x00'
-  [7]      4 (version)
+  [7]      5 (version)
   [8-11]   <raw_size> (uint32)
   [12-15]  <compressed_size> (uint32)
   [16]     1 (GZIP)
@@ -416,7 +416,7 @@ See container implementation for detailed format specification.
 
 - Files with version mismatch will log a warning but attempt to decode
 - Future versions may add fields to reserved header space
-- Property format is extensible and backward-compatible
+- Property format is extensible through explicit format-version governance
 
 ## Implementation Notes
 

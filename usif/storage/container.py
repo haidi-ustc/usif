@@ -74,6 +74,7 @@ from usif.storage.query import QueryEngine
 from usif.storage.record_store import RecordStore
 from usif.storage.index_store import ContainerIndexStore
 from usif.storage.recovery import RecoveryMixin
+from usif.storage.validation import ContainerValidationResult, ContainerValidator
 from usif.structures.structure import USIFStructure
 
 logger = logging.getLogger(__name__)
@@ -388,6 +389,20 @@ class StructureContainer(
                 structures.append(structure)
         return structures
 
+
+
+    def validate(self, *, decode_records: bool = False) -> ContainerValidationResult:
+        """Validate index, group, and record consistency for this container.
+
+        Args:
+            decode_records: When true, decode each record to verify payload integrity.
+                This is slower but useful for release and corruption checks.
+
+        Returns:
+            ContainerValidationResult with errors, warnings, and summary counts.
+        """
+        with self._index_lock:
+            return ContainerValidator(self).validate(decode_records=decode_records)
 
     def stats(self) -> Dict[str, Any]:
         """

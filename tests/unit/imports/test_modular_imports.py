@@ -166,9 +166,12 @@ class TestModularImports(unittest.TestCase):
         self.assertIsNotNone(AtomSite)
 
     def test_version_info(self):
-        from usif import __author__, __version__
+        from usif import RELEASE_DATE, RELEASE_ID, RELEASE_RECORD, __author__, __version__
 
-        self.assertEqual(__version__, "5.9.0")
+        self.assertEqual(__version__, "6.0.0")
+        self.assertEqual(RELEASE_DATE, "2026-06-05")
+        self.assertEqual(RELEASE_RECORD, "20260605.001")
+        self.assertEqual(RELEASE_ID, "usif-20260605-001")
         self.assertIsNotNone(__author__)
 
 

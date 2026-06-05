@@ -127,7 +127,7 @@ Container internals are split across focused modules under `usif.storage`: `cont
 
 ## Conversion with pymatgen and ASE
 
-USIF 5.9 keeps `USIFStructure` as a pure model, splits pymatgen conversion into crystal/molecule adapters, moves optional tooling into explicit service, benchmark, and integration packages, and uses a layered test/release workflow. Use services at application boundaries, or use `PymatgenImporter` / `PymatgenExporter`, `CrystalImporter` / `MoleculeImporter`, and `ASEImporter` / `ASEExporter` for direct conversions. Symmetry behavior is controlled by `SymmetryPolicy`.
+USIF 6.0 keeps `USIFStructure` as a pure model, splits pymatgen conversion into crystal/molecule adapters, moves optional tooling into explicit service, benchmark, and integration packages, and uses a layered test/release workflow. Use services at application boundaries, or use `PymatgenImporter` / `PymatgenExporter`, `CrystalImporter` / `MoleculeImporter`, and `ASEImporter` / `ASEExporter` for direct conversions. Symmetry behavior is controlled by `SymmetryPolicy`.
 
 
 ```python
@@ -221,7 +221,7 @@ python examples/download_mp_data.py --help
 
 ## Development
 
-USIF 5.9 uses a layered test suite and explicit release checks.
+USIF 6.0 uses a layered test suite and explicit release checks.
 
 ```bash
 python -m pip install -e ".[dev,ase,mp]"

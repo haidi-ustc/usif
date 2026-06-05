@@ -1,5 +1,16 @@
 # Changelog
 
+## 6.0.0
+
+- Promoted the package classifier to stable status for the 6.0 architecture line.
+- Moved the editable package version source to `[project].version` in `pyproject.toml` instead of a dynamic setuptools attribute.
+- Added `[tool.usif.release]` with a date-based unique release record (`20260605.001`) and release ID (`usif-20260605-001`).
+- Added `usif.RELEASE_DATE`, `usif.RELEASE_RECORD`, and `usif.RELEASE_ID` exports.
+- Added `docs/VERSIONING.md` to document the pyproject-driven release metadata scheme.
+- Folded the low-level `file_store` helper into `RecordStore` as `ChunkedRecordAccess`, keeping container storage internals tighter for 6.0.
+- Added `StructureContainer.validate()` and `ContainerValidationResult` for explicit index/group/record consistency checks.
+- Kept binary `FORMAT_VERSION` at 5 because the USIF record format did not change.
+
 ## 5.9.0
 
 - Reorganized tests into explicit `tests/unit`, `tests/integration`, `tests/reliability`, `tests/examples`, and `tests/fixtures` layers.

@@ -4,8 +4,6 @@
 from typing import List, Optional
 
 import numpy as np
-from monty.json import MSONable
-
 from usif.constants import StorageMode, StructureType, SymmetryConstants
 from usif.exceptions import ValidationError
 from usif.properties.atomic import AtomicProperties
@@ -14,7 +12,7 @@ from usif.structures.metadata import SYMMETRY_METADATA_KEY, SymmetryMetadata
 from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
 
 
-class USIFStructure(MSONable):
+class USIFStructure:
     """Structure data, validation, metadata, and MSON serialization only."""
 
     __slots__ = [

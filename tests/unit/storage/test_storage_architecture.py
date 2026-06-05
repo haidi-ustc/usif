@@ -203,3 +203,24 @@ def test_removed_obsolete_container_code_paths():
     assert "_read_group_hierarchy" not in storage_text
     assert "_deserialize_indexes(" not in storage_text
     assert "strict=False" not in storage_text
+
+
+def test_record_store_owns_chunk_access_without_file_store_facade():
+    from usif.storage import ChunkedRecordAccess, RecordStore
+
+    assert RecordStore is not None
+    assert ChunkedRecordAccess is not None
+    assert not Path("usif/storage/file_store.py").exists()
+    record_store_source = Path("usif/storage/record_store.py").read_text()
+    assert "class ChunkedRecordAccess" in record_store_source
+    assert "ChunkedFileStore" not in record_store_source
+
+
+def test_container_exposes_validation_service():
+    from usif.storage import ContainerValidationResult, ContainerValidator, StructureContainer
+
+    assert StructureContainer.validate is not None
+    assert ContainerValidator is not None
+    assert ContainerValidationResult is not None
+    source = Path("usif/storage/container.py").read_text()
+    assert "ContainerValidator(self).validate" in source

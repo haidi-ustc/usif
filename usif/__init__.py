@@ -38,7 +38,7 @@ from .structures import (
     WyckoffSite,
 )
 from .units import UnitConversions, Units
-from .version import FORMAT_VERSION, VERSION_INFO, __version__
+from .version import FORMAT_VERSION, RELEASE_DATE, RELEASE_ID, RELEASE_RECORD, VERSION_INFO, __version__
 
 __author__ = "haidi@hfut.edu.cn"
 
@@ -76,5 +76,8 @@ __all__ = [
     "__version__",
     "FORMAT_VERSION",
     "VERSION_INFO",
+    "RELEASE_DATE",
+    "RELEASE_RECORD",
+    "RELEASE_ID",
     "__author__",
 ]
