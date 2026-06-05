@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-USIF (Universal Structure Interchange Format) v4.0
+USIF (Universal Structure Interchange Format) v5.1
 Unified format for crystals and molecules with intelligent compression
 
 This module provides a modular structure for the USIF format.

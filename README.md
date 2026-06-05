@@ -201,10 +201,11 @@ python examples/download_mp_data.py --help
 python -m pip install -e ".[dev,ase]"
 python -m pytest
 python -m pytest --cov=usif --cov-report=term-missing --cov-fail-under=70
-python run_lint.py
-mypy usif/format usif/storage usif/properties
-bandit -q -r usif -x tests
-pip-audit --desc off
+python -m black --check usif tests examples
+python -m isort --check-only usif tests examples
+python -m mypy usif/format usif/storage usif/properties
+python -m bandit -q -r usif -x tests
+python -m pip_audit --desc off
 python -m build
 ```
 

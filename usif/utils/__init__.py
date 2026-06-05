@@ -47,6 +47,10 @@ See Also:
 from .benchmark import USIFBenchmark
 from .optimizer import USIFOptimizer
 
+# Convenience aliases exported in __all__.
+optimize_structure = USIFOptimizer.optimize_structure
+benchmark_compression = USIFBenchmark.benchmark_compression
+
 _MP_EXPORTS = {
     "convert_mp_to_usif",
     "create_mp_data_archive",

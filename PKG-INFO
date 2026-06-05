@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: usif
-Version: 4.0
+Version: 5.1.0
 Summary: Universal Structure Interchange Format for crystals and molecules
 Author-email: "haidi@hfut.edu.cn" <haidi@hfut.edu.cn>
 License-Expression: LicenseRef-USIF-NonCommercial
@@ -9,16 +9,15 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Chemistry
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.19.0
 Requires-Dist: pymatgen>=2022.0.0
+Requires-Dist: monty>=2022.0.0
 Provides-Extra: ase
 Requires-Dist: ase>=3.22.0; extra == "ase"
 Provides-Extra: mp
@@ -254,10 +253,11 @@ python examples/download_mp_data.py --help
 python -m pip install -e ".[dev,ase]"
 python -m pytest
 python -m pytest --cov=usif --cov-report=term-missing --cov-fail-under=70
-python run_lint.py
-mypy usif/format usif/storage usif/properties
-bandit -q -r usif -x tests
-pip-audit --desc off
+python -m black --check usif tests examples
+python -m isort --check-only usif tests examples
+python -m mypy usif/format usif/storage usif/properties
+python -m bandit -q -r usif -x tests
+python -m pip_audit --desc off
 python -m build
 ```
 

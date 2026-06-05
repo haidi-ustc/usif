@@ -106,7 +106,7 @@ class TestModularImports(unittest.TestCase):
         """Test version information"""
         from usif import __author__, __version__
 
-        self.assertEqual(__version__, "4.0")
+        self.assertEqual(__version__, "5.1.0")
         self.assertIsNotNone(__author__)
 
 

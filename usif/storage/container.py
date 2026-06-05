@@ -45,6 +45,7 @@ See Also:
     - USIFGroup: Group organization
 """
 
+import json
 import logging
 import mmap
 import os
@@ -209,6 +210,73 @@ class StructureContainer:
 
         self._file.write(header)
         self._file.flush()
+
+
+    @staticmethod
+    def _encode_attribute_value(value: Any) -> bytes:
+        """Encode container metadata as stable JSON bytes.
+
+        Container and group attributes are intentionally restricted to
+        JSON-serializable values so their Python types survive persistence
+        instead of being collapsed to strings.
+        """
+        try:
+            return json.dumps(
+                value,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        except (TypeError, ValueError) as e:
+            raise ValidationError(
+                f"Container attributes must be JSON-serializable; got {type(value).__name__}"
+            ) from e
+
+    @staticmethod
+    def _decode_attribute_value(data: bytes) -> Any:
+        """Decode JSON metadata bytes, with a small legacy-string fallback."""
+        value_text = data.decode("utf-8")
+        try:
+            return json.loads(value_text)
+        except json.JSONDecodeError:
+            # Pre-5.1 containers wrote str(value). Keeping this fallback makes
+            # corrupted/older fixtures readable without carrying the old lossy
+            # codec forward.
+            try:
+                return float(value_text) if "." in value_text else int(value_text)
+            except ValueError:
+                return value_text
+
+    @classmethod
+    def _normalise_attributes(cls, attributes: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate and normalize attributes to JSON round-trip semantics."""
+        normalised: Dict[str, Any] = {}
+        for attr_name, attr_value in attributes.items():
+            if not isinstance(attr_name, str):
+                raise ValidationError(
+                    f"Container attribute names must be strings; got {type(attr_name).__name__}"
+                )
+            normalised[attr_name] = cls._decode_attribute_value(
+                cls._encode_attribute_value(attr_value)
+            )
+        return normalised
+
+    def _record_structure_metadata(
+        self,
+        struct_hash: str,
+        name: Optional[str],
+        group: str,
+        attributes: Optional[Dict[str, Any]],
+    ) -> None:
+        """Record aliases, group membership, and attributes for a stored record."""
+        if name:
+            self._name_index[name] = struct_hash
+            if attributes is not None:
+                self._structure_attributes[name] = self._normalise_attributes(attributes)
+
+        target_group = self._get_or_create_group(group)
+        display_name = name or struct_hash[:16]
+        target_group.add_structure(display_name, struct_hash)
 
     def _read_enhanced_index(self) -> None:
         """Read container header and load the newest valid index generation."""
@@ -501,13 +569,16 @@ class StructureContainer:
             usif_data = self.encoder.encode(structure)
             struct_hash = self.encoder.get_record_hash(structure)
 
-            # P1: close the check/write/update TOCTOU window.  The index lock
+            # Close the check/write/update TOCTOU window.  The index lock
             # guards the record reservation; the file lock is acquired inside it so
             # a second thread cannot pass the duplicate check before this record is
-            # fully indexed.
+            # fully indexed. Duplicate records are deduplicated at the byte-store
+            # level, but new aliases/groups/attributes are still recorded.
             with self._index_lock:
                 if struct_hash in self._hash_index:
                     logger.info(f"Record {struct_hash[:16]} already exists")
+                    self._record_structure_metadata(struct_hash, name, group, attributes)
+                    self._indexes.update_secondary(structure, struct_hash)
                     return struct_hash
 
                 with self._file_lock:
@@ -515,16 +586,7 @@ class StructureContainer:
                     self._write_to_chunk(chunk_id, chunk_offset, usif_data)
 
                 self._hash_index[struct_hash] = (chunk_id, chunk_offset, len(usif_data))
-
-                if name:
-                    self._name_index[name] = struct_hash
-                    # Store attributes if provided (HDF5-like attributes)
-                    if attributes:
-                        self._structure_attributes[name] = attributes
-
-                target_group = self._get_or_create_group(group)
-                display_name = name or struct_hash[:16]
-                target_group.add_structure(display_name, struct_hash)
+                self._record_structure_metadata(struct_hash, name, group, attributes)
                 self._indexes.update_secondary(structure, struct_hash)
 
             logger.debug(f"Added structure {struct_hash[:16]} (name: {name or 'N/A'})")
@@ -762,9 +824,11 @@ class StructureContainer:
             ...     "calculator": "VASP"
             ... })
         """
+        if self.mode == "r":
+            raise ValueError("Cannot set attributes in read-only container")
         if name not in self._name_index:
             raise ValueError(f"Structure '{name}' not found")
-        self._structure_attributes[name] = attributes
+        self._structure_attributes[name] = self._normalise_attributes(attributes)
 
     def get_structure_attributes(self, name: str) -> Optional[Dict[str, Any]]:
         """
@@ -876,17 +940,16 @@ class StructureContainer:
         if not identifiers:
             return []
 
-        ident_to_idx = {ident: idx for idx, ident in enumerate(identifiers)}
         results = [None] * len(identifiers)
 
         with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
-            future_to_ident = {
-                executor.submit(self.get, ident): ident for ident in identifiers
+            future_to_request = {
+                executor.submit(self.get, ident): (idx, ident)
+                for idx, ident in enumerate(identifiers)
             }
 
-            for future in as_completed(future_to_ident):
-                ident = future_to_ident[future]
-                idx = ident_to_idx[ident]
+            for future in as_completed(future_to_request):
+                idx, ident = future_to_request[future]
                 try:
                     results[idx] = future.result()
                 except Exception as e:
@@ -969,13 +1032,8 @@ class StructureContainer:
             for _ in range(num_attr_pairs):
                 attr_name = reader.read_string_u16("attribute name")
                 value_len = reader.read_u32("attribute value length")
-                value_str = reader.read_bytes(value_len, "attribute value").decode("utf-8")
-                try:
-                    attrs[attr_name] = (
-                        float(value_str) if "." in value_str else int(value_str)
-                    )
-                except ValueError:
-                    attrs[attr_name] = value_str
+                value_bytes = reader.read_bytes(value_len, "attribute value")
+                attrs[attr_name] = self._decode_attribute_value(value_bytes)
             self._structure_attributes[name] = attrs
 
         # Read group hierarchy.
@@ -1013,15 +1071,8 @@ class StructureContainer:
             for _ in range(num_attrs):
                 attr_name = reader.read_string_u16("group attribute name")
                 value_len = reader.read_u32("group attribute value length")
-                value_str = reader.read_bytes(value_len, "group attribute value").decode(
-                    "utf-8"
-                )
-                try:
-                    group.attributes[attr_name] = (
-                        float(value_str) if "." in value_str else int(value_str)
-                    )
-                except ValueError:
-                    group.attributes[attr_name] = value_str
+                value_bytes = reader.read_bytes(value_len, "group attribute value")
+                group.attributes[attr_name] = self._decode_attribute_value(value_bytes)
 
             num_subgroups = reader.read_u32("group subgroup count")
             for _ in range(num_subgroups):
@@ -1068,8 +1119,7 @@ class StructureContainer:
                 attr_name_bytes = attr_name.encode("utf-8")
                 data.extend(struct.pack(BinaryFormat.UINT16, len(attr_name_bytes)))
                 data.extend(attr_name_bytes)
-                value_str = str(attr_value)
-                value_bytes = value_str.encode("utf-8")
+                value_bytes = self._encode_attribute_value(attr_value)
                 data.extend(struct.pack(BinaryFormat.UINT32, len(value_bytes)))
                 data.extend(value_bytes)
 
@@ -1107,8 +1157,7 @@ class StructureContainer:
                 name_bytes = attr_name.encode("utf-8")
                 data.extend(struct.pack(BinaryFormat.UINT16, len(name_bytes)))
                 data.extend(name_bytes)
-                value_str = str(attr_value)
-                value_bytes = value_str.encode("utf-8")
+                value_bytes = self._encode_attribute_value(attr_value)
                 data.extend(struct.pack(BinaryFormat.UINT32, len(value_bytes)))
                 data.extend(value_bytes)
 
@@ -1290,7 +1339,17 @@ class StructureContainer:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+        try:
+            self.close()
+        except Exception:
+            if exc_type is not None:
+                logger.error(
+                    "Failed to close container while another exception was active",
+                    exc_info=True,
+                )
+                return False
+            raise
+        return False
 
     def __len__(self):
         return len(self._hash_index)

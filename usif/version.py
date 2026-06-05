@@ -7,15 +7,15 @@ All version-related constants should be defined here as the single source of tru
 """
 
 # Package version (semantic versioning: MAJOR.MINOR.PATCH)
-__version__ = "4.0"
+__version__ = "5.1.0"
 
 # Binary format version (integer, incremented for format changes)
-FORMAT_VERSION = 4
+FORMAT_VERSION = 5
 
 # Version tuple for programmatic access
-VERSION_INFO = (4, 0, 0)  # (major, minor, patch)
+VERSION_INFO = (5, 1, 0)  # (major, minor, patch)
 
 # Version string components
-VERSION_MAJOR = 4
-VERSION_MINOR = 0
+VERSION_MAJOR = 5
+VERSION_MINOR = 1
 VERSION_PATCH = 0
