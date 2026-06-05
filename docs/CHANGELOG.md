@@ -1,5 +1,17 @@
 # Changelog
 
+## 5.9.0
+
+- Reorganized tests into explicit `tests/unit`, `tests/integration`, `tests/reliability`, `tests/examples`, and `tests/fixtures` layers.
+- Added pytest markers for unit, integration, interop, MP fixture data, network, slow, reliability, and examples; markers are applied from directory layout by `tests/conftest.py`.
+- Moved bundled Materials Project test data from `tests/data` to `tests/fixtures`.
+- Added GitHub Actions CI covering formatting, type checks, security scans, dependency audit, Python 3.10–3.12 unit tests, integration/reliability/example tests, sdist/wheel build, and wheel install smoke test.
+- Added `docs/TESTING.md` and `docs/RELEASE.md` for the new validation and release process.
+- Removed `setup.cfg` and local pytest/build metadata from the source tree; `pyproject.toml` is now the packaging configuration source.
+- Raised the coverage gate to 80%.
+- Updated `MANIFEST.in` to exclude archive docs, caches, build outputs, and egg-info from release artifacts.
+- Kept binary `FORMAT_VERSION` at 5 because the USIF record format did not change.
+
 ## 5.8.0
 
 - Removed the generic `usif.utils` package.

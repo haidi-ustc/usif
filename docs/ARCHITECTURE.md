@@ -419,3 +419,16 @@ integration code lives under `usif.integrations`. Materials Project support is s
 focused modules for API access, query presets, document mapping, archive safety, group
 loading, and high-level downloading. Ordinary imports of `usif`, `usif.services`, and
 `usif.benchmarks` avoid importing `mp-api`; Materials Project downloads import it lazily.
+
+
+### USIF 5.9 Test, CI, and Release Boundary
+
+USIF 5.9 formalizes the engineering workflow around the architecture. Tests are now layered by intent:
+
+- `tests/unit` for fast model/property/codec/storage/import-boundary tests.
+- `tests/integration` for interop, service orchestration, and Materials Project fixture checks.
+- `tests/reliability` for corruption, integrity, recovery, and concurrency behavior.
+- `tests/examples` for runnable repository example smoke tests.
+- `tests/fixtures` for deterministic bundled data.
+
+`tests/conftest.py` assigns pytest markers from the directory layout so CI and local runs can select layers without depending on filename conventions. `pyproject.toml` is the single packaging configuration source, and release artifacts are expected to be built as both sdist and wheel followed by a clean-environment wheel smoke test.

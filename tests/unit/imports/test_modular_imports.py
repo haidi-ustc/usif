@@ -168,7 +168,7 @@ class TestModularImports(unittest.TestCase):
     def test_version_info(self):
         from usif import __author__, __version__
 
-        self.assertEqual(__version__, "5.8.0")
+        self.assertEqual(__version__, "5.9.0")
         self.assertIsNotNone(__author__)
 
 

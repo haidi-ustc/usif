@@ -47,7 +47,7 @@ class TestMPDataEncoderDecoder(unittest.TestCase):
     def setUpClass(cls):
         """Set up test fixtures - load MP data"""
         # Try to find MP data
-        mp_data_dir = os.getenv("MP_DATA_DIR", "tests/data/mp_structures")
+        mp_data_dir = os.getenv("MP_DATA_DIR", "tests/fixtures/mp_structures")
         mp_data_path = Path(mp_data_dir)
 
         # Check if zip archive exists

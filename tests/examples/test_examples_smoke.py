@@ -3,7 +3,14 @@ import runpy
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+def _repo_root() -> Path:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "pyproject.toml").exists():
+            return parent
+    raise RuntimeError("Could not locate repository root")
+
+
+ROOT = _repo_root()
 
 
 def run_script(path, *argv):

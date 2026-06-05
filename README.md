@@ -127,7 +127,7 @@ Container internals are split across focused modules under `usif.storage`: `cont
 
 ## Conversion with pymatgen and ASE
 
-USIF 5.8 keeps `USIFStructure` as a pure model, splits pymatgen conversion into crystal/molecule adapters, and moves optional tooling into explicit service, benchmark, and integration packages. Use services at application boundaries, or use `PymatgenImporter` / `PymatgenExporter`, `CrystalImporter` / `MoleculeImporter`, and `ASEImporter` / `ASEExporter` for direct conversions. Symmetry behavior is controlled by `SymmetryPolicy`.
+USIF 5.9 keeps `USIFStructure` as a pure model, splits pymatgen conversion into crystal/molecule adapters, moves optional tooling into explicit service, benchmark, and integration packages, and uses a layered test/release workflow. Use services at application boundaries, or use `PymatgenImporter` / `PymatgenExporter`, `CrystalImporter` / `MoleculeImporter`, and `ASEImporter` / `ASEExporter` for direct conversions. Symmetry behavior is controlled by `SymmetryPolicy`.
 
 
 ```python
@@ -221,16 +221,27 @@ python examples/download_mp_data.py --help
 
 ## Development
 
+USIF 5.9 uses a layered test suite and explicit release checks.
+
 ```bash
-python -m pip install -e ".[dev,ase]"
-python -m pytest
-python -m pytest --cov=usif --cov-report=term-missing --cov-fail-under=70
+python -m pip install -e ".[dev,ase,mp]"
+python -m pytest tests/unit
+python -m pytest tests/integration tests/reliability tests/examples
+python -m pytest --cov=usif --cov-report=term-missing
 python -m black --check usif tests examples
 python -m isort --check-only usif tests examples
-python -m mypy usif/format usif/storage usif/properties
+python -m mypy usif
 python -m bandit -q -r usif -x tests
-python -m pip_audit --desc off
+python -m pip_audit
 python -m build
+```
+
+Common marker selections:
+
+```bash
+python -m pytest -m unit
+python -m pytest -m "integration and not network"
+python -m pytest -m reliability
 ```
 
 ## Documentation map
@@ -240,6 +251,8 @@ python -m build
 - `docs/CONTAINER_FORMAT.md` — `.usifc` container format.
 - `docs/PROPERTY_SYSTEM.md` — built-in and custom property model.
 - `docs/CONTRIBUTING.md` — local development, testing, and PR expectations.
+- `docs/TESTING.md` — layered test suite and marker policy.
+- `docs/RELEASE.md` — build, artifact, and wheel smoke-test process.
 - `docs/CHANGELOG.md` — notable changes.
 - `docs/archive/` — historical reviews and old planning documents.
 

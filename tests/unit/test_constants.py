@@ -11,7 +11,14 @@ from pathlib import Path
 
 # Ensure conftest is loaded (sets up path) - works for both unittest and pytest
 # Add tests directory to path to import conftest
-tests_dir = Path(__file__).parent
+def _repo_root() -> Path:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "pyproject.toml").exists():
+            return parent
+    raise RuntimeError("Could not locate repository root")
+
+
+tests_dir = _repo_root() / "tests"
 if str(tests_dir) not in sys.path:
     sys.path.insert(0, str(tests_dir))
 try:

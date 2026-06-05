@@ -1,0 +1,48 @@
+# Release Process
+
+This project uses `pyproject.toml` as the single packaging configuration source. `setup.cfg` and generated egg-info directories are intentionally not part of the source tree.
+
+## Pre-release checklist
+
+1. Update `usif/version.py`.
+2. Update `docs/CHANGELOG.md`.
+3. Run formatting, type, security, and dependency checks:
+
+```bash
+python -m black --check usif tests examples
+python -m isort --check-only usif tests examples
+python -m mypy usif
+python -m bandit -q -r usif -x tests
+python -m pip_audit
+```
+
+4. Run the layered tests:
+
+```bash
+python -m pytest tests/unit --cov=usif --cov-report=term-missing
+python -m pytest tests/integration tests/reliability tests/examples
+```
+
+5. Build artifacts:
+
+```bash
+python -m build
+```
+
+6. Install and smoke-test the built wheel in a clean virtual environment:
+
+```bash
+python -m venv /tmp/usif-wheel-smoke
+/tmp/usif-wheel-smoke/bin/python -m pip install dist/*.whl
+/tmp/usif-wheel-smoke/bin/python - <<'PY'
+import usif
+assert usif.__version__ == "5.9.0"
+from usif import USIF, USIFStructure
+from usif.storage import StructureContainer
+print("USIF wheel smoke OK", usif.__version__)
+PY
+```
+
+## Artifact hygiene
+
+Source archives should not contain local caches, generated build outputs, or historical planning archives unless intentionally requested. Keep the published package focused on runtime code, tests, current docs, examples, and deterministic fixtures.
