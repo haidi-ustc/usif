@@ -84,3 +84,11 @@ def test_property_units_example_runs(capsys):
     out = capsys.readouterr().out
     assert "Angstrom alias: Å^2" in out
     assert "Force units: eV/Å" in out
+
+
+def test_large_container_workflow_example_runs(capsys):
+    run_script("examples/09_large_container_workflow.py")
+    out = capsys.readouterr().out
+    assert "Indexed records: 3" in out
+    assert "Indexed properties include metadata.family: True" in out
+    assert "Hydride query count: 2" in out

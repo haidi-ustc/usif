@@ -13,13 +13,13 @@ def test_pyproject_is_single_release_metadata_source():
     project = pyproject["project"]
     release = pyproject["tool"]["usif"]["release"]
 
-    assert project["version"] == "6.7.0"
+    assert project["version"] == "6.8.0"
     assert "dynamic" not in project
     assert release == {
         "date": "2026-06-05",
-        "sequence": 12,
-        "record": "20260605.012",
-        "id": "usif-20260605-012",
+        "sequence": 13,
+        "record": "20260605.013",
+        "id": "usif-20260605-013",
     }
 
 
@@ -39,11 +39,11 @@ def test_release_metadata_checker_passes_and_can_write_report(tmp_path):
     from scripts.check_release_metadata import validate_release_metadata, main
 
     meta = validate_release_metadata(Path.cwd())
-    assert meta.version == "6.7.0"
-    assert meta.record == "20260605.012"
+    assert meta.version == "6.8.0"
+    assert meta.record == "20260605.013"
 
     report = tmp_path / "release-checks.txt"
     assert main(["--root", str(Path.cwd()), "--write-report", str(report)]) == 0
     text = report.read_text()
     assert "USIF release metadata check: PASS" in text
-    assert "record=20260605.012" in text
+    assert "record=20260605.013" in text

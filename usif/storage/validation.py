@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import time
 from typing import Any, Iterable, List, Literal
 
 from usif.encoder import USIF
@@ -23,6 +24,8 @@ class ContainerValidationResult:
     structure_count: int = 0
     group_count: int = 0
     level: str = "index"
+    checked_records: int = 0
+    elapsed_seconds: float = 0.0
 
 
 class ContainerValidator:
@@ -43,8 +46,10 @@ class ContainerValidator:
         if level not in self.VALID_LEVELS:
             raise ValueError(f"Invalid validation level {level!r}; expected one of {sorted(self.VALID_LEVELS)}")
 
+        start = time.perf_counter()
         errors: List[str] = []
         warnings: List[str] = []
+        checked_records = 0
         record_hashes = set(self.container._record_index)
 
         for record_hash, location in self.container._record_index.items():
@@ -59,6 +64,7 @@ class ContainerValidator:
                 continue
             if level in {"records", "full"}:
                 self._validate_record_bytes(record_hash, location, errors)
+                checked_records += 1
             if level == "full":
                 self._validate_record_decode(record_hash, errors)
 
@@ -100,6 +106,8 @@ class ContainerValidator:
             structure_count=len(record_hashes),
             group_count=group_count,
             level=level,
+            checked_records=checked_records,
+            elapsed_seconds=time.perf_counter() - start,
         )
 
     def _validate_record_bytes(self, record_hash: str, location: tuple[int, int, int], errors: List[str]) -> None:

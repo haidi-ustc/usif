@@ -54,9 +54,9 @@ def molecule_atomic_sites(
     for i, site in enumerate(pmg_molecule):
         atom_props = AtomicProperties()
         if forces_array is not None:
-            atom_props.force = tuple(float(v) for v in forces_array[i])
+            atom_props.set_vector("force", tuple(float(v) for v in forces_array[i]))
         if charges_array is not None:
-            atom_props.charge = float(charges_array[i])
+            atom_props.set_scalar("charge", float(charges_array[i]))
         atom_sites.append(AtomSite(_site_atomic_number(site), tuple(float(v) for v in site.coords), atom_props))
     return atom_sites
 
@@ -78,11 +78,11 @@ def crystal_atomic_sites(
     for i, site in enumerate(pmg_structure):
         atom_props = AtomicProperties()
         if forces_array is not None:
-            atom_props.force = tuple(float(v) for v in forces_array[i])
+            atom_props.set_vector("force", tuple(float(v) for v in forces_array[i]))
         if charges_array is not None:
-            atom_props.charge = float(charges_array[i])
+            atom_props.set_scalar("charge", float(charges_array[i]))
         if magmoms_array is not None:
-            atom_props.magmom = float(magmoms_array[i])
+            atom_props.set_scalar("magmom", float(magmoms_array[i]))
         atom_sites.append(
             AtomSite(_site_atomic_number(site), tuple(float(v) for v in site.frac_coords), atom_props)
         )
@@ -122,13 +122,14 @@ def build_structure_properties(
     """Create ``StructureProperties`` from normalized import inputs."""
     props = StructureProperties()
     if energy is not None:
-        props.energy = float(energy)
+        props.set_scalar("energy", float(energy))
     if stress is not None:
-        props.stress = stress_to_voigt(stress)
+        props.set_tensor("stress", stress_to_voigt(stress))
     if volume is not None:
-        props.volume = float(volume)
+        props.set_scalar("volume", float(volume))
     if custom:
-        props.custom.update(dict(custom))
+        for key, value in dict(custom).items():
+            props.set_custom(key, value)
     if symmetry_metadata is not None:
-        props.custom[SYMMETRY_METADATA_KEY] = symmetry_metadata.as_dict()
+        props.set_custom(SYMMETRY_METADATA_KEY, symmetry_metadata.as_dict())
     return props

@@ -123,7 +123,7 @@ python examples/01_manual_structure_binary_roundtrip.py
 
 ## Property management
 
-USIF 6.7.0 provides shape-aware property helpers for structure-level and atom-level values:
+USIF 6.8.0 provides shape-aware property helpers for structure-level and atom-level values:
 
 ```python
 from usif import AtomicProperties, StructureProperties
@@ -153,13 +153,13 @@ structure.set_atom_property(1, "site_label", "Cl1")
 Custom values are normalized to JSON-compatible scalars, lists, dictionaries, booleans, and `None`, so they round-trip through binary `.usif`, JSON `.json` / `.usif.json`, and container `.usifc` records.
 
 
-USIF 6.7.0 keeps `PropertySerializer` as the stable public facade while splitting the implementation into focused modules under `usif.properties.serializers`. This makes scalar, vector, tensor, JSON-safe custom values, validation, and size estimation easier to test and maintain without changing user-facing property APIs.
+USIF 6.8.0 keeps `PropertySerializer` as the stable public facade while splitting the implementation into focused modules under `usif.properties.serializers`. This makes scalar, vector, tensor, JSON-safe custom values, validation, and size estimation easier to test and maintain without changing user-facing property APIs.
 
-USIF 6.7.0 also stores unit metadata for built-in and custom properties. Unit strings are normalized but values are not automatically converted: `Å²`, `Å^2`, `Ang^2`, and `angstrom^2` all store as `Å^2`; `eV/Ang` stores as `eV/Å`. Use `get_units(name)` to read canonical unit metadata.
+USIF 6.8.0 also stores unit metadata for built-in and custom properties. Unit strings are normalized but values are not automatically converted: `Å²`, `Å^2`, `Ang^2`, and `angstrom^2` all store as `Å^2`; `eV/Ang` stores as `eV/Å`. Use `get_units(name)` to read canonical unit metadata.
 
 ## Official JSON structure files
 
-USIF 6.7.0+ formally supports human-readable JSON alongside binary `.usif` files. Use `.json` or `.usif.json` with the same service functions:
+USIF 6.8.0+ formally supports human-readable JSON alongside binary `.usif` files. Use `.json` or `.usif.json` with the same service functions:
 
 ```python
 from pathlib import Path
@@ -231,7 +231,7 @@ python examples/02_container_write_query_validate.py
 
 Container implementation is split across focused modules under `usif.storage`, but the public storage package intentionally exports only `StructureContainer`, `USIFGroup`, and `ContainerValidationResult`. Internal record/index/cache/query modules are imported from their concrete submodules when needed by contributors.
 
-USIF 6.7.0 persists formula, geometry, and property secondary indexes inside the `.usifc` index generation. Opening a large container no longer needs to decode every record just to query by formula, property, group, or geometry. Validation is explicit and cost-aware: `validate(level="index")` checks metadata only, `validate(level="records")` verifies byte ranges and USIF record headers, and `validate(level="full")` decodes every structure and verifies record hashes.
+USIF 6.8.0 persists formula, geometry, and property secondary indexes inside the `.usifc` index generation. Opening a large container no longer needs to decode every record just to query by formula, property, group, or geometry. Validation is explicit and cost-aware: `validate(level="index")` checks metadata only, `validate(level="records")` verifies byte ranges and USIF record headers, and `validate(level="full")` decodes every structure and verifies record hashes.
 
 ## Conversion with pymatgen and ASE
 
@@ -329,13 +329,13 @@ structure = convert_mp_to_usif(docs[0])
 
 ```toml
 [project]
-version = "6.7.0"
+version = "6.8.0"
 
 [tool.usif.release]
 date = "2026-06-05"
 sequence = 12
-record = "20260605.012"
-id = "usif-20260605-012"
+record = "20260605.013"
+id = "usif-20260605-013"
 ```
 
 `FORMAT_VERSION = 5` is the `.usif` binary record format version and changes only when the binary record layout changes. See `docs/FORMAT_VERSIONING.md` for the distinction between package versions, date-based release records, `.usif` record format versions, and `.usifc` container metadata. See `docs/API_STABILITY.md` for the 6.x public API stability policy.
@@ -367,4 +367,20 @@ python examples/03_pymatgen_conversion_roundtrip.py
 python examples/04_properties_and_hashes.py
 python examples/05_symmetry_policy_import.py
 python examples/download_mp_data.py --help
+```
+
+### Container introspection and enhanced query filters
+
+USIF 6.8.0 adds lightweight container introspection APIs that use persisted
+indexes instead of decoding every record:
+
+```python
+with StructureContainer("materials.usifc", mode="r") as container:
+    print(container.list_formulas())
+    print(container.list_properties())
+    print(container.list_groups())
+    print(container.stats()["records"])
+
+    stable = container.query(property_range=("energy", -20.0, -5.0))
+    tagged = container.query(custom={"metadata.family": "hydride"})
 ```

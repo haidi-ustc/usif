@@ -1,3 +1,14 @@
+## 6.8.0
+
+- Fixed pymatgen import property extraction to use `StructureProperties` and `AtomicProperties` setters so built-in default units are present before record hashing; full container validation now remains stable after encode/decode round-trips.
+- Added lightweight `.usifc` introspection APIs: `list_names()`, `list_formulas()`, `list_properties()`, and `list_groups()`.
+- Expanded `StructureContainer.stats()` with compact aliases, formulas, indexed properties, group paths, file size, index size, and compression ratio without decoding records.
+- Added enhanced indexed query filters: `has_property`, `property_range=(name, min, max)`, and `custom={dotted.path: value}`.
+- Extended `ContainerValidationResult` with `checked_records` and `elapsed_seconds` for validation reporting.
+- Added container introspection, enhanced query, and import-unit hash-stability regression tests.
+- Updated release metadata to the date record `20260605.013` and release ID `usif-20260605-013`.
+- Kept binary `FORMAT_VERSION` at 5 because the `.usif` single-record format layout did not change.
+
 ## 6.7.0
 
 - Added canonical unit metadata support to structure-level and atom-level property setters.

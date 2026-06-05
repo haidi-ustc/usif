@@ -10,7 +10,7 @@ The public Python package version lives in `pyproject.toml`:
 
 ```toml
 [project]
-version = "6.7.0"
+version = "6.8.0"
 ```
 
 This value changes for every published package release.  Source-tree imports read
@@ -24,8 +24,8 @@ The release audit record also lives in `pyproject.toml`:
 [tool.usif.release]
 date = "2026-06-05"
 sequence = 12
-record = "20260605.012"
-id = "usif-20260605-012"
+record = "20260605.013"
+id = "usif-20260605-013"
 ```
 
 Rules:
@@ -39,7 +39,7 @@ Rules:
 ## `.usif` binary record format version
 
 The single-structure `.usif` binary record format is versioned independently by
-`usif.version.FORMAT_VERSION`.  In 6.7.0 it remains:
+`usif.version.FORMAT_VERSION`.  In 6.8.0 it remains:
 
 ```python
 FORMAT_VERSION = 5

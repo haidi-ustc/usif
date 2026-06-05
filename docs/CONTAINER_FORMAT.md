@@ -214,3 +214,19 @@ The container uses:
 - a prefetch worker for batch/prefetch workflows.
 
 Thread safety is intended for concurrent reads and guarded in-process writes. Cross-process concurrent writes are not supported.
+
+## 6.8 Container Introspection and Query Notes
+
+USIF 6.8.0 keeps the `.usifc` binary layout compatible while adding public
+container introspection helpers built from persisted indexes:
+
+- `list_names()` returns named structure aliases.
+- `list_formulas()` returns formulas present in the formula index.
+- `list_properties()` returns indexed property and dotted custom-property names.
+- `list_groups()` returns normalized public group paths.
+- `stats()` returns lightweight counts, file/index sizes, indexed property names,
+  formula lists, group paths, and compression ratio without decoding stored records.
+
+Queries can now use `has_property`, `property_range=(name, min, max)`, and
+`custom={"metadata.family": "hydride"}`. These filters resolve against the
+persisted secondary indexes and then decode only the matched records.

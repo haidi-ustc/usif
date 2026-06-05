@@ -16,3 +16,5 @@ Run examples from the repository root with an editable install or with the repos
 | `download_mp_data.py` | Optional live Materials Project downloader CLI. |
 
 The Materials Project downloader requires the `mp` extra and an API key. Its `--help` command does not require either.
+
+- `09_large_container_workflow.py` — lightweight `.usifc` introspection, stats, and indexed query filters.

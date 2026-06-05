@@ -22,14 +22,23 @@ class QueryEngine:
         energy_range: Optional[Tuple[float, float]] = None,
         group: Optional[str] = None,
         numeric_tolerance: float = QueryConstants.DEFAULT_NUMERIC_TOLERANCE,
+        has_property: Optional[str] = None,
+        property_range: Optional[Tuple[str, float, float]] = None,
+        custom: Optional[Dict[str, Any]] = None,
     ) -> Set[str]:
         if formula:
             candidates = set(self.indexes.formula_index.get(formula, []))
         else:
             candidates = set(self.indexes.record_index.keys())
 
+        merged_properties: Dict[str, Any] = {}
         if properties:
-            for prop_name, prop_value in properties.items():
+            merged_properties.update(properties)
+        if custom:
+            merged_properties.update(custom)
+
+        if merged_properties:
+            for prop_name, prop_value in merged_properties.items():
                 prop_index = self.indexes.property_index.get(prop_name)
                 if not prop_index:
                     candidates.clear()
@@ -51,6 +60,23 @@ class QueryEngine:
                         candidates.clear()
                         break
                     candidates.intersection_update(prop_index.get(key, []))
+
+        if has_property:
+            prop_index = self.indexes.property_index.get(has_property, {})
+            prop_hashes = {item for hashes in prop_index.values() for item in hashes}
+            candidates.intersection_update(prop_hashes)
+
+        if property_range:
+            prop_name, min_value, max_value = property_range
+            range_hashes = set()
+            for bucket, hashes in self.indexes.property_index.get(prop_name, {}).items():
+                if (
+                    isinstance(bucket, (int, float))
+                    and not isinstance(bucket, bool)
+                    and min_value <= bucket <= max_value
+                ):
+                    range_hashes.update(hashes)
+            candidates.intersection_update(range_hashes)
 
         if energy_range:
             min_energy, max_energy = energy_range

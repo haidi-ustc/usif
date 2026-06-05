@@ -80,6 +80,14 @@ from usif.structures.structure import USIFStructure
 logger = logging.getLogger(__name__)
 
 
+def _display_group_path(path: str) -> str:
+    """Normalize internal group-index paths for public introspection output."""
+    parts = [part for part in str(path).split("/") if part]
+    if not parts:
+        return "/"
+    return "/" + "/".join(parts) + "/"
+
+
 class StructureContainer(
     AttributeCodecMixin,
     GroupOperationsMixin,
@@ -357,8 +365,22 @@ class StructureContainer(
         energy_range: Optional[Tuple[float, float]] = None,
         group: Optional[str] = None,
         numeric_tolerance: float = QueryConstants.DEFAULT_NUMERIC_TOLERANCE,
+        has_property: Optional[str] = None,
+        property_range: Optional[Tuple[str, float, float]] = None,
+        custom: Optional[Dict[str, Any]] = None,
     ) -> List[Tuple[str, USIFStructure]]:
-        """Query structures with multiple criteria."""
+        """Query structures with indexed criteria.
+
+        Args:
+            formula: Exact reduced formula match.
+            properties: Exact or tolerance-based property matches.
+            energy_range: Convenience range query for ``energy``.
+            group: Group path filter.
+            numeric_tolerance: Tolerance for scalar numeric property equality.
+            has_property: Require a property/dotted custom property to exist.
+            property_range: ``(name, min, max)`` numeric range filter.
+            custom: Dotted custom-property matches, merged with ``properties``.
+        """
         with self._index_lock:
             query_engine = QueryEngine(self._indexes, self.get_group)
             candidate_hashes = query_engine.candidate_hashes(
@@ -367,6 +389,9 @@ class StructureContainer(
                 energy_range=energy_range,
                 group=group,
                 numeric_tolerance=numeric_tolerance,
+                has_property=has_property,
+                property_range=property_range,
+                custom=custom,
             )
 
         results = []
@@ -416,50 +441,53 @@ class StructureContainer(
         with self._index_lock:
             return ContainerValidator(self).validate(level=level)
 
+    def list_names(self) -> List[str]:
+        """Return sorted structure aliases stored in the container."""
+        with self._index_lock:
+            return sorted(self._name_index)
+
+    def list_formulas(self) -> List[str]:
+        """Return sorted reduced formulas available through the persisted index."""
+        with self._index_lock:
+            return sorted(self._formula_index)
+
+    def list_properties(self) -> List[str]:
+        """Return sorted indexed property and dotted custom-property names."""
+        with self._index_lock:
+            return sorted(self._property_index)
+
+    def list_groups(self) -> List[str]:
+        """Return sorted group paths, including the root group."""
+        with self._index_lock:
+            groups = {_display_group_path(path) for path in self._group_index}
+            groups.add("/")
+            return sorted(groups)
+
     def stats(self) -> Dict[str, Any]:
-        """
-        Get detailed container statistics
+        """Get lightweight container statistics without decoding records."""
+        with self._index_lock:
+            total_structures = len(self._record_index)
+            total_groups = len(self._group_index) + 1  # include root group
+            total_size = sum(size for _, _, size in self._record_index.values())
+            avg_size = total_size / total_structures if total_structures else 0
+            record_index_size = total_structures * 44
+            secondary_index_size = sum(
+                len(hashes) * 16 for hashes in self._formula_index.values()
+            ) + sum(
+                len(bucket_hashes) * 16
+                for prop_dict in self._property_index.values()
+                for bucket_hashes in prop_dict.values()
+            )
+            formulas = sorted(self._formula_index)
+            properties = sorted(self._property_index)
+            groups = sorted({_display_group_path(path) for path in self._group_index} | {"/"})
 
-        Returns comprehensive statistics about the container including structure
-        counts, sizes, index sizes, cache information, and configuration.
-
-        Returns:
-            Dict[str, Any]: Dictionary containing:
-                - total_structures: Number of structures in container
-                - total_groups: Number of groups
-                - total_size_bytes: Total size of all structures
-                - average_structure_size: Average structure size in bytes
-                - record_index_size: Size of record index
-                - secondary_index_size: Size of secondary indexes
-                - cache_size: Number of structures in cache
-                - cache_hit_ratio: Cache hit ratio (currently 0.0)
-                - compression_enabled: Whether compression is enabled
-                - mmap_enabled: Whether memory mapping is enabled
-                - chunk_size: Chunk size in bytes
-
-        Example:
-            >>> stats = container.stats()
-            >>> print(f"Total structures: {stats['total_structures']}")
-            >>> print(f"Total size: {stats['total_size_bytes'] / 1024 / 1024:.2f} MB")
-        """
-        total_structures = len(self._record_index)
-        total_groups = len(self._group_index)
-
-        total_size = sum(size for _, _, size in self._record_index.values())
-        avg_size = total_size / total_structures if total_structures else 0
-
-        record_index_size = total_structures * 44
-        secondary_index_size = sum(
-            len(hashes) * 16 for hashes in self._formula_index.values()
-        ) + sum(
-            len(bucket_hashes) * 16
-            for prop_dict in self._property_index.values()
-            for bucket_hashes in prop_dict.values()
-        )
-
+        file_size = self.filename.stat().st_size if self.filename.exists() else 0
+        compression_ratio = (total_size / file_size) if file_size else 0.0
         cache_size = len(self._cache)
 
         return {
+            # Legacy descriptive keys retained as aliases for clarity.
             "total_structures": total_structures,
             "total_groups": total_groups,
             "total_size_bytes": total_size,
@@ -471,6 +499,16 @@ class StructureContainer(
             "compression_enabled": self.encoder.compression != CompressionType.NONE,
             "mmap_enabled": self.use_mmap,
             "chunk_size": self.CHUNK_SIZE,
+            # 6.8 compact/introspection aliases.
+            "records": total_structures,
+            "groups": total_groups,
+            "unique_formulas": len(formulas),
+            "formulas": formulas,
+            "properties": properties,
+            "group_paths": groups,
+            "file_size_bytes": file_size,
+            "index_size_bytes": record_index_size + secondary_index_size,
+            "compression_ratio": compression_ratio,
         }
 
     def close(self) -> None:
