@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "usif"
-version = "6.6.0"
+version = "6.7.0"
 description = "Universal Structure Interchange Format for crystals and molecules"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -75,9 +75,9 @@ packages = {find = {include = ["usif*", "scripts*"]}}
 
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 11
-record = "20260605.011"
-id = "usif-20260605-011"
+sequence = 12
+record = "20260605.012"
+id = "usif-20260605-012"
 
 
 [tool.pytest.ini_options]

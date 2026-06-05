@@ -112,7 +112,7 @@ for each custom property:
   bytes custom_value_utf8
 ```
 
-Known properties are serialized by `PropertySerializer` according to their definitions. Custom values are encoded as JSON text with the prefix `__USIF_JSON__:` when JSON-compatible.
+Known properties are serialized by the public `PropertySerializer` facade according to their definitions. Since USIF 6.7.0, the implementation lives in focused modules under `usif.properties.serializers`: `scalar`, `vector`, `tensor`, `json_value`, `numpy_value`, `validation`, `size`, and `dispatch`. Custom values are encoded as JSON text with the prefix `__USIF_JSON__:` when JSON-compatible.
 
 ## 8. Value serialization
 
@@ -200,7 +200,7 @@ Custom properties are normalized to JSON-compatible values. Numpy scalars and ar
 
 ## 12. Unit metadata and aliases
 
-USIF 6.6.0 adds unit metadata to the ergonomic property API. Setters accept an
+USIF 6.7.0 adds unit metadata to the ergonomic property API. Setters accept an
 optional `units=` argument and normalize common Unicode/ASCII aliases. Unit
 metadata is declarative: setters store and round-trip the unit string but do not
 automatically convert numerical values.

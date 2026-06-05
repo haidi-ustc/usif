@@ -6,13 +6,13 @@ record is stored in `[tool.usif.release]`:
 
 ```toml
 [project]
-version = "6.6.0"
+version = "6.7.0"
 
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 9
-record = "20260605.011"
-id = "usif-20260605-011"
+sequence = 12
+record = "20260605.012"
+id = "usif-20260605-012"
 ```
 
 The release record is intentionally date-based and unique per release day:

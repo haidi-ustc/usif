@@ -1,4 +1,4 @@
-## 6.6.0
+## 6.7.0
 
 - Added canonical unit metadata support to structure-level and atom-level property setters.
 - Added Unicode/ASCII unit alias normalization so spellings such as `Å²`, `Å^2`, `Ang^2`, and `angstrom^2` normalize to `Å^2`; `eV/Ang` normalizes to `eV/Å`.
@@ -6,7 +6,7 @@
 - Built-in properties now keep default unit metadata (`energy=eV`, `stress=GPa`, `volume=Å^3`, `force=eV/Å`, `charge=e`, etc.) while preserving the existing bare-value getter behavior.
 - Unit metadata round-trips through model JSON dictionaries, `.usif` binary records, official `.json` / `.usif.json` documents, and `.usifc` container records.
 - Added `examples/08_property_units.py` and focused unit-alias/property-unit regression tests.
-- Updated release metadata to the date record `20260605.011` and release ID `usif-20260605-011`.
+- Updated release metadata to the date record `20260605.012` and release ID `usif-20260605-012`.
 - Kept binary `FORMAT_VERSION` at 5 because the `.usif` single-record format layout did not change.
 
 ## 6.5.2
