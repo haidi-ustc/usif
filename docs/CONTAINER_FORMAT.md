@@ -11,7 +11,7 @@ A `.usifc` file stores many complete `.usif` records in one append-friendly file
 - optional user names;
 - HDF5-like groups;
 - typed structure/group attributes;
-- secondary indexes for formula, properties, and groups;
+- persisted secondary indexes for geometry, formula, and properties;
 - append-only, checksummed index generations.
 
 ## 2. Top-level layout
@@ -138,9 +138,13 @@ repeated structure_attribute_entry_count times:
 
 uint32 group_hierarchy_length
 bytes  group_hierarchy_payload
+
+bytes[8] secondary_index_magic = b"SIDX0001"
+uint32   secondary_index_payload_length
+bytes    secondary_index_payload_json_utf8
 ```
 
-Secondary indexes (`geometry_index`, `formula_index`, and `property_index`) are rebuilt from records after the persisted primary/name/group/attribute indexes are loaded.
+The secondary index payload is deterministic JSON and contains `geometry_index`, `formula_index`, and `property_index`. Property index keys are JSON-normalized and recursively tuple-encoded when needed so scalar, vector, tensor, and dotted custom-property queries can be answered without decoding every record.
 
 ## 8. Group hierarchy payload
 
@@ -183,14 +187,22 @@ read 64-byte header
 read index block at header.index_offset
 validate magic, payload size, CRC32, commit marker
 deserialize primary/name/group/attribute indexes
-rebuild secondary indexes by decoding records
+load persisted geometry/formula/property secondary indexes
 ```
 
 If the header index offset is invalid, `ContainerIndexStore.find_latest_valid_index_offset()` performs a bounded streaming scan in 1 MiB chunks to find the newest valid index block. It does not materialize the entire container file.
 
 ## 11. Validation
 
-`StructureContainer.validate(decode_records=False)` returns a `ContainerValidationResult`. It checks index, group, attribute, and optionally record-decode consistency. Use `decode_records=True` for stronger but slower integrity validation.
+`StructureContainer.validate(level="index")` returns a `ContainerValidationResult`. Validation levels are explicit:
+
+| Level | Checks | Cost |
+|---|---|---|
+| `index` | index references, groups, attributes, chunk locations | no record reads |
+| `records` | `index` plus record byte ranges and USIF headers | bounded record reads, no full decode |
+| `full` | `records` plus full structure decode and record-hash verification | strongest and slowest |
+
+The older `decode_records=True` convenience flag maps to `level="full"`; new code should use `level`.
 
 ## 12. Threading model
 

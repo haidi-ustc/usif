@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "usif"
-version = "6.2.0"
+version = "6.3.0"
 description = "Universal Structure Interchange Format for crystals and molecules"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -75,9 +75,9 @@ packages = {find = {include = ["usif*"]}}
 
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 5
-record = "20260605.005"
-id = "usif-20260605-005"
+sequence = 6
+record = "20260605.006"
+id = "usif-20260605-006"
 
 
 [tool.pytest.ini_options]
@@ -93,6 +93,8 @@ markers = [
     "mp_data: tests that exercise bundled Materials Project fixture data",
     "network: tests that require live external network/API access",
     "slow: long-running tests or larger fixture sweeps",
+    "large: larger container/index behavior tests",
+    "performance: performance-sensitive checks that are not normal PR gates",
     "reliability: corruption, integrity, recovery, and concurrency tests",
     "examples: repository example smoke tests",
 ]

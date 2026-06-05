@@ -162,7 +162,7 @@ Use `save_structure_json()` / `load_structure_json()` directly, or `save_structu
 
 ## 11. Ergonomic property management API
 
-USIF 6.2.0 adds a uniform property-management API for both structure-level and atom-level properties. The API is shape-aware and supports scalar, vector, tensor, and custom values without requiring callers to manipulate the `custom` dictionaries directly.
+USIF 6.3.0 adds a uniform property-management API for both structure-level and atom-level properties. The API is shape-aware and supports scalar, vector, tensor, and custom values without requiring callers to manipulate the `custom` dictionaries directly.
 
 Structure-level properties:
 

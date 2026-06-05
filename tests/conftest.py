@@ -20,6 +20,8 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "mp_data: tests that exercise bundled Materials Project fixture data")
     config.addinivalue_line("markers", "network: tests that require live external network/API access")
     config.addinivalue_line("markers", "slow: long-running tests or larger fixture sweeps")
+    config.addinivalue_line("markers", "large: larger container/index behavior tests")
+    config.addinivalue_line("markers", "performance: performance-sensitive checks that are not normal PR gates")
     config.addinivalue_line("markers", "reliability: corruption, integrity, recovery, and concurrency tests")
     config.addinivalue_line("markers", "examples: repository example smoke tests")
 

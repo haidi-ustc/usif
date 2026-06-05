@@ -70,7 +70,7 @@ def test_release_artifact_hygiene_files_are_configured():
     assert "docs/TESTING.md" in manifest
 
 
-def test_core_docs_match_current_6_2_code_boundaries():
+def test_core_docs_match_current_6_3_code_boundaries():
     docs = {
         name: Path(f"docs/{name}").read_text()
         for name in (
@@ -83,12 +83,12 @@ def test_core_docs_match_current_6_2_code_boundaries():
 
     architecture = docs["ARCHITECTURE.md"]
     for expected in (
-        "USIF 6.2.0 architecture",
+        "USIF 6.3.0 architecture",
         "USIFStructure is a pure model",
         "RecordStore",
         "ContainerIndexStore",
         "usif.integrations.materials_project",
-        "20260605.005",
+        "20260605.006",
         "official USIF JSON",
     ):
         assert expected in architecture

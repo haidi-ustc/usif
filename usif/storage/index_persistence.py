@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import struct
 import time
-from typing import Optional
+from collections import defaultdict
+from typing import Any, Optional
 
 from usif.constants import BinaryFormat
 from usif.exceptions import (
@@ -15,8 +17,11 @@ from usif.exceptions import (
 )
 from usif.format.binary import BinaryReader
 from usif.storage.groups import USIFGroup
+from usif.storage.indexes import make_index_key
 
 logger = logging.getLogger(__name__)
+
+SECONDARY_INDEX_MAGIC = b"SIDX0001"
 
 
 class IndexPersistenceMixin:
@@ -47,7 +52,7 @@ class IndexPersistenceMixin:
                     self._deserialize_index_at(recovered)
                     self._index_offset = recovered
 
-            self._build_secondary_indexes()
+            self._ensure_secondary_indexes_loaded()
 
         except (StorageError, CorruptedDataError, ContainerIndexError):
             raise
@@ -81,9 +86,20 @@ class IndexPersistenceMixin:
         """Return the newest valid append-only index generation offset."""
         return self._index_store.find_latest_valid_index_offset()
 
+    def _ensure_secondary_indexes_loaded(self) -> None:
+        """Build secondary indexes only when loading an older index payload.
+
+        Current index generations persist formula, geometry, and property
+        secondary indexes.  Older payloads are still recoverable by rebuilding
+        once from records.
+        """
+        if self._indexes.secondary_indexes_complete:
+            return
+        self._build_secondary_indexes()
+
     def _build_secondary_indexes(self) -> None:
         """Build secondary indexes for fast querying (thread-safe, all structures)."""
-        logger.info("Building secondary indexes...")
+        logger.info("Building secondary indexes from records...")
 
         all_hashes = list(self._record_index.keys())
         total = len(all_hashes)
@@ -102,6 +118,9 @@ class IndexPersistenceMixin:
 
             except Exception as e:
                 logger.warning(f"Failed to index structure {stored_hash[:16]}: {e}")
+
+        with self._index_lock:
+            self._indexes.secondary_indexes_complete = True
 
         logger.info(f"Secondary indexing complete: {total} structures indexed")
 
@@ -168,6 +187,16 @@ class IndexPersistenceMixin:
         if group_data_len > 0:
             group_data = reader.read_bytes(group_data_len, "group hierarchy")
             self._deserialize_group_hierarchy(group_data)
+
+        # Current containers persist secondary indexes after the primary manifest.
+        # Older payloads end here and are rebuilt once from records.
+        if reader.remaining > 0:
+            magic = reader.read_bytes(len(SECONDARY_INDEX_MAGIC), "secondary index magic")
+            if magic != SECONDARY_INDEX_MAGIC:
+                raise ContainerIndexError("Invalid secondary index magic")
+            secondary_len = reader.read_u32("secondary index payload length")
+            secondary_payload = reader.read_bytes(secondary_len, "secondary index payload")
+            self._deserialize_secondary_indexes(secondary_payload)
 
         reader.assert_consumed("container index payload")
 
@@ -254,7 +283,77 @@ class IndexPersistenceMixin:
         data.extend(struct.pack(BinaryFormat.UINT32, len(group_data)))
         data.extend(group_data)
 
+        # Serialize persisted secondary indexes so read-only opens do not decode
+        # every record just to answer formula/property/geometry queries.
+        secondary_data = self._serialize_secondary_indexes()
+        data.extend(SECONDARY_INDEX_MAGIC)
+        data.extend(struct.pack(BinaryFormat.UINT32, len(secondary_data)))
+        data.extend(secondary_data)
+
         return bytes(data)
+
+
+    @staticmethod
+    def _encode_secondary_key(value: Any) -> Any:
+        if isinstance(value, tuple):
+            return {"__tuple__": [IndexPersistenceMixin._encode_secondary_key(item) for item in value]}
+        return value
+
+    @staticmethod
+    def _decode_secondary_key(value: Any) -> Any:
+        if isinstance(value, dict) and set(value) == {"__tuple__"}:
+            return tuple(IndexPersistenceMixin._decode_secondary_key(item) for item in value["__tuple__"])
+        return make_index_key(value)
+
+    def _serialize_secondary_indexes(self) -> bytes:
+        """Serialize formula, geometry, and property indexes as deterministic JSON."""
+        payload = {
+            "geometry_index": {key: list(values) for key, values in self._geometry_index.items()},
+            "formula_index": {key: list(values) for key, values in self._formula_index.items()},
+            "property_index": {
+                prop_name: [
+                    {
+                        "value": self._encode_secondary_key(bucket),
+                        "hashes": list(record_hashes),
+                    }
+                    for bucket, record_hashes in buckets.items()
+                ]
+                for prop_name, buckets in self._property_index.items()
+            },
+        }
+        return json.dumps(
+            payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+
+    def _deserialize_secondary_indexes(self, payload: bytes) -> None:
+        """Load persisted secondary indexes from a JSON payload."""
+        try:
+            raw = json.loads(payload.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ContainerIndexError(f"Invalid secondary index payload: {exc}") from exc
+
+        geometry_index = defaultdict(list)
+        for key, values in raw.get("geometry_index", {}).items():
+            geometry_index[str(key)] = list(values)
+
+        formula_index = defaultdict(list)
+        for key, values in raw.get("formula_index", {}).items():
+            formula_index[str(key)] = list(values)
+
+        property_index = defaultdict(lambda: defaultdict(list))
+        for prop_name, entries in raw.get("property_index", {}).items():
+            for entry in entries:
+                key = self._decode_secondary_key(entry["value"])
+                property_index[str(prop_name)][key] = list(entry.get("hashes", []))
+
+        with self._index_lock:
+            self._geometry_index.clear()
+            self._geometry_index.update(geometry_index)
+            self._formula_index.clear()
+            self._formula_index.update(formula_index)
+            self._property_index.clear()
+            self._property_index.update(property_index)
+            self._indexes.secondary_indexes_complete = True
 
     def _serialize_group_hierarchy(self) -> bytes:
         """Serialize group hierarchy to bytes (HDF5-like group structure)"""

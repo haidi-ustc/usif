@@ -391,18 +391,30 @@ class StructureContainer(
 
 
 
-    def validate(self, *, decode_records: bool = False) -> ContainerValidationResult:
-        """Validate index, group, and record consistency for this container.
+    def validate(
+        self,
+        *,
+        level: str = "index",
+        decode_records: Optional[bool] = None,
+    ) -> ContainerValidationResult:
+        """Validate container consistency at an explicit assurance level.
 
         Args:
-            decode_records: When true, decode each record to verify payload integrity.
-                This is slower but useful for release and corruption checks.
+            level: ``"index"`` validates persisted indexes and metadata only.
+                ``"records"`` also reads each record byte range and checks the
+                USIF header/length. ``"full"`` decodes every structure and
+                verifies its record hash.
+            decode_records: Transitional convenience flag. When provided,
+                ``True`` maps to ``level="full"`` and ``False`` maps to
+                ``level="index"``. Prefer ``level`` in new code.
 
         Returns:
             ContainerValidationResult with errors, warnings, and summary counts.
         """
+        if decode_records is not None:
+            level = "full" if decode_records else "index"
         with self._index_lock:
-            return ContainerValidator(self).validate(decode_records=decode_records)
+            return ContainerValidator(self).validate(level=level)
 
     def stats(self) -> Dict[str, Any]:
         """

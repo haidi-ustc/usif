@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Iterable, List
+from typing import Any, Iterable, List, Literal
 
+from usif.encoder import USIF
+from usif.exceptions import CorruptedDataError, StorageError
+from usif.format.binary import USIFHeader
 from usif.storage.groups import USIFGroup
+
+ValidationLevel = Literal["index", "records", "full"]
 
 
 @dataclass(frozen=True)
@@ -17,15 +22,27 @@ class ContainerValidationResult:
     warnings: List[str] = field(default_factory=list)
     structure_count: int = 0
     group_count: int = 0
+    level: str = "index"
 
 
 class ContainerValidator:
     """Validate consistency between container indexes, groups, and records."""
 
+    VALID_LEVELS = {"index", "records", "full"}
+
     def __init__(self, container: Any) -> None:
         self.container = container
 
-    def validate(self, *, decode_records: bool = False) -> ContainerValidationResult:
+    def validate(self, *, level: ValidationLevel = "index") -> ContainerValidationResult:
+        """Validate a container at the requested cost/assurance level.
+
+        ``index`` checks manifest consistency only. ``records`` also reads each
+        record byte range and validates its USIF header/length. ``full`` decodes
+        every record and verifies its persisted record hash.
+        """
+        if level not in self.VALID_LEVELS:
+            raise ValueError(f"Invalid validation level {level!r}; expected one of {sorted(self.VALID_LEVELS)}")
+
         errors: List[str] = []
         warnings: List[str] = []
         record_hashes = set(self.container._record_index)
@@ -39,12 +56,11 @@ class ContainerValidator:
             chunk_id, offset, size = location
             if chunk_id < 0 or offset < 0 or size <= 0:
                 errors.append(f"record {record_hash!r} has invalid chunk location {location!r}")
-            if decode_records:
-                try:
-                    if self.container.get(record_hash) is None:
-                        errors.append(f"record {record_hash!r} cannot be decoded")
-                except Exception as exc:  # pragma: no cover - exercised through reliability tests
-                    errors.append(f"record {record_hash!r} decode failed: {exc}")
+                continue
+            if level in {"records", "full"}:
+                self._validate_record_bytes(record_hash, location, errors)
+            if level == "full":
+                self._validate_record_decode(record_hash, errors)
 
         self._validate_hash_references("name_index", self.container._name_index.values(), record_hashes, errors)
         self._validate_hash_references(
@@ -83,7 +99,43 @@ class ContainerValidator:
             warnings=warnings,
             structure_count=len(record_hashes),
             group_count=group_count,
+            level=level,
         )
+
+    def _validate_record_bytes(self, record_hash: str, location: tuple[int, int, int], errors: List[str]) -> None:
+        chunk_id, offset, size = location
+        try:
+            data = self.container._read_from_chunk(chunk_id, offset, size)
+            if len(data) != size:
+                errors.append(f"record {record_hash!r} read {len(data)} bytes, expected {size}")
+                return
+            if size < USIF.HEADER_SIZE:
+                errors.append(f"record {record_hash!r} is shorter than the USIF header")
+                return
+            header = USIFHeader.parse(data)
+            expected_size = USIF.HEADER_SIZE + header.compressed_size
+            if expected_size != size:
+                errors.append(
+                    f"record {record_hash!r} size mismatch: index {size}, header {expected_size}"
+                )
+        except (StorageError, CorruptedDataError, ValueError) as exc:
+            errors.append(f"record {record_hash!r} byte validation failed: {exc}")
+        except Exception as exc:  # pragma: no cover - defensive reliability path
+            errors.append(f"record {record_hash!r} byte validation failed: {exc}")
+
+    def _validate_record_decode(self, record_hash: str, errors: List[str]) -> None:
+        try:
+            structure = self.container.get(record_hash)
+            if structure is None:
+                errors.append(f"record {record_hash!r} cannot be decoded")
+                return
+            actual_hash = self.container.encoder.get_record_hash(structure)
+            if actual_hash != record_hash:
+                errors.append(
+                    f"record {record_hash!r} hash mismatch after decode: decoded {actual_hash!r}"
+                )
+        except Exception as exc:  # pragma: no cover - exercised through reliability tests
+            errors.append(f"record {record_hash!r} decode failed: {exc}")
 
     @staticmethod
     def _validate_hash_references(

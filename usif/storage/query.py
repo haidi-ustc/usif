@@ -1,12 +1,15 @@
 """Query helpers for USIF containers."""
 
+from __future__ import annotations
+
 from typing import Any, Dict, Optional, Set, Tuple
 
 from usif.constants import QueryConstants
+from usif.storage.indexes import make_index_key
 
 
 class QueryEngine:
-    """Resolve container query filters against pre-built indexes."""
+    """Resolve container query filters against persisted secondary indexes."""
 
     def __init__(self, indexes, group_getter):
         self.indexes = indexes
@@ -31,31 +34,39 @@ class QueryEngine:
                 if not prop_index:
                     candidates.clear()
                     break
-                if isinstance(prop_value, (int, float)):
+                if isinstance(prop_value, (int, float)) and not isinstance(prop_value, bool):
                     matches = set()
                     for bucket, hashes in prop_index.items():
                         if (
                             isinstance(bucket, (int, float))
+                            and not isinstance(bucket, bool)
                             and abs(bucket - prop_value) <= numeric_tolerance
                         ):
                             matches.update(hashes)
                     candidates.intersection_update(matches)
                 else:
-                    candidates.intersection_update(prop_index.get(prop_value, []))
+                    try:
+                        key = make_index_key(prop_value)
+                    except (TypeError, ValueError):
+                        candidates.clear()
+                        break
+                    candidates.intersection_update(prop_index.get(key, []))
 
         if energy_range:
             min_energy, max_energy = energy_range
             energy_hashes = set()
             for bucket, hashes in self.indexes.property_index.get("energy", {}).items():
-                if isinstance(bucket, (int, float)) and min_energy <= bucket <= max_energy:
+                if (
+                    isinstance(bucket, (int, float))
+                    and not isinstance(bucket, bool)
+                    and min_energy <= bucket <= max_energy
+                ):
                     energy_hashes.update(hashes)
             candidates.intersection_update(energy_hashes)
 
         if group and group != "/":
             target_group = self.group_getter(group)
-            group_hashes = (
-                set(target_group.structures.values()) if target_group else set()
-            )
+            group_hashes = set(target_group.structures.values()) if target_group else set()
             candidates.intersection_update(group_hashes)
 
         return candidates

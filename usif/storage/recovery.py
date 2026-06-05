@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import struct
 
 from usif.constants import BinaryFormat
@@ -10,16 +11,15 @@ from usif.exceptions import StorageError
 
 
 class RecoveryMixin:
-    """Conservative record scanner for rebuilding lost indexes."""
+    """Conservative streaming record scanner for rebuilding lost indexes."""
 
     def rebuild_index(self, *, persist: bool = False) -> int:
-        """Rebuild the primary record index by scanning USIF records in the file.
+        """Rebuild indexes by scanning the record data section.
 
-        This recovery path is intentionally conservative: it restores record hashes
-        and secondary indexes for structure bytes that can be decoded, but names,
-        groups, and attributes cannot be reconstructed if the persisted index was
-        lost.  When ``persist`` is true and the container is writable, a new
-        checksummed index generation is written after rebuilding.
+        The scanner reads bounded record-sized slices instead of materializing
+        the whole container file.  It restores record hashes and secondary
+        indexes for records that can be decoded.  Names, groups, and attributes
+        cannot be reconstructed when the persisted index is lost.
 
         Returns:
             Number of recovered records.
@@ -28,26 +28,29 @@ class RecoveryMixin:
             raise StorageError("Cannot rebuild index on a closed container")
 
         with self._index_lock, self._file_lock:
-            self._file.seek(0)
-            file_data = self._file.read()
-            scan_limit = self._index_offset if self._index_offset > self.HEADER_SIZE else len(file_data)
-
             recovered = []
+            scan_limit = self._scan_limit_for_recovery()
             pos = self.HEADER_SIZE
+
             while pos + USIF.HEADER_SIZE <= scan_limit:
-                if file_data[pos : pos + 7] != b"USIF\x00\x00\x00":
+                self._file.seek(pos)
+                header = self._file.read(USIF.HEADER_SIZE)
+                if len(header) < USIF.HEADER_SIZE:
+                    break
+                if header[:7] != b"USIF\x00\x00\x00":
                     pos += 1
                     continue
 
                 try:
-                    compressed_size = struct.unpack(
-                        BinaryFormat.UINT32, file_data[pos + 12 : pos + 16]
-                    )[0]
+                    compressed_size = struct.unpack(BinaryFormat.UINT32, header[12:16])[0]
                     record_size = USIF.HEADER_SIZE + compressed_size
                     if record_size <= USIF.HEADER_SIZE or pos + record_size > scan_limit:
                         pos += 1
                         continue
-                    record_data = file_data[pos : pos + record_size]
+                    self._file.seek(pos)
+                    record_data = self._file.read(record_size)
+                    if len(record_data) != record_size:
+                        break
                     structure, _ = self.encoder.decode(record_data)
                     record_hash = self.encoder.get_record_hash(structure)
                     chunk_id = pos // self.CHUNK_SIZE
@@ -61,6 +64,7 @@ class RecoveryMixin:
             for record_hash, location, structure in recovered:
                 self._record_index[record_hash] = location
                 self._indexes.update_secondary(structure, record_hash)
+            self._indexes.secondary_indexes_complete = True
 
             if persist:
                 if self.mode == "r":
@@ -68,3 +72,14 @@ class RecoveryMixin:
                 self._write_enhanced_index()
 
             return len(recovered)
+
+    def _scan_limit_for_recovery(self) -> int:
+        current = self._file.tell()
+        try:
+            self._file.seek(0, os.SEEK_END)
+            file_size = self._file.tell()
+        finally:
+            self._file.seek(current)
+        if self._index_offset > self.HEADER_SIZE:
+            return min(self._index_offset, file_size)
+        return file_size

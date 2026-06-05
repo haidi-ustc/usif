@@ -224,7 +224,27 @@ def test_container_exposes_validation_service():
     assert ContainerValidator is not None
     assert ContainerValidationResult is not None
     source = Path("usif/storage/container.py").read_text()
-    assert "ContainerValidator(self).validate" in source
+    assert "ContainerValidator(self).validate(level=level)" in source
+    validation_source = Path("usif/storage/validation.py").read_text()
+    assert 'level: ValidationLevel = "index"' in validation_source
+    assert "record byte range" in validation_source
+    assert "hash mismatch after decode" in validation_source
+
+
+def test_container_persists_secondary_indexes_for_large_reads():
+    source = Path("usif/storage/index_persistence.py").read_text()
+    assert "SECONDARY_INDEX_MAGIC" in source
+    assert "_serialize_secondary_indexes" in source
+    assert "_deserialize_secondary_indexes" in source
+    assert "_ensure_secondary_indexes_loaded" in source
+    assert "Current containers persist secondary indexes" in source
+
+
+def test_rebuild_index_uses_streaming_record_scan():
+    source = Path("usif/storage/recovery.py").read_text()
+    assert "whole container file" in source
+    assert "self._file.read()" not in source
+    assert "self._file.read(record_size)" in source
 
 
 def test_storage_public_api_hides_internal_mixins():

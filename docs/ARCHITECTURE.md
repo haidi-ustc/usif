@@ -1,6 +1,6 @@
 # USIF Architecture
 
-This document describes the current USIF 6.2.0 architecture. It is intentionally code-facing: module names, public entry points, file-format boundaries, and dependency directions are aligned with the repository source tree.
+This document describes the current USIF 6.3.0 architecture. It is intentionally code-facing: module names, public entry points, file-format boundaries, and dependency directions are aligned with the repository source tree.
 
 ## 1. System profile
 
@@ -54,7 +54,7 @@ usif/
     container.py                       # public .usifc facade and orchestration
     record_store.py                    # file handles, mmap, chunk allocation/read/write
     index_store.py                     # index block read/write, CRC, commit marker, scan recovery
-    index_persistence.py               # index payload serialization/deserialization
+    index_persistence.py               # primary and persisted-secondary index payloads
     indexes.py                         # in-memory primary and secondary indexes
     attributes.py                      # JSON-typed container attribute codec
     groups.py / group_ops.py           # HDF5-like group model and operations
@@ -164,7 +164,7 @@ Services are the canonical application boundary for object import/export and fil
 
 ### Official USIF JSON
 
-USIF 6.2.0 supports an official USIF JSON document at the service boundary. The implementation lives in `usif.services.json_io` and uses the schema marker `usif.structure.json.v1`. The JSON service serializes the pure model dictionary into interoperable JSON and restores it through `USIFStructure.from_dict()`.
+USIF 6.3.0 supports an official USIF JSON document at the service boundary. The implementation lives in `usif.services.json_io` and uses the schema marker `usif.structure.json.v1`. The JSON service serializes the pure model dictionary into interoperable JSON and restores it through `USIFStructure.from_dict()`.
 
 Supported JSON path suffixes are `.json` and `.usif.json`. Unsupported non-`.usif` extensions are rejected by `save_structure()` and `load_structure()` so format selection remains explicit. JSON serialization accepts JSON-compatible custom values and normalized NumPy arrays/scalars; unsupported objects and non-finite floats raise `StorageError`.
 
@@ -254,13 +254,17 @@ StructureContainer(mode="r")
   -> ContainerIndexStore.read_container_header()
   -> ContainerIndexStore.read_index_block_at(header.index_offset)
   -> IndexPersistenceMixin._deserialize_indexes_from_payload()
-  -> secondary index rebuild
+  -> load persisted geometry/formula/property secondary indexes
   -> QueryEngine.candidate_hashes()
   -> StructureContainer.get()
-  -> USIF.decode()
+  -> USIF.decode() only for matching records
 ```
 
 If the header points to an invalid index generation, `ContainerIndexStore.find_latest_valid_index_offset()` scans in bounded chunks for the newest valid committed index block.
+
+USIF 6.3.0 persists secondary indexes (`geometry_index`, `formula_index`, and `property_index`) in the checksummed container index generation. This keeps read-only open cost bounded to header + index payload reads, instead of decoding every stored record before the first query. Older index payloads without the secondary section can still be rebuilt from records by `IndexPersistenceMixin._build_secondary_indexes()`.
+
+`StructureContainer.validate()` is explicit about validation cost: `level="index"` checks metadata/index references, `level="records"` also reads record byte ranges and USIF headers, and `level="full"` decodes every structure and verifies record hashes.
 
 ## 6. Hash semantics
 
@@ -280,13 +284,13 @@ Packaging version and the date-based unique release record are declared in `pypr
 
 ```toml
 [project]
-version = "6.2.0"
+version = "6.3.0"
 
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 5
-record = "20260605.005"
-id = "usif-20260605-005"
+sequence = 6
+record = "20260605.006"
+id = "usif-20260605-006"
 ```
 
 `usif.version` reads these values from `pyproject.toml` in a source checkout and falls back to baked constants or installed package metadata in wheel installs. `FORMAT_VERSION = 5` is the `.usif` binary record format version and changes only when the binary record layout changes.

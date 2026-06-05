@@ -1,5 +1,17 @@
 # Changelog
 
+## 6.3.0
+
+- Persisted `.usifc` secondary indexes (`geometry_index`, `formula_index`, and `property_index`) inside the checksummed container index generation.
+- Read-only container opens now load secondary indexes from the index payload instead of decoding every record before the first formula/property/geometry query.
+- Added property-index support for scalar, vector, tensor, and dotted custom-property values using JSON-normalized hashable keys.
+- Added explicit validation levels: `validate(level="index")`, `validate(level="records")`, and `validate(level="full")`. The older `decode_records=True` convenience flag maps to `level="full"`.
+- Reworked `rebuild_index()` to scan record bytes in bounded reads instead of materializing the whole container file.
+- Added reliability tests for persisted secondary indexes, validation levels, and streaming rebuild behavior.
+- Added `large` and `performance` pytest markers for future container-scale checks.
+- Updated release metadata to the date record `20260605.006` and release ID `usif-20260605-006`.
+- Kept binary `FORMAT_VERSION` at 5 because the `.usif` single-record format did not change.
+
 ## 6.2.0
 
 - Added ergonomic property management APIs for structure-level and atom-level values.

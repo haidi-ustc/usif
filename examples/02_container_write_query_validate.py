@@ -59,7 +59,7 @@ def main() -> None:
         with StructureContainer(container_path, mode="r") as container:
             halides = container.query(group="/crystals/halides")
             stable_nacl = container.query(formula="NaCl", energy_range=(-10.6, -10.1))
-            validation = container.validate(decode_records=True)
+            validation = container.validate(level="full")
             print(f"Halide query count: {len(halides)}")
             print(f"Stable NaCl query count: {len(stable_nacl)}")
             print(f"Validation ok: {validation.ok}")
