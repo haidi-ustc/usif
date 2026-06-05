@@ -206,7 +206,7 @@ def test_removed_obsolete_container_code_paths():
 
 
 def test_record_store_owns_chunk_access_without_file_store_facade():
-    from usif.storage import ChunkedRecordAccess, RecordStore
+    from usif.storage.record_store import ChunkedRecordAccess, RecordStore
 
     assert RecordStore is not None
     assert ChunkedRecordAccess is not None
@@ -217,10 +217,33 @@ def test_record_store_owns_chunk_access_without_file_store_facade():
 
 
 def test_container_exposes_validation_service():
-    from usif.storage import ContainerValidationResult, ContainerValidator, StructureContainer
+    from usif.storage import ContainerValidationResult, StructureContainer
+    from usif.storage.validation import ContainerValidator
 
     assert StructureContainer.validate is not None
     assert ContainerValidator is not None
     assert ContainerValidationResult is not None
     source = Path("usif/storage/container.py").read_text()
     assert "ContainerValidator(self).validate" in source
+
+
+def test_storage_public_api_hides_internal_mixins():
+    import usif.storage as storage
+
+    assert set(storage.__all__) == {
+        "ContainerValidationResult",
+        "StructureContainer",
+        "USIFGroup",
+    }
+    for internal_name in (
+        "AttributeCodecMixin",
+        "GroupOperationsMixin",
+        "IndexPersistenceMixin",
+        "StorageIOMixin",
+        "PrefetchMixin",
+        "RecoveryMixin",
+        "RecordStore",
+        "ContainerIndexStore",
+        "QueryEngine",
+    ):
+        assert not hasattr(storage, internal_name)

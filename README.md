@@ -13,13 +13,13 @@ loaded = load_structure("nacl.usif")
 print(loaded.formula)
 ```
 
-## Current 6.0 API boundaries
+## Current 6.1 API boundaries
 
 | Area | Canonical import | Responsibility |
 |---|---|---|
 | model | `from usif import USIFStructure` | pure structure data, validation, dict round-trip |
 | codec | `from usif import USIF` | `.usif` encode/decode/save/load |
-| services | `from usif.services import import_structure, save_structure, load_structure` | application import/export and file workflows |
+| services | `from usif.services import import_structure, save_structure, load_structure` | application import/export, `.usif`, and official JSON workflows |
 | container | `from usif.storage import StructureContainer` | `.usifc` multi-record storage, query, groups, validation |
 | pymatgen interop | `from usif.interop.pymatgen import PymatgenImporter, PymatgenExporter` | pymatgen adapters |
 | ASE interop | `from usif.interop.ase import ASEImporter, ASEExporter` | ASE adapters through canonical pymatgen adapters |
@@ -117,6 +117,45 @@ Run the complete example:
 python examples/01_manual_structure_binary_roundtrip.py
 ```
 
+
+## Official JSON structure files
+
+USIF 6.1.0 formally supports human-readable JSON alongside binary `.usif` files. Use `.json` or `.usif.json` with the same service functions:
+
+```python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import numpy as np
+
+from usif import StructureProperties, StructureType, StorageMode, USIFStructure, WyckoffSite
+from usif.services import load_structure, save_structure, structure_to_json_dict
+
+structure = USIFStructure(
+    structure_type=StructureType.CRYSTAL,
+    storage_mode=StorageMode.SYMMETRIC,
+    lattice_matrix=np.eye(3) * 5.64,
+    spacegroup=225,
+    wyckoff_sites=[WyckoffSite(11, 4, (0, 0, 0)), WyckoffSite(17, 4, (0.5, 0.5, 0.5))],
+    structure_properties=StructureProperties(energy=-10.5, custom={"relaxed": True}),
+    formula="NaCl",
+)
+
+with TemporaryDirectory() as tmp:
+    path = Path(tmp) / "nacl.usif.json"
+    save_structure(structure, path)
+    loaded = load_structure(path)
+    print(structure_to_json_dict(loaded)["@schema"])
+```
+
+The JSON schema marker is `usif.structure.json.v1`. JSON files preserve standard JSON types such as strings, numbers, booleans, `null`, lists, and dictionaries. Non-finite floating-point values are rejected because they are not valid interoperable JSON.
+
+Run the complete JSON example:
+
+```bash
+python examples/06_json_structure_roundtrip.py
+```
+
 ## Containers
 
 `StructureContainer` stores complete `.usif` records in a `.usifc` file. Records are deduplicated by `record_hash`, while `geometry_hash` groups records that share geometry but differ in properties.
@@ -151,7 +190,7 @@ Run the complete container example:
 python examples/02_container_write_query_validate.py
 ```
 
-Container implementation is split across focused modules under `usif.storage`: `RecordStore`, `ContainerIndexStore`, `ContainerIndexes`, `StructureCache`, `QueryEngine`, group operations, attribute encoding, recovery, prefetch, and validation.
+Container implementation is split across focused modules under `usif.storage`, but the public storage package intentionally exports only `StructureContainer`, `USIFGroup`, and `ContainerValidationResult`. Internal record/index/cache/query modules are imported from their concrete submodules when needed by contributors.
 
 ## Conversion with pymatgen and ASE
 
@@ -249,13 +288,13 @@ structure = convert_mp_to_usif(docs[0])
 
 ```toml
 [project]
-version = "6.0.1"
+version = "6.1.0"
 
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 3
-record = "20260605.003"
-id = "usif-20260605-003"
+sequence = 4
+record = "20260605.004"
+id = "usif-20260605-004"
 ```
 
 `FORMAT_VERSION = 5` is the `.usif` binary record format version and changes only when the binary record layout changes.

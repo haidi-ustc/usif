@@ -183,9 +183,11 @@ class AtomicProperties:
         """
         known_fields = {"force", "charge", "magmom", "velocity"}
         known_props = {}
-        custom_props = {}
+        custom_props = dict(data.get("custom", {}) or {})
 
         for key, value in data.items():
+            if key == "custom":
+                continue
             if key in known_fields:
                 known_props[key] = value
             else:

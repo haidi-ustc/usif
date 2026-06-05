@@ -26,12 +26,33 @@ def create_mp_data_archive(data_dir: Union[str, Path]) -> Path:
     return zip_path
 
 
-def safe_extract(zip_file: zipfile.ZipFile, target_dir: Union[str, Path]) -> None:
-    """Safely extract a zip archive without allowing Zip Slip traversal."""
+DEFAULT_MAX_EXTRACTED_BYTES = 512 * 1024 * 1024
+DEFAULT_MAX_MEMBER_BYTES = 128 * 1024 * 1024
+DEFAULT_MAX_MEMBERS = 10_000
+
+
+def safe_extract(
+    zip_file: zipfile.ZipFile,
+    target_dir: Union[str, Path],
+    *,
+    max_total_bytes: int = DEFAULT_MAX_EXTRACTED_BYTES,
+    max_member_bytes: int = DEFAULT_MAX_MEMBER_BYTES,
+    max_members: int = DEFAULT_MAX_MEMBERS,
+) -> None:
+    """Safely extract a zip archive without Zip Slip or zip-bomb expansion.
+
+    Size limits are checked against each member's declared uncompressed size
+    before extraction and streamed while copying.
+    """
     target_path = Path(target_dir).resolve()
     target_path.mkdir(parents=True, exist_ok=True)
 
-    for member in zip_file.infolist():
+    members = zip_file.infolist()
+    if len(members) > max_members:
+        raise ValueError(f"Zip archive has too many members: {len(members)} > {max_members}")
+
+    total_uncompressed = 0
+    for member in members:
         member_name = member.filename
         if Path(member_name).is_absolute():
             raise ValueError(f"Unsafe absolute zip member path: {member_name}")
@@ -46,9 +67,29 @@ def safe_extract(zip_file: zipfile.ZipFile, target_dir: Union[str, Path]) -> Non
             destination.mkdir(parents=True, exist_ok=True)
             continue
 
+        if member.file_size > max_member_bytes:
+            raise ValueError(
+                f"Zip member is too large: {member_name} "
+                f"({member.file_size} > {max_member_bytes} bytes)"
+            )
+        total_uncompressed += member.file_size
+        if total_uncompressed > max_total_bytes:
+            raise ValueError(
+                f"Zip archive expands beyond configured limit: "
+                f"{total_uncompressed} > {max_total_bytes} bytes"
+            )
+
         destination.parent.mkdir(parents=True, exist_ok=True)
+        copied = 0
         with zip_file.open(member, "r") as src, open(destination, "wb") as dst:
-            dst.write(src.read())
+            while True:
+                chunk = src.read(1024 * 1024)
+                if not chunk:
+                    break
+                copied += len(chunk)
+                if copied > max_member_bytes:
+                    raise ValueError(f"Zip member exceeded limit while extracting: {member_name}")
+                dst.write(chunk)
 
 
 def load_mp_data_from_archive(

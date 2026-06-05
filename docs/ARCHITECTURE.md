@@ -1,6 +1,6 @@
 # USIF Architecture
 
-This document describes the current USIF 6.0.1 architecture. It is intentionally code-facing: module names, public entry points, file-format boundaries, and dependency directions are aligned with the repository source tree.
+This document describes the current USIF 6.1.0 architecture. It is intentionally code-facing: module names, public entry points, file-format boundaries, and dependency directions are aligned with the repository source tree.
 
 ## 1. System profile
 
@@ -85,7 +85,8 @@ usif/
 
   services/
     convert.py                         # import_structure/export_structure/import_pymatgen
-    io.py                              # save_structure/load_structure
+    io.py                              # .usif and official JSON save/load dispatch
+    json_io.py                         # official USIF JSON schema helpers
     optimizer.py                       # USIFOptimizer/optimize_structure
 
   benchmarks/
@@ -101,7 +102,7 @@ usif/
     dependencies.py                    # lazy optional imports
 ```
 
-Removed API packages intentionally remain absent in 6.0.1: `usif.converter`, `usif.container`, `usif.io`, `usif.utils`, `usif.interop.converter_core`, `usif.interop.symmetry`, `usif.structures.io`, and `usif.structures.source`.
+Removed API packages intentionally remain absent in 6.1.0: `usif.converter`, `usif.container`, `usif.io`, `usif.utils`, `usif.interop.converter_core`, `usif.interop.symmetry`, `usif.structures.io`, and `usif.structures.source`.
 
 ## 3. Dependency direction
 
@@ -149,7 +150,7 @@ from usif import StructureProperties, AtomicProperties
 from usif import USIF, CompressionType
 ```
 
-`USIF.encode()` returns complete `.usif` bytes. `USIF.decode()` returns `(USIFStructure, geometry_hash)`. `USIF.save()` and `USIF.load()` remain codec-level file helpers; application code can also use `usif.services.save_structure()` and `load_structure()`.
+`USIF.encode()` returns complete `.usif` bytes. `USIF.decode()` returns `(USIFStructure, geometry_hash)`. `USIF.save()` and `USIF.load()` remain codec-level file helpers; application code can also use `usif.services.save_structure()` and `load_structure()` for `.usif`, `.json`, and `.usif.json` files.
 
 ### Services
 
@@ -160,6 +161,12 @@ from usif.services import optimize_structure, USIFOptimizer
 ```
 
 Services are the canonical application boundary for object import/export and file save/load. They replace model-level convenience methods.
+
+### Official USIF JSON
+
+USIF 6.1.0 supports an official USIF JSON document at the service boundary. The implementation lives in `usif.services.json_io` and uses the schema marker `usif.structure.json.v1`. The JSON service serializes the pure model dictionary into interoperable JSON and restores it through `USIFStructure.from_dict()`.
+
+Supported JSON path suffixes are `.json` and `.usif.json`. Unsupported non-`.usif` extensions are rejected by `save_structure()` and `load_structure()` so format selection remains explicit. JSON serialization accepts JSON-compatible custom values and normalized NumPy arrays/scalars; unsupported objects and non-finite floats raise `StorageError`.
 
 ### Interop
 
@@ -273,13 +280,13 @@ Packaging version and the date-based unique release record are declared in `pypr
 
 ```toml
 [project]
-version = "6.0.1"
+version = "6.1.0"
 
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 3
-record = "20260605.003"
-id = "usif-20260605-003"
+sequence = 4
+record = "20260605.004"
+id = "usif-20260605-004"
 ```
 
 `usif.version` reads these values from `pyproject.toml` in a source checkout and falls back to baked constants or installed package metadata in wheel installs. `FORMAT_VERSION = 5` is the `.usif` binary record format version and changes only when the binary record layout changes.

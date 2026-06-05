@@ -325,38 +325,3 @@ class PropertyDefinition(Generic[T]):
             f"is_per_atom={self.is_per_atom}, "
             f"dimensions={self.dimensions})"
         )
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    # Test the PropertyDefinition class
-    energy_def = PropertyDefinition(
-        name="energy",
-        data_type=float,
-        units="eV",
-        description="Total energy of the system",
-        min_value=-1000.0,
-        max_value=1000.0,
-        required=True,
-    )
-
-    force_def = PropertyDefinition(
-        name="force",
-        data_type=tuple,
-        is_per_atom=True,
-        dimensions=(3,),
-        units="eV/Å",
-        description="Force vector on each atom",
-        required=False,
-    )
-
-    print(energy_def.describe())
-    print(force_def.describe())
-
-    # Test validation
-    print("\nValidation tests:")
-    print(energy_def.validate_value(-50.5))  # Should be valid
-    print(energy_def.validate_value(-1500.0))  # Should be invalid
-    print(
-        force_def.validate_value(((1.0, 2.0, 3.0), (4.0, 5.0, 6.0)), num_atoms=2)
-    )  # Should be valid

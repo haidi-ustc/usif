@@ -37,7 +37,10 @@ def test_pytest_markers_are_registered_in_pyproject():
     text = Path("pyproject.toml").read_text()
     for marker in REQUIRED_MARKERS:
         assert f'"{marker}:' in text
-    assert 'testpaths = ["tests/unit", "tests/integration", "tests/reliability", "tests/examples"]' in text
+    assert (
+        'testpaths = ["tests/unit", "tests/integration", "tests/reliability", "tests/examples"]'
+        in text
+    )
 
 
 def test_ci_workflow_covers_quality_test_and_build_smoke():
@@ -67,7 +70,7 @@ def test_release_artifact_hygiene_files_are_configured():
     assert "docs/TESTING.md" in manifest
 
 
-def test_core_docs_match_current_6_0_code_boundaries():
+def test_core_docs_match_current_6_1_code_boundaries():
     docs = {
         name: Path(f"docs/{name}").read_text()
         for name in (
@@ -80,12 +83,13 @@ def test_core_docs_match_current_6_0_code_boundaries():
 
     architecture = docs["ARCHITECTURE.md"]
     for expected in (
-        "USIF 6.0.1 architecture",
+        "USIF 6.1.0 architecture",
         "USIFStructure is a pure model",
         "RecordStore",
         "ContainerIndexStore",
         "usif.integrations.materials_project",
-        "20260605.003",
+        "20260605.004",
+        "official USIF JSON",
     ):
         assert expected in architecture
 
@@ -122,6 +126,7 @@ def test_core_docs_match_current_6_0_code_boundaries():
         "energy",
         "__USIF_JSON__:",
         "SymmetryPolicy",
+        "usif.structure.json.v1",
     ):
         assert expected in properties
 
@@ -136,7 +141,29 @@ def test_examples_use_clear_descriptive_filenames():
         "03_pymatgen_conversion_roundtrip.py",
         "04_properties_and_hashes.py",
         "05_symmetry_policy_import.py",
+        "06_json_structure_roundtrip.py",
         "download_mp_data.py",
         "quickstart.py",
     ):
         assert expected in example_names
+
+
+def test_example_docs_match_current_json_and_mp_workflows():
+    examples_readme = Path("examples/README.md").read_text()
+    mp_readme = Path("examples/README_MP_DOWNLOAD.md").read_text()
+
+    assert "06_json_structure_roundtrip.py" in examples_readme
+    assert "Official `.json` / `.usif.json`" in examples_readme
+    assert "group_01/materials.json" in mp_readme
+    assert "load_mp_group" in mp_readme
+    assert "convert_mp_to_usif" in mp_readme
+    assert "mp-12345.json" not in mp_readme
+    assert "examples.download_mp_data.load_structure" not in mp_readme
+
+
+def test_library_property_modules_do_not_contain_demo_main_blocks():
+    for path in (
+        Path("usif/properties/definitions.py"),
+        Path("usif/properties/structure.py"),
+    ):
+        assert 'if __name__ == "__main__"' not in path.read_text()

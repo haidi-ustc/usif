@@ -91,6 +91,27 @@ def test_safe_extract_rejects_zip_slip(tmp_path):
     assert not (tmp_path / "evil.txt").exists()
 
 
+def test_safe_extract_rejects_zip_bomb_size_limits(tmp_path):
+    archive = tmp_path / "too_large.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("group_01/materials.json", "[]")
+
+    with zipfile.ZipFile(archive, "r") as zf:
+        with pytest.raises(ValueError, match="expands beyond configured limit"):
+            safe_extract(zf, tmp_path / "out", max_total_bytes=1)
+
+
+def test_safe_extract_rejects_too_many_members(tmp_path):
+    archive = tmp_path / "too_many.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("metadata.json", "{}")
+        zf.writestr("group_01/materials.json", "[]")
+
+    with zipfile.ZipFile(archive, "r") as zf:
+        with pytest.raises(ValueError, match="too many members"):
+            safe_extract(zf, tmp_path / "out", max_members=1)
+
+
 def test_load_mp_archive_uses_safe_extract(tmp_path):
     archive = tmp_path / "malicious.zip"
     with zipfile.ZipFile(archive, "w") as zf:
@@ -100,12 +121,13 @@ def test_load_mp_archive_uses_safe_extract(tmp_path):
         load_mp_data_from_archive(archive, tmp_path / "out")
 
 
-
 def test_concurrent_identical_add_deduplicates_once(tmp_path):
     path = tmp_path / "dedupe.usifc"
     structure = make_structure(energy=-1.0)
 
-    with StructureContainer(path, mode="w", compression=CompressionType.NONE, use_mmap=False) as container:
+    with StructureContainer(
+        path, mode="w", compression=CompressionType.NONE, use_mmap=False
+    ) as container:
         with ThreadPoolExecutor(max_workers=32) as executor:
             hashes = list(executor.map(lambda _: container.add(structure), range(64)))
 
@@ -131,7 +153,9 @@ def _corrupt_index_payload_byte(path, index_offset):
 
 def test_container_detects_corrupt_only_index_generation(tmp_path):
     path = tmp_path / "corrupt_index.usifc"
-    with StructureContainer(path, mode="w", compression=CompressionType.NONE, use_mmap=False) as container:
+    with StructureContainer(
+        path, mode="w", compression=CompressionType.NONE, use_mmap=False
+    ) as container:
         container.add(make_structure(), name="first")
 
     index_offset = _read_header_index_offset(path)
@@ -143,10 +167,14 @@ def test_container_detects_corrupt_only_index_generation(tmp_path):
 
 def test_container_recovers_previous_valid_index_generation(tmp_path):
     path = tmp_path / "recover_index.usifc"
-    with StructureContainer(path, mode="w", compression=CompressionType.NONE, use_mmap=False) as container:
+    with StructureContainer(
+        path, mode="w", compression=CompressionType.NONE, use_mmap=False
+    ) as container:
         container.add(make_structure(energy=-1.0), name="first")
 
-    with StructureContainer(path, mode="a", compression=CompressionType.NONE, use_mmap=False) as container:
+    with StructureContainer(
+        path, mode="a", compression=CompressionType.NONE, use_mmap=False
+    ) as container:
         container.add(make_structure(energy=-2.0), name="second")
 
     latest_index_offset = _read_header_index_offset(path)
@@ -160,14 +188,18 @@ def test_container_recovers_previous_valid_index_generation(tmp_path):
 
 def test_rebuild_index_recovers_records_when_header_index_is_missing(tmp_path):
     path = tmp_path / "rebuild.usifc"
-    with StructureContainer(path, mode="w", compression=CompressionType.NONE, use_mmap=False) as container:
+    with StructureContainer(
+        path, mode="w", compression=CompressionType.NONE, use_mmap=False
+    ) as container:
         container.add(make_structure(), name="first")
 
     with open(path, "r+b") as f:
         f.seek(20)
         f.write(struct.pack(BinaryFormat.UINT64, 0))
 
-    with StructureContainer(path, mode="a", compression=CompressionType.NONE, use_mmap=False) as container:
+    with StructureContainer(
+        path, mode="a", compression=CompressionType.NONE, use_mmap=False
+    ) as container:
         assert len(container) == 0
         assert container.rebuild_index() == 1
         assert len(container) == 1

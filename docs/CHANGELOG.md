@@ -1,12 +1,18 @@
 # Changelog
 
-## 6.0.1
+## 6.1.0
 
-- Reissued the 6.0 stable architecture package after fixing CI workflow guardrail text so repository tests can directly assert the quality, test, build, and wheel-smoke commands.
-- Rechecked and synchronized `docs/ARCHITECTURE.md`, `docs/BINARY_FORMAT.md`, `docs/CONTAINER_FORMAT.md`, and `docs/PROPERTY_SYSTEM.md` against the current code boundaries and format constants.
-- Updated README examples and the examples index to match the canonical 6.x services, storage, interop, property, and release APIs.
-- Added a complete custom property registry example with a clear filename: `06_custom_property_registry_roundtrip.py`.
-- Updated the pyproject-driven release metadata to the unique date record `20260605.003` and release ID `usif-20260605-003`.
+- Added official USIF JSON structure support with schema marker `usif.structure.json.v1`.
+- Added `usif.services.json_io` with `save_structure_json()`, `load_structure_json()`, `structure_to_json_dict()`, and `structure_from_json_dict()`.
+- Updated `save_structure()` and `load_structure()` to support `.json` and `.usif.json`; unsupported extensions now fail explicitly.
+- Updated `export_structure()` to route `fmt="json"` / `.json` filenames through the official JSON service.
+- Made `USIFStructure.as_dict()` return JSON-compatible structure-property dictionaries.
+- Narrowed the public `usif.storage` API to `StructureContainer`, `USIFGroup`, and `ContainerValidationResult`; internal stores and mixins remain available from concrete submodules.
+- Removed remaining `__main__` demo blocks from property library modules.
+- Added zip extraction size/member guards to Materials Project archive loading.
+- Updated Materials Project examples documentation to the current grouped `group_XX/materials.json` workflow.
+- Added `examples/06_json_structure_roundtrip.py` and corresponding smoke tests.
+- Updated the pyproject-driven release metadata to the unique date record `20260605.004` and release ID `usif-20260605-004`.
 - Kept binary `FORMAT_VERSION` at 5 because the `.usif` single-record format did not change.
 
 ## 6.0.0

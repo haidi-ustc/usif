@@ -108,7 +108,7 @@ class USIFStructure:
             "@class": self.__class__.__name__,
             "structure_type": self.structure_type.value,
             "storage_mode": self.storage_mode.value,
-            "structure_properties": self.structure_properties,
+            "structure_properties": _structure_properties_to_dict(self.structure_properties),
             "formula": self.formula,
         }
         if self.is_crystal():
@@ -134,14 +134,22 @@ class USIFStructure:
     def from_dict(cls, data: dict) -> "USIFStructure":
         structure_type = StructureType(data["structure_type"])
         is_crystal = structure_type == StructureType.CRYSTAL
-        lattice_matrix = np.array(data["lattice_matrix"]) if data.get("lattice_matrix") else None
+        lattice_matrix = (
+            np.array(data["lattice_matrix"]) if data.get("lattice_matrix") else None
+        )
         wyckoff_sites = (
-            [WyckoffSite(**site) for site in data.get("wyckoff_sites", [])]
+            [
+                WyckoffSite(**_site_coords_as_tuple(site))
+                for site in data.get("wyckoff_sites", [])
+            ]
             if is_crystal and data.get("wyckoff_sites") is not None
             else None
         )
         point_group_sites = (
-            [PointGroupSite(**site) for site in data.get("point_group_sites", [])]
+            [
+                PointGroupSite(**_site_coords_as_tuple(site))
+                for site in data.get("point_group_sites", [])
+            ]
             if not is_crystal and data.get("point_group_sites") is not None
             else None
         )
@@ -152,7 +160,7 @@ class USIFStructure:
         )
         structure_properties = data.get("structure_properties")
         if isinstance(structure_properties, dict):
-            structure_properties = StructureProperties(**structure_properties)
+            structure_properties = StructureProperties.from_dict(structure_properties)
         return cls(
             structure_type=structure_type,
             storage_mode=StorageMode(data["storage_mode"]),
@@ -240,6 +248,24 @@ class USIFStructure:
         return "\n".join(lines)
 
 
+def _structure_properties_to_dict(properties: StructureProperties) -> dict:
+    return {
+        "energy": properties.energy,
+        "stress": properties.stress,
+        "volume": properties.volume,
+        "pressure": properties.pressure,
+        "temperature": properties.temperature,
+        "custom": properties.custom,
+    }
+
+
+def _site_coords_as_tuple(site: dict) -> dict:
+    copied = dict(site)
+    if "coords" in copied:
+        copied["coords"] = tuple(copied["coords"])
+    return copied
+
+
 def _symmetric_site_to_dict(site: WyckoffSite | PointGroupSite) -> dict:
     return {
         "atomic_number": site.atomic_number,
@@ -267,12 +293,14 @@ def _atom_site_from_dict(data: dict) -> AtomSite:
     props = data.get("properties", {})
     return AtomSite(
         atomic_number=data["atomic_number"],
-        coords=data["coords"],
+        coords=tuple(data["coords"]),
         properties=AtomicProperties(
-            force=props.get("force"),
+            force=tuple(props["force"]) if props.get("force") is not None else None,
             charge=props.get("charge"),
             magmom=props.get("magmom"),
-            velocity=props.get("velocity"),
+            velocity=(
+                tuple(props["velocity"]) if props.get("velocity") is not None else None
+            ),
             custom=props.get("custom", {}),
         ),
     )

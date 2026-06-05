@@ -79,15 +79,23 @@ class TestModularImports(unittest.TestCase):
             import_pymatgen,
             import_structure,
             load_structure,
+            load_structure_json,
             optimize_structure,
             save_structure,
+            save_structure_json,
+            structure_from_json_dict,
+            structure_to_json_dict,
         )
 
         self.assertIsNotNone(import_structure)
         self.assertIsNotNone(import_pymatgen)
         self.assertIsNotNone(export_structure)
         self.assertIsNotNone(load_structure)
+        self.assertIsNotNone(load_structure_json)
         self.assertIsNotNone(save_structure)
+        self.assertIsNotNone(save_structure_json)
+        self.assertIsNotNone(structure_from_json_dict)
+        self.assertIsNotNone(structure_to_json_dict)
         self.assertIsNotNone(USIFOptimizer)
         self.assertIsNotNone(optimize_structure)
 
@@ -168,10 +176,10 @@ class TestModularImports(unittest.TestCase):
     def test_version_info(self):
         from usif import RELEASE_DATE, RELEASE_ID, RELEASE_RECORD, __author__, __version__
 
-        self.assertEqual(__version__, "6.0.1")
+        self.assertEqual(__version__, "6.1.0")
         self.assertEqual(RELEASE_DATE, "2026-06-05")
-        self.assertEqual(RELEASE_RECORD, "20260605.003")
-        self.assertEqual(RELEASE_ID, "usif-20260605-003")
+        self.assertEqual(RELEASE_RECORD, "20260605.004")
+        self.assertEqual(RELEASE_ID, "usif-20260605-004")
         self.assertIsNotNone(__author__)
 
 

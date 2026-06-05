@@ -184,7 +184,7 @@ def export_structure(
     if filename is None:
         raise ValueError(f"filename is required for '{fmt}' format")
 
-    if fmt == "usif":
+    if fmt in {"usif", "json"}:
         from usif.services.io import save_structure
 
         compression = kwargs.get("compression", CompressionType.GZIP)
@@ -212,6 +212,6 @@ def export_structure(
     except Exception as e:
         raise ValueError(
             f"Format '{fmt}' is not supported. "
-            f"Supported formats: usif, pymatgen, ase, xyz (via ASE), "
+            f"Supported formats: usif, json, pymatgen, ase, xyz (via ASE), "
             f"and formats supported by pymatgen (cif, poscar, json, etc.). Error: {e}"
         ) from e

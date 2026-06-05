@@ -151,3 +151,10 @@ Per-atom properties cannot be represented losslessly in symmetric storage becaus
 - `mode="preserve"`: preserve source intent; pymatgen currently behaves like analyze.
 
 This policy is shared by services, pymatgen importers, ASE importers, and `SymmetryReducer`.
+
+
+## Official JSON structure documents
+
+USIF 6.1.0 adds the official service-level JSON schema `usif.structure.json.v1`. It serializes `USIFStructure.as_dict()` through `usif.services.structure_to_json_dict()` and stores `StructureProperties` as an explicit dictionary containing `energy`, `stress`, `volume`, `pressure`, `temperature`, and `custom`. JSON custom values preserve standard JSON-compatible values including dicts, lists, strings, numbers, booleans, and `null`.
+
+Use `save_structure_json()` / `load_structure_json()` directly, or `save_structure()` / `load_structure()` with `.json` or `.usif.json` paths.

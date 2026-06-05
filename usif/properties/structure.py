@@ -170,9 +170,11 @@ class StructureProperties:
         """
         known_fields = {"energy", "stress", "volume", "pressure", "temperature"}
         known_props = {}
-        custom_props = {}
+        custom_props = dict(data.get("custom", {}) or {})
 
         for key, value in data.items():
+            if key == "custom":
+                continue
             if key in known_fields:
                 known_props[key] = value
             else:
@@ -257,61 +259,3 @@ class StructureProperties:
             temperature=self.temperature,
             custom=copy.deepcopy(self.custom),
         )
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    # Test the StructureProperties class
-    print("=== StructureProperties Demo ===")
-
-    # Create structure properties
-    struct_props = StructureProperties(
-        energy=-10.5,
-        volume=179.4,
-        stress=(1.0, 1.0, 1.0, 0.0, 0.0, 0.0),
-        pressure=0.0,
-        temperature=300.0,
-    )
-
-    # Add custom properties
-    struct_props.custom["calculator"] = "VASP"
-    struct_props.custom["kpoints"] = "4x4x4"
-
-    print(f"Structure properties: {struct_props}")
-    print(f"All properties: {struct_props.get_all_properties()}")
-
-    # Test utility methods
-    print("\nUtility methods:")
-    print(f"Has energy: {struct_props.has_energy()}")
-    print(f"Has stress: {struct_props.has_stress()}")
-    print(f"Has volume: {struct_props.has_volume()}")
-    print(f"Stress array: {struct_props.to_stress_array()}")
-
-    # Test from_dict method
-    data = {"energy": -15.2, "volume": 200.0, "custom_field": "test_value"}
-    props_from_dict = StructureProperties.from_dict(data)
-    print(f"\nFrom dict: {props_from_dict}")
-
-    # Test copy method
-    props_copy = struct_props.copy()
-    print(f"\nCopy equals original: {props_copy == struct_props}")
-
-    # Test equality
-    same_props = StructureProperties(
-        energy=-10.5,
-        volume=179.4,
-        stress=(1.0, 1.0, 1.0, 0.0, 0.0, 0.0),
-        pressure=0.0,
-        temperature=300.0,
-    )
-    print(f"Same properties equal: {struct_props == same_props}")
-
-    # Test with slightly different values (within tolerance)
-    similar_props = StructureProperties(
-        energy=-10.500001,  # Within tolerance
-        volume=179.4,
-        stress=(1.0, 1.0, 1.0, 0.0, 0.0, 0.0),
-        pressure=0.0,
-        temperature=300.0,
-    )
-    print(f"Similar properties equal: {struct_props == similar_props}")

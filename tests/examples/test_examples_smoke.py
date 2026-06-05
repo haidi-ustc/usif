@@ -65,6 +65,15 @@ def test_symmetry_policy_import_example_runs(capsys):
     assert "None policy mode:" in out
 
 
+
+
+def test_json_structure_roundtrip_example_runs(capsys):
+    run_script("examples/06_json_structure_roundtrip.py")
+    out = capsys.readouterr().out
+    assert "JSON schema: usif.structure.json.v1" in out
+    assert "JSON formula: C2" in out
+
+
 def test_download_mp_data_help_runs_without_api_key(capsys):
     run_script("examples/download_mp_data.py", "--help")
     assert "Materials Project" in capsys.readouterr().out
