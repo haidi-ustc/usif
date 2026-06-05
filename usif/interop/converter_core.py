@@ -68,7 +68,7 @@ from usif.exceptions import ValidationError
 from usif.properties.atomic import AtomicProperties
 from usif.properties.structure import StructureProperties
 from usif.structures.metadata import SYMMETRY_METADATA_KEY, SymmetryMetadata
-from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
+from usif.structures.sites import AtomSite, PointGroupSite
 from usif.structures.structure import USIFStructure
 from usif.symmetry import POINT_GROUP_ALIASES, SymmetryOperations
 
@@ -363,22 +363,12 @@ class StructureConverter:
 
         if storage_mode == StorageMode.SYMMETRIC:
             try:
-                sga = SpacegroupAnalyzer(
+                from usif.symmetry.analysis import extract_wyckoff_sites
+
+                spacegroup_number, wyckoff_sites = extract_wyckoff_sites(
                     pmg_structure,
                     symprec=SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE,
                 )
-                spacegroup_number = sga.get_space_group_number()
-                symmetrized = sga.get_symmetrized_structure()
-
-                wyckoff_sites = []
-                for equiv_sites in symmetrized.equivalent_sites:
-                    rep = equiv_sites[0]
-                    atomic_num = rep.specie.Z
-                    wyckoff_sites.append(
-                        WyckoffSite(
-                            atomic_num, len(equiv_sites), tuple(rep.frac_coords)
-                        )
-                    )
 
                 symmetric_lossless = StructureConverter._crystal_sites_match(
                     pmg_structure, spacegroup_number, wyckoff_sites
@@ -511,6 +501,8 @@ class StructureConverter:
 
         forces = []
         charges = []
+        has_force = False
+        has_charge = False
 
         if usif_structure.storage_mode == StorageMode.SYMMETRIC:
             point_group = usif_structure.point_group or "1"
@@ -550,14 +542,16 @@ class StructureConverter:
                 species.append(element)
                 coords.append(atom.coords)
 
-                if atom.properties.force is not None:
-                    forces.append(atom.properties.force)
-                if atom.properties.charge is not None:
-                    charges.append(atom.properties.charge)
+                atom_force = atom.properties.force
+                atom_charge = atom.properties.charge
+                forces.append(tuple(atom_force) if atom_force is not None else (0.0, 0.0, 0.0))
+                charges.append(float(atom_charge) if atom_charge is not None else 0.0)
+                has_force = has_force or atom_force is not None
+                has_charge = has_charge or atom_charge is not None
 
-        if forces:
+        if has_force:
             site_properties["forces"] = forces
-        if charges:
+        if has_charge:
             site_properties["charges"] = charges
 
         return PMGMolecule(
@@ -612,24 +606,37 @@ class StructureConverter:
             forces = []
             charges = []
             magmoms = []
+            has_force = False
+            has_charge = False
+            has_magmom = False
 
             for site in usif_structure.atom_sites:
                 element = Element.from_Z(site.atomic_number)
                 species.append(element)
                 coords.append(site.coords)
 
-                if site.properties.force is not None:
-                    forces.append(site.properties.force)
-                if site.properties.charge is not None:
-                    charges.append(site.properties.charge)
-                if site.properties.magmom is not None:
-                    magmoms.append(site.properties.magmom)
+                # Build full-length, index-aligned site-property lists.  pymatgen
+                # requires each site_property to have exactly one value per site,
+                # so missing per-atom values are filled with neutral defaults
+                # instead of being skipped (which previously caused a length
+                # mismatch when only some atoms carried a property).
+                site_force = site.properties.force
+                site_charge = site.properties.charge
+                site_magmom = site.properties.magmom
 
-            if forces:
+                forces.append(tuple(site_force) if site_force is not None else (0.0, 0.0, 0.0))
+                charges.append(float(site_charge) if site_charge is not None else 0.0)
+                magmoms.append(float(site_magmom) if site_magmom is not None else 0.0)
+
+                has_force = has_force or site_force is not None
+                has_charge = has_charge or site_charge is not None
+                has_magmom = has_magmom or site_magmom is not None
+
+            if has_force:
                 site_properties["forces"] = forces
-            if charges:
+            if has_charge:
                 site_properties["charges"] = charges
-            if magmoms:
+            if has_magmom:
                 site_properties["magmoms"] = magmoms
 
         return PMGStructure(
@@ -653,14 +660,6 @@ class StructureConverter:
         )
 
     @staticmethod
-    def _site_sets_equal(left, right, periodic):
-        return SymmetryOperations.site_sets_equal(left, right, periodic)
-
-    @staticmethod
-    def _coords_equal(left, right, periodic):
-        return SymmetryOperations.coords_equal(left, right, periodic)
-
-    @staticmethod
     def _expand_fractional_orbit(coords, symmetry_ops, multiplicity):
         """Generate unique fractional coordinates from symmetry operations."""
         return SymmetryOperations.expand_fractional_orbit(
@@ -673,11 +672,6 @@ class StructureConverter:
         return SymmetryOperations.expand_cartesian_orbit(
             coords, symmetry_ops, multiplicity
         )
-
-    @staticmethod
-    def _contains_coord(existing, candidate, periodic):
-        """Check coordinate membership with symmetry tolerance."""
-        return SymmetryOperations.contains_coord(existing, candidate, periodic)
 
     @staticmethod
     def from_ase(

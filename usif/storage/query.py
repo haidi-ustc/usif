@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Optional, Set, Tuple
 
-from usif.constants import SymmetryConstants
+from usif.constants import QueryConstants
 
 
 class QueryEngine:
@@ -18,7 +18,7 @@ class QueryEngine:
         properties: Optional[Dict[str, Any]] = None,
         energy_range: Optional[Tuple[float, float]] = None,
         group: Optional[str] = None,
-        numeric_tolerance: float = SymmetryConstants.DEFAULT_SYMMETRY_TOLERANCE,
+        numeric_tolerance: float = QueryConstants.DEFAULT_NUMERIC_TOLERANCE,
     ) -> Set[str]:
         if formula:
             candidates = set(self.indexes.formula_index.get(formula, []))

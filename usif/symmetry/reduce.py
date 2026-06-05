@@ -1,19 +1,33 @@
 """Symmetry reduction service."""
 
+import copy
 import logging
 from collections import defaultdict
 
 import numpy as np
-from pymatgen.symmetry.analyzer import PointGroupAnalyzer, SpacegroupAnalyzer
+from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 
 from usif.constants import StorageMode, StructureType
 from usif.exceptions import ValidationError
 from usif.structures.metadata import SYMMETRY_METADATA_KEY, SymmetryMetadata
-from usif.structures.sites import PointGroupSite, WyckoffSite
+from usif.structures.sites import PointGroupSite
 from usif.structures.structure import USIFStructure
+from usif.symmetry.analysis import extract_wyckoff_sites
 from usif.symmetry.equivalence import SymmetryOperations
 
 logger = logging.getLogger(__name__)
+
+
+def _properties_with_metadata(structure: USIFStructure, metadata: SymmetryMetadata):
+    """Return a copy of ``structure``'s properties carrying symmetry metadata.
+
+    The input structure is never mutated: reduction returns a new structure with
+    its own ``structure_properties`` so callers' originals stay unchanged.
+    """
+    props = copy.deepcopy(structure.structure_properties)
+    props.custom[SYMMETRY_METADATA_KEY] = metadata.as_dict()
+    return props
+
 
 class SymmetryReducer:
     """Convert full atomic USIF structures to symmetric representations."""
@@ -27,17 +41,10 @@ class SymmetryReducer:
             from usif.converter import StructureConverter
 
             pmg_structure = StructureConverter.to_pymatgen(structure)
-            sga = SpacegroupAnalyzer(pmg_structure, symprec=tolerance)
-            symmetrized = sga.get_symmetrized_structure()
+            spacegroup_number, wyckoff_sites = extract_wyckoff_sites(
+                pmg_structure, symprec=tolerance
+            )
 
-            wyckoff_sites = []
-            for equiv_sites in symmetrized.equivalent_sites:
-                rep = equiv_sites[0]
-                wyckoff_sites.append(
-                    WyckoffSite(rep.specie.Z, len(equiv_sites), tuple(rep.frac_coords))
-                )
-
-            spacegroup_number = sga.get_space_group_number()
             lossless = SymmetryOperations.crystal_sites_match(
                 pmg_structure, spacegroup_number, wyckoff_sites
             )
@@ -47,13 +54,16 @@ class SymmetryReducer:
                 )
                 return structure
 
-            structure.structure_properties.custom[SYMMETRY_METADATA_KEY] = SymmetryMetadata(
-                lossless=True,
-                reconstruction_mode="spacegroup_expansion",
-                symmetry_origin="pymatgen_spacegroup",
-                source_coordinate_frame="fractional",
-                tolerance=tolerance,
-            ).as_dict()
+            reduced_properties = _properties_with_metadata(
+                structure,
+                SymmetryMetadata(
+                    lossless=True,
+                    reconstruction_mode="spacegroup_expansion",
+                    symmetry_origin="pymatgen_spacegroup",
+                    source_coordinate_frame="fractional",
+                    tolerance=tolerance,
+                ),
+            )
 
             return USIFStructure(
                 structure_type=StructureType.CRYSTAL,
@@ -61,7 +71,7 @@ class SymmetryReducer:
                 lattice_matrix=structure.lattice_matrix,
                 spacegroup=spacegroup_number,
                 wyckoff_sites=wyckoff_sites,
-                structure_properties=structure.structure_properties,
+                structure_properties=reduced_properties,
                 formula=structure.formula,
             )
         except (ValueError, RuntimeError) as e:
@@ -135,20 +145,23 @@ class SymmetryReducer:
                     )
                     return structure
 
-                structure.structure_properties.custom[SYMMETRY_METADATA_KEY] = SymmetryMetadata(
-                    lossless=True,
-                    reconstruction_mode="point_group_expansion",
-                    symmetry_origin="pymatgen_point_group",
-                    source_coordinate_frame="cartesian",
-                    tolerance=tolerance,
-                ).as_dict()
+                reduced_properties = _properties_with_metadata(
+                    structure,
+                    SymmetryMetadata(
+                        lossless=True,
+                        reconstruction_mode="point_group_expansion",
+                        symmetry_origin="pymatgen_point_group",
+                        source_coordinate_frame="cartesian",
+                        tolerance=tolerance,
+                    ),
+                )
 
                 return USIFStructure(
                     structure_type=StructureType.MOLECULE,
                     storage_mode=StorageMode.SYMMETRIC,
                     point_group=point_group,
                     point_group_sites=point_group_sites,
-                    structure_properties=structure.structure_properties,
+                    structure_properties=reduced_properties,
                     formula=structure.formula,
                 )
         except (ValueError, RuntimeError) as e:

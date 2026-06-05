@@ -108,3 +108,17 @@ class SymmetryConstants:
 
     # Tolerance for coordinate comparison (for equality checks, in Angstroms)
     COORDINATE_TOLERANCE: float = 1e-6
+
+
+class QueryConstants:
+    """Constants for container queries over scalar/numeric properties.
+
+    These are intentionally separate from :class:`SymmetryConstants`: matching a
+    numeric property such as energy is unrelated to geometric/coordinate
+    symmetry tolerance, and conflating the two means tuning symmetry precision
+    would silently change query results.
+    """
+
+    # Default absolute tolerance for matching numeric property values
+    # (e.g. energy). Distinct from coordinate/symmetry tolerances above.
+    DEFAULT_NUMERIC_TOLERANCE: float = 1e-3
