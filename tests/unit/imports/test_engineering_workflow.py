@@ -65,3 +65,78 @@ def test_release_artifact_hygiene_files_are_configured():
         assert excluded in manifest
     assert "docs/RELEASE.md" in manifest
     assert "docs/TESTING.md" in manifest
+
+
+def test_core_docs_match_current_6_0_code_boundaries():
+    docs = {
+        name: Path(f"docs/{name}").read_text()
+        for name in (
+            "ARCHITECTURE.md",
+            "BINARY_FORMAT.md",
+            "CONTAINER_FORMAT.md",
+            "PROPERTY_SYSTEM.md",
+        )
+    }
+
+    architecture = docs["ARCHITECTURE.md"]
+    for expected in (
+        "USIF 6.0.1 architecture",
+        "USIFStructure is a pure model",
+        "RecordStore",
+        "ContainerIndexStore",
+        "usif.integrations.materials_project",
+        "20260605.003",
+    ):
+        assert expected in architecture
+
+    binary = docs["BINARY_FORMAT.md"]
+    for expected in (
+        "Binary record format version | `5`",
+        "`b\"USIF\\x00\\x00\\x00\"`",
+        "geometry_hash",
+        "0 = NONE",
+        "1 = GZIP",
+        "structure_property_section_length",
+    ):
+        assert expected in binary
+    assert "Format Version**: 4" not in binary
+    assert "LZMA" not in binary
+
+    container = docs["CONTAINER_FORMAT.md"]
+    for expected in (
+        "`b\"USIFC\\x00\\x00\"`",
+        "`b\"USIFIDX1\"`",
+        "`b\"USIFDONE\"`",
+        "record_hash",
+        "geometry_hash",
+        "ContainerIndexStore.find_latest_valid_index_offset",
+    ):
+        assert expected in container
+
+    properties = docs["PROPERTY_SYSTEM.md"]
+    for expected in (
+        "PropertyRegistry.with_builtins()",
+        "DEFAULT_REGISTRY",
+        "create_default_registry()",
+        "force",
+        "energy",
+        "__USIF_JSON__:",
+        "SymmetryPolicy",
+    ):
+        assert expected in properties
+
+
+def test_examples_use_clear_descriptive_filenames():
+    example_names = {path.name for path in Path("examples").glob("*.py")}
+    assert "example-1.py" not in example_names
+    assert "example-2.py" not in example_names
+    for expected in (
+        "01_manual_structure_binary_roundtrip.py",
+        "02_container_write_query_validate.py",
+        "03_pymatgen_conversion_roundtrip.py",
+        "04_properties_and_hashes.py",
+        "05_symmetry_policy_import.py",
+        "download_mp_data.py",
+        "quickstart.py",
+    ):
+        assert expected in example_names

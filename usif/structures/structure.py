@@ -13,7 +13,7 @@ from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
 
 
 class USIFStructure:
-    """Structure data, validation, metadata, and MSON serialization only."""
+    """Structure data, validation, metadata, and dictionary serialization only."""
 
     __slots__ = [
         "structure_type",

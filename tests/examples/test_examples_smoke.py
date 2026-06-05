@@ -1,7 +1,11 @@
 """Smoke tests for README-linked repository examples."""
+
+from __future__ import annotations
+
 import runpy
 import sys
 from pathlib import Path
+
 
 def _repo_root() -> Path:
     for parent in Path(__file__).resolve().parents:
@@ -13,7 +17,7 @@ def _repo_root() -> Path:
 ROOT = _repo_root()
 
 
-def run_script(path, *argv):
+def run_script(path: str, *argv: str) -> None:
     old_argv = sys.argv[:]
     sys.argv = [str(ROOT / path), *argv]
     try:
@@ -30,19 +34,35 @@ def test_quickstart_example_runs(capsys):
     assert "Formula: NaCl" in capsys.readouterr().out
 
 
-def test_container_query_example_runs(capsys):
-    run_script("examples/container_query.py")
-    assert "Record hashes differ: True" in capsys.readouterr().out
+def test_manual_binary_roundtrip_example_runs(capsys):
+    run_script("examples/01_manual_structure_binary_roundtrip.py")
+    out = capsys.readouterr().out
+    assert "Manual formula: NaCl" in out
+    assert "Record hash:" in out
 
 
-def test_conversion_example_runs(capsys):
-    run_script("examples/conversion_with_pymatgen.py")
+def test_container_write_query_validate_example_runs(capsys):
+    run_script("examples/02_container_write_query_validate.py")
+    out = capsys.readouterr().out
+    assert "Record hashes differ: True" in out
+    assert "Validation ok: True" in out
+
+
+def test_pymatgen_conversion_roundtrip_example_runs(capsys):
+    run_script("examples/03_pymatgen_conversion_roundtrip.py")
     assert "pymatgen formula:" in capsys.readouterr().out
 
 
 def test_properties_and_hashes_example_runs(capsys):
-    run_script("examples/properties_and_hashes.py")
+    run_script("examples/04_properties_and_hashes.py")
     assert "Record hash:" in capsys.readouterr().out
+
+
+def test_symmetry_policy_import_example_runs(capsys):
+    run_script("examples/05_symmetry_policy_import.py")
+    out = capsys.readouterr().out
+    assert "Analyze policy mode:" in out
+    assert "None policy mode:" in out
 
 
 def test_download_mp_data_help_runs_without_api_key(capsys):

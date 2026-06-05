@@ -1,10 +1,19 @@
 # Changelog
 
+## 6.0.1
+
+- Reissued the 6.0 stable architecture package after fixing CI workflow guardrail text so repository tests can directly assert the quality, test, build, and wheel-smoke commands.
+- Rechecked and synchronized `docs/ARCHITECTURE.md`, `docs/BINARY_FORMAT.md`, `docs/CONTAINER_FORMAT.md`, and `docs/PROPERTY_SYSTEM.md` against the current code boundaries and format constants.
+- Updated README examples and the examples index to match the canonical 6.x services, storage, interop, property, and release APIs.
+- Added a complete custom property registry example with a clear filename: `06_custom_property_registry_roundtrip.py`.
+- Updated the pyproject-driven release metadata to the unique date record `20260605.003` and release ID `usif-20260605-003`.
+- Kept binary `FORMAT_VERSION` at 5 because the `.usif` single-record format did not change.
+
 ## 6.0.0
 
 - Promoted the package classifier to stable status for the 6.0 architecture line.
 - Moved the editable package version source to `[project].version` in `pyproject.toml` instead of a dynamic setuptools attribute.
-- Added `[tool.usif.release]` with a date-based unique release record (`20260605.001`) and release ID (`usif-20260605-001`).
+- Added `[tool.usif.release]` with a date-based unique release record (`20260605.002`) and release ID (`usif-20260605-002`).
 - Added `usif.RELEASE_DATE`, `usif.RELEASE_RECORD`, and `usif.RELEASE_ID` exports.
 - Added `docs/VERSIONING.md` to document the pyproject-driven release metadata scheme.
 - Folded the low-level `file_store` helper into `RecordStore` as `ChunkedRecordAccess`, keeping container storage internals tighter for 6.0.

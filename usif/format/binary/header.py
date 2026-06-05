@@ -1,6 +1,6 @@
 """USIF binary header parsing and writing.
 
-This module owns the fixed-size v4 header layout so the public ``USIF``
+This module owns the fixed-size v5 header layout so the public ``USIF``
 facade does not need to know field offsets or packing details.
 """
 
