@@ -1,15 +1,19 @@
-"""ASE -> USIF importer."""
+"""ASE -> USIF importer.
+
+USIF's ASE adapter intentionally routes through pymatgen's ``AseAtomsAdaptor``.
+That keeps ASE support aligned with the canonical pymatgen adapter and means the
+ASE extra requires both ``ase`` and ``pymatgen`` at runtime.
+"""
+
+from __future__ import annotations
 
 from typing import Any, Optional
 
 import numpy as np
 
+from usif.interop.common import ASEAtomsLike, is_ase_atoms
 from usif.structures.structure import USIFStructure
-
-try:
-    from ase import Atoms as ASEAtoms
-except ImportError:  # pragma: no cover - exercised only without ASE installed
-    ASEAtoms = None
+from usif.symmetry.policies import SymmetryPolicy
 
 
 class ASEImporter:
@@ -17,7 +21,7 @@ class ASEImporter:
 
     @staticmethod
     def from_ase(
-        ase_atoms,
+        ase_atoms: ASEAtomsLike,
         forces: Optional[np.ndarray] = None,
         stress: Optional[np.ndarray] = None,
         energy: Optional[float] = None,
@@ -26,14 +30,18 @@ class ASEImporter:
         force_symmetric: bool = False,
         drop_atomic_properties: bool = False,
         fallback_full_atomic: bool = False,
-        symmetry_policy: Optional[Any] = None,
-        **kwargs,
+        symmetry_policy: Optional[SymmetryPolicy] = None,
+        **kwargs: Any,
     ) -> USIFStructure:
-        """Convert an ASE Atoms object to USIF."""
-        if ASEAtoms is None:
-            raise ImportError("ASE is not installed. Install it with: pip install ase")
-        if not isinstance(ase_atoms, ASEAtoms):
-            raise TypeError(f"Expected ASE Atoms object, got {type(ase_atoms)}")
+        """Convert an ASE Atoms object to USIF.
+
+        ASE support depends on ``ase`` and pymatgen's ``AseAtomsAdaptor``.
+        """
+        if not is_ase_atoms(ase_atoms):
+            raise TypeError(
+                "Expected ASE Atoms object. Install ASE with `pip install usif[ase]` "
+                f"and pass an ase.Atoms instance, got {type(ase_atoms).__module__}.{type(ase_atoms).__qualname__}."
+            )
 
         if forces is None:
             try:
@@ -70,7 +78,13 @@ class ASEImporter:
         except (AttributeError, TypeError):
             has_cell = False
 
-        from pymatgen.io.ase import AseAtomsAdaptor
+        try:
+            from pymatgen.io.ase import AseAtomsAdaptor
+        except ImportError as e:  # pragma: no cover - depends on optional runtime packaging
+            raise ImportError(
+                "ASE import requires pymatgen.io.ase.AseAtomsAdaptor. "
+                "Install with `pip install usif[ase]`."
+            ) from e
         from usif.interop.pymatgen.importer import PymatgenImporter
 
         adaptor = AseAtomsAdaptor()

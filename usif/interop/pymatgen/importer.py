@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import numpy as np
-from pymatgen.core import Molecule as PMGMolecule
-from pymatgen.core import Structure as PMGStructure
 
+from usif.interop.common import PymatgenObject, is_pymatgen_molecule, is_pymatgen_structure
 from usif.interop.pymatgen.crystal_importer import CrystalImporter
 from usif.interop.pymatgen.molecule_importer import MoleculeImporter
 from usif.structures.structure import USIFStructure
@@ -19,7 +18,7 @@ class PymatgenImporter:
 
     @staticmethod
     def from_pymatgen(
-        pmg_obj: Union[PMGStructure, PMGMolecule],
+        pmg_obj: PymatgenObject,
         forces: Optional[np.ndarray] = None,
         stress: Optional[np.ndarray] = None,
         energy: Optional[float] = None,
@@ -31,14 +30,19 @@ class PymatgenImporter:
         symmetry_policy: Optional[SymmetryPolicy] = None,
         **kwargs: Any,
     ) -> USIFStructure:
-        """Convert a pymatgen Structure or Molecule to USIF."""
+        """Convert a pymatgen Structure or Molecule to USIF.
+
+        The public contract accepts concrete pymatgen ``Structure`` and
+        ``Molecule`` objects.  Runtime type guards keep this adapter boundary
+        explicit and produce a clear error for unsupported objects.
+        """
         policy = symmetry_policy or SymmetryPolicy.from_import_flags(
             force_symmetric=force_symmetric,
             drop_atomic_properties=drop_atomic_properties,
             fallback_full_atomic=fallback_full_atomic,
         )
 
-        if isinstance(pmg_obj, PMGMolecule):
+        if is_pymatgen_molecule(pmg_obj):
             return MoleculeImporter.from_pymatgen_molecule(
                 pmg_obj,
                 forces=forces,
@@ -48,7 +52,7 @@ class PymatgenImporter:
                 **kwargs,
             )
 
-        if isinstance(pmg_obj, PMGStructure):
+        if is_pymatgen_structure(pmg_obj):
             return CrystalImporter.from_pymatgen_structure(
                 pmg_obj,
                 forces=forces,
@@ -61,5 +65,6 @@ class PymatgenImporter:
             )
 
         raise TypeError(
-            f"Expected pymatgen Structure or Molecule, got {type(pmg_obj)!r}"
+            "Expected pymatgen Structure or Molecule, "
+            f"got {type(pmg_obj).__module__}.{type(pmg_obj).__qualname__}"
         )

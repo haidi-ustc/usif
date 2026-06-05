@@ -6,10 +6,9 @@ import logging
 from typing import Any, Optional
 
 import numpy as np
-from pymatgen.core import Molecule as PMGMolecule
-
 from usif.constants import StorageMode, StructureType
 from usif.exceptions import ValidationError
+from usif.interop.common import PymatgenMoleculeLike
 from usif.interop.pymatgen.property_extractor import (
     build_structure_properties,
     has_atomic_properties,
@@ -29,7 +28,7 @@ class MoleculeImporter:
 
     @staticmethod
     def from_pymatgen_molecule(
-        pmg_molecule: PMGMolecule,
+        pmg_molecule: PymatgenMoleculeLike,
         *,
         forces: Optional[np.ndarray] = None,
         charges: Optional[np.ndarray] = None,

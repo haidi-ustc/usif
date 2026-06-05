@@ -70,7 +70,7 @@ def test_release_artifact_hygiene_files_are_configured():
     assert "docs/TESTING.md" in manifest
 
 
-def test_core_docs_match_current_6_3_code_boundaries():
+def test_core_docs_match_current_6_4_code_boundaries():
     docs = {
         name: Path(f"docs/{name}").read_text()
         for name in (
@@ -83,13 +83,15 @@ def test_core_docs_match_current_6_3_code_boundaries():
 
     architecture = docs["ARCHITECTURE.md"]
     for expected in (
-        "USIF 6.3.0 architecture",
+        "USIF 6.4.0 architecture",
         "USIFStructure is a pure model",
         "RecordStore",
         "ContainerIndexStore",
         "usif.integrations.materials_project",
-        "20260605.006",
+        "20260605.007",
         "official USIF JSON",
+        "interop common protocols",
+        "ASE adapter depends on pymatgen",
     ):
         assert expected in architecture
 
@@ -130,6 +132,23 @@ def test_core_docs_match_current_6_3_code_boundaries():
         "set_tensor",
     ):
         assert expected in properties
+
+
+def test_mypy_no_longer_ignores_interop_adapters():
+    pyproject = Path("pyproject.toml").read_text()
+    assert 'module = ["usif.interop.*"]' not in pyproject
+    assert "ignore_errors = true" not in pyproject.split("[tool.bandit]")[0]
+
+
+def test_interop_common_contract_modules_exist():
+    for path in (
+        Path("usif/interop/common/protocols.py"),
+        Path("usif/interop/common/type_guards.py"),
+    ):
+        assert path.exists()
+    architecture = Path("docs/ARCHITECTURE.md").read_text()
+    assert "interop common protocols" in architecture
+    assert "ASE adapter depends on pymatgen" in architecture
 
 
 def test_examples_use_clear_descriptive_filenames():

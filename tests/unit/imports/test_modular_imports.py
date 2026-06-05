@@ -176,10 +176,10 @@ class TestModularImports(unittest.TestCase):
     def test_version_info(self):
         from usif import RELEASE_DATE, RELEASE_ID, RELEASE_RECORD, __author__, __version__
 
-        self.assertEqual(__version__, "6.3.0")
+        self.assertEqual(__version__, "6.4.0")
         self.assertEqual(RELEASE_DATE, "2026-06-05")
-        self.assertEqual(RELEASE_RECORD, "20260605.006")
-        self.assertEqual(RELEASE_ID, "usif-20260605-006")
+        self.assertEqual(RELEASE_RECORD, "20260605.007")
+        self.assertEqual(RELEASE_ID, "usif-20260605-007")
         self.assertIsNotNone(__author__)
 
 

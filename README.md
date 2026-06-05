@@ -23,6 +23,8 @@ print(loaded.formula)
 | container | `from usif.storage import StructureContainer` | `.usifc` multi-record storage, query, groups, validation |
 | pymatgen interop | `from usif.interop.pymatgen import PymatgenImporter, PymatgenExporter` | pymatgen adapters |
 | ASE interop | `from usif.interop.ase import ASEImporter, ASEExporter` | ASE adapters through canonical pymatgen adapters |
+
+ASE support requires both ASE and pymatgen. The ASE adapter depends on pymatgen because it uses `pymatgen.io.ase.AseAtomsAdaptor` before delegating to the canonical pymatgen adapters.
 | properties | `from usif import PropertyDefinition, create_default_registry` | property definitions, validation, binary serialization |
 | benchmarks | `from usif.benchmarks import benchmark_compression` | optional encode/decode compression benchmarks |
 | Materials Project | `from usif.integrations.materials_project import ...` | optional MP download/load/map/archive tooling |
@@ -121,7 +123,7 @@ python examples/01_manual_structure_binary_roundtrip.py
 
 ## Property management
 
-USIF 6.3.0 provides shape-aware property helpers for structure-level and atom-level values:
+USIF 6.4.0 provides shape-aware property helpers for structure-level and atom-level values:
 
 ```python
 from usif import AtomicProperties, StructureProperties
@@ -151,7 +153,7 @@ Custom values are normalized to JSON-compatible scalars, lists, dictionaries, bo
 
 ## Official JSON structure files
 
-USIF 6.3.0+ formally supports human-readable JSON alongside binary `.usif` files. Use `.json` or `.usif.json` with the same service functions:
+USIF 6.4.0+ formally supports human-readable JSON alongside binary `.usif` files. Use `.json` or `.usif.json` with the same service functions:
 
 ```python
 from pathlib import Path
@@ -223,7 +225,7 @@ python examples/02_container_write_query_validate.py
 
 Container implementation is split across focused modules under `usif.storage`, but the public storage package intentionally exports only `StructureContainer`, `USIFGroup`, and `ContainerValidationResult`. Internal record/index/cache/query modules are imported from their concrete submodules when needed by contributors.
 
-USIF 6.3.0 persists formula, geometry, and property secondary indexes inside the `.usifc` index generation. Opening a large container no longer needs to decode every record just to query by formula, property, group, or geometry. Validation is explicit and cost-aware: `validate(level="index")` checks metadata only, `validate(level="records")` verifies byte ranges and USIF record headers, and `validate(level="full")` decodes every structure and verifies record hashes.
+USIF 6.4.0 persists formula, geometry, and property secondary indexes inside the `.usifc` index generation. Opening a large container no longer needs to decode every record just to query by formula, property, group, or geometry. Validation is explicit and cost-aware: `validate(level="index")` checks metadata only, `validate(level="records")` verifies byte ranges and USIF record headers, and `validate(level="full")` decodes every structure and verifies record hashes.
 
 ## Conversion with pymatgen and ASE
 
@@ -321,13 +323,13 @@ structure = convert_mp_to_usif(docs[0])
 
 ```toml
 [project]
-version = "6.3.0"
+version = "6.4.0"
 
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 6
-record = "20260605.006"
-id = "usif-20260605-006"
+sequence = 7
+record = "20260605.007"
+id = "usif-20260605-007"
 ```
 
 `FORMAT_VERSION = 5` is the `.usif` binary record format version and changes only when the binary record layout changes.

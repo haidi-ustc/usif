@@ -1,3 +1,12 @@
+## 6.4.0
+
+- Added `usif.interop.common` protocols and runtime type guards for pymatgen/ASE adapter contracts.
+- Removed the `usif.interop.*` mypy `ignore_errors` override so adapter code is no longer hidden from type checks.
+- Made ASE dependency semantics explicit: ASE import/export routes through pymatgen's `AseAtomsAdaptor` and canonical pymatgen adapters.
+- Tightened pymatgen property extraction by validating per-site property lengths and normalizing stress tensors to USIF Voigt order `(xx, yy, zz, yz, xz, xy)`.
+- Added interop contract tests for type guards, unsupported object errors, ASE dependency wording, and stress tensor normalization.
+- Updated release metadata to the date record `20260605.007` and release ID `usif-20260605-007`.
+
 # Changelog
 
 ## 6.3.0

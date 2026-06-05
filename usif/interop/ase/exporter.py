@@ -1,26 +1,34 @@
-"""USIF -> ASE exporter."""
+"""USIF -> ASE exporter.
+
+USIF exports to ASE via pymatgen's ``AseAtomsAdaptor``.  This keeps the ASE path
+consistent with the canonical pymatgen exporter and makes the dependency chain
+explicit.
+"""
+
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 
 from usif.constants import StorageMode
 from usif.structures.structure import USIFStructure
 
-try:
-    from ase import Atoms as ASEAtoms  # noqa: F401
-except ImportError:  # pragma: no cover - exercised only without ASE installed
-    ASEAtoms = None
-
 
 class ASEExporter:
     """Export USIF structures to ASE Atoms objects."""
 
     @staticmethod
-    def to_ase(usif_structure: USIFStructure):
+    def to_ase(usif_structure: USIFStructure) -> Any:
         """Convert a USIFStructure to an ASE Atoms object."""
-        if ASEAtoms is None:
-            raise ImportError("ASE is not installed. Install it with: pip install ase")
-
-        from pymatgen.io.ase import AseAtomsAdaptor
+        try:
+            from ase import Atoms as ASEAtoms  # noqa: F401
+            from pymatgen.io.ase import AseAtomsAdaptor
+        except ImportError as e:  # pragma: no cover - exercised only without optional deps
+            raise ImportError(
+                "ASE export requires ASE and pymatgen's AseAtomsAdaptor. "
+                "Install with `pip install usif[ase]`."
+            ) from e
         from usif.interop.pymatgen.exporter import PymatgenExporter
 
         pmg_obj = PymatgenExporter.to_pymatgen(usif_structure)

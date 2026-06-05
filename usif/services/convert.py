@@ -6,7 +6,9 @@ from typing import Any, Optional, Union
 import numpy as np
 
 from usif.constants import CompressionType
+from usif.interop.common import is_ase_atoms, is_pymatgen_object
 from usif.structures import USIFStructure
+from usif.symmetry.policies import SymmetryPolicy
 
 
 def import_structure(
@@ -19,7 +21,7 @@ def import_structure(
     force_symmetric: bool = False,
     drop_atomic_properties: bool = False,
     fallback_full_atomic: bool = False,
-    symmetry_policy: Optional[Any] = None,
+    symmetry_policy: Optional[SymmetryPolicy] = None,
     **kwargs: Any,
 ) -> USIFStructure:
     """Create a USIFStructure from a file path, pymatgen object, or ASE Atoms."""
@@ -61,48 +63,37 @@ def import_structure(
             **kwargs,
         )
 
-    try:
-        from pymatgen.core import Molecule as PMGMolecule
-        from pymatgen.core import Structure as PMGStructure
+    if is_pymatgen_object(source):
+        return import_pymatgen(
+            source,
+            forces=forces,
+            stress=stress,
+            energy=energy,
+            charges=charges,
+            magmoms=magmoms,
+            force_symmetric=force_symmetric,
+            drop_atomic_properties=drop_atomic_properties,
+            fallback_full_atomic=fallback_full_atomic,
+            symmetry_policy=symmetry_policy,
+            **kwargs,
+        )
 
-        if isinstance(source, (PMGStructure, PMGMolecule)):
-            return import_pymatgen(
-                source,
-                forces=forces,
-                stress=stress,
-                energy=energy,
-                charges=charges,
-                magmoms=magmoms,
-                force_symmetric=force_symmetric,
-                drop_atomic_properties=drop_atomic_properties,
-                fallback_full_atomic=fallback_full_atomic,
-                symmetry_policy=symmetry_policy,
-                **kwargs,
-            )
-    except ImportError:
-        pass
+    if is_ase_atoms(source):
+        from usif.interop.ase.importer import ASEImporter
 
-    try:
-        from ase import Atoms as ASEAtoms
-
-        if isinstance(source, ASEAtoms):
-            from usif.interop.ase.importer import ASEImporter
-
-            return ASEImporter.from_ase(
-                source,
-                forces=forces,
-                stress=stress,
-                energy=energy,
-                charges=charges,
-                magmoms=magmoms,
-                force_symmetric=force_symmetric,
-                drop_atomic_properties=drop_atomic_properties,
-                fallback_full_atomic=fallback_full_atomic,
-                symmetry_policy=symmetry_policy,
-                **kwargs,
-            )
-    except ImportError:
-        pass
+        return ASEImporter.from_ase(
+            source,
+            forces=forces,
+            stress=stress,
+            energy=energy,
+            charges=charges,
+            magmoms=magmoms,
+            force_symmetric=force_symmetric,
+            drop_atomic_properties=drop_atomic_properties,
+            fallback_full_atomic=fallback_full_atomic,
+            symmetry_policy=symmetry_policy,
+            **kwargs,
+        )
 
     raise TypeError(
         f"Unsupported source type: {type(source)}. "
@@ -120,7 +111,7 @@ def import_pymatgen(
     force_symmetric: bool = False,
     drop_atomic_properties: bool = False,
     fallback_full_atomic: bool = False,
-    symmetry_policy: Optional[Any] = None,
+    symmetry_policy: Optional[SymmetryPolicy] = None,
     **kwargs: Any,
 ) -> USIFStructure:
     """Create a USIFStructure from a pymatgen Structure or Molecule."""

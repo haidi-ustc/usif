@@ -6,10 +6,9 @@ import logging
 from typing import Any, Optional
 
 import numpy as np
-from pymatgen.core import Structure as PMGStructure
-
 from usif.constants import StorageMode, StructureType
 from usif.exceptions import ValidationError
+from usif.interop.common import PymatgenStructureLike
 from usif.interop.pymatgen.property_extractor import (
     build_structure_properties,
     crystal_atomic_sites,
@@ -29,7 +28,7 @@ class CrystalImporter:
 
     @staticmethod
     def from_pymatgen_structure(
-        pmg_structure: PMGStructure,
+        pmg_structure: PymatgenStructureLike,
         *,
         forces: Optional[np.ndarray] = None,
         stress: Optional[np.ndarray] = None,

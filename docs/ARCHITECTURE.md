@@ -1,6 +1,6 @@
 # USIF Architecture
 
-This document describes the current USIF 6.3.0 architecture. It is intentionally code-facing: module names, public entry points, file-format boundaries, and dependency directions are aligned with the repository source tree.
+This document describes the current USIF 6.4.0 architecture. It is intentionally code-facing: module names, public entry points, file-format boundaries, and dependency directions are aligned with the repository source tree.
 
 ## 1. System profile
 
@@ -14,7 +14,7 @@ USIF is a Python 3.10+ library for atomistic structure interchange. It provides:
 - application services for import/export/save/load/optimization;
 - optional Materials Project integration and compression benchmarks.
 
-Core runtime dependencies are declared in `pyproject.toml`: `numpy`, `pymatgen`, `monty`, and `tomli` for Python 3.10. Optional extras provide ASE, Materials Project, benchmark, and development tooling.
+Core runtime dependencies are declared in `pyproject.toml`: `numpy`, `pymatgen`, `monty`, and `tomli` for Python 3.10. Optional extras provide ASE, Materials Project, benchmark, and development tooling. Interop modules are type-checked in 6.4.0; external-library imports are tolerated through mypy's missing-import policy rather than hiding USIF adapter code behind `ignore_errors`.
 
 ## 2. Package layout
 
@@ -65,6 +65,9 @@ usif/
     validation.py                      # container.validate() service
 
   interop/
+    common/
+      protocols.py                    # adapter Protocol contracts for pymatgen/ASE surfaces
+      type_guards.py                  # runtime TypeGuard helpers for supported objects
     pymatgen/
       importer.py                      # small dispatch facade
       crystal_importer.py              # pymatgen Structure -> USIF crystal
@@ -164,7 +167,7 @@ Services are the canonical application boundary for object import/export and fil
 
 ### Official USIF JSON
 
-USIF 6.3.0 supports an official USIF JSON document at the service boundary. The implementation lives in `usif.services.json_io` and uses the schema marker `usif.structure.json.v1`. The JSON service serializes the pure model dictionary into interoperable JSON and restores it through `USIFStructure.from_dict()`.
+USIF 6.4.0 supports an official USIF JSON document at the service boundary. The implementation lives in `usif.services.json_io` and uses the schema marker `usif.structure.json.v1`. The JSON service serializes the pure model dictionary into interoperable JSON and restores it through `USIFStructure.from_dict()`.
 
 Supported JSON path suffixes are `.json` and `.usif.json`. Unsupported non-`.usif` extensions are rejected by `save_structure()` and `load_structure()` so format selection remains explicit. JSON serialization accepts JSON-compatible custom values and normalized NumPy arrays/scalars; unsupported objects and non-finite floats raise `StorageError`.
 
@@ -180,7 +183,7 @@ from usif.interop.pymatgen import (
 from usif.interop.ase import ASEImporter, ASEExporter
 ```
 
-`PymatgenImporter` and `PymatgenExporter` are dispatch facades. Crystal/molecule adapters own the specific conversion paths. ASE adapters currently convert through pymatgen's `AseAtomsAdaptor` and the canonical pymatgen adapters.
+`PymatgenImporter` and `PymatgenExporter` are dispatch facades. Crystal/molecule adapters own the specific conversion paths. The interop common protocols (`PymatgenStructureLike`, `PymatgenMoleculeLike`, and `ASEAtomsLike`) document the minimal external-library surfaces USIF consumes, while runtime type guards (`is_pymatgen_structure()`, `is_pymatgen_molecule()`, and `is_ase_atoms()`) keep adapter errors explicit. ASE adapter depends on pymatgen because ASE import/export intentionally routes through pymatgen's `AseAtomsAdaptor` and the canonical pymatgen adapters.
 
 ### Storage
 
@@ -262,7 +265,7 @@ StructureContainer(mode="r")
 
 If the header points to an invalid index generation, `ContainerIndexStore.find_latest_valid_index_offset()` scans in bounded chunks for the newest valid committed index block.
 
-USIF 6.3.0 persists secondary indexes (`geometry_index`, `formula_index`, and `property_index`) in the checksummed container index generation. This keeps read-only open cost bounded to header + index payload reads, instead of decoding every stored record before the first query. Older index payloads without the secondary section can still be rebuilt from records by `IndexPersistenceMixin._build_secondary_indexes()`.
+USIF 6.4.0 persists secondary indexes (`geometry_index`, `formula_index`, and `property_index`) in the checksummed container index generation. This keeps read-only open cost bounded to header + index payload reads, instead of decoding every stored record before the first query. Older index payloads without the secondary section can still be rebuilt from records by `IndexPersistenceMixin._build_secondary_indexes()`.
 
 `StructureContainer.validate()` is explicit about validation cost: `level="index"` checks metadata/index references, `level="records"` also reads record byte ranges and USIF headers, and `level="full"` decodes every structure and verifies record hashes.
 
@@ -284,13 +287,13 @@ Packaging version and the date-based unique release record are declared in `pypr
 
 ```toml
 [project]
-version = "6.3.0"
+version = "6.4.0"
 
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 6
-record = "20260605.006"
-id = "usif-20260605-006"
+sequence = 7
+record = "20260605.007"
+id = "usif-20260605-007"
 ```
 
 `usif.version` reads these values from `pyproject.toml` in a source checkout and falls back to baked constants or installed package metadata in wheel installs. `FORMAT_VERSION = 5` is the `.usif` binary record format version and changes only when the binary record layout changes.
