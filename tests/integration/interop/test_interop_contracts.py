@@ -39,7 +39,7 @@ def test_ase_type_guard_uses_concrete_optional_dependency():
     pytest.importorskip("ase")
     from ase import Atoms
 
-    atoms = Atoms(2)
+    atoms = Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.0, 0.0, 0.74]])
     assert is_ase_atoms(atoms)
     assert not is_ase_atoms(object())
 

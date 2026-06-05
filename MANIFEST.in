@@ -2,6 +2,8 @@ include README.md
 include LICENSE
 include pyproject.toml
 include docs/ARCHITECTURE.md
+include docs/FORMAT_VERSIONING.md
+include docs/API_STABILITY.md
 include docs/BINARY_FORMAT.md
 include docs/CHANGELOG.md
 include docs/CONTAINER_FORMAT.md
@@ -11,6 +13,7 @@ include docs/RELEASE.md
 include docs/TESTING.md
 include docs/VERSIONING.md
 recursive-include examples *.py *.md
+recursive-include scripts *.py
 recursive-include tests *.py
 recursive-include tests/fixtures *.zip
 recursive-exclude docs/archive *
@@ -22,3 +25,5 @@ recursive-exclude * .pytest_cache
 recursive-exclude build *
 recursive-exclude dist *
 recursive-exclude *.egg-info *
+
+recursive-include .github/workflows *.yml

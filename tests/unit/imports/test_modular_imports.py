@@ -3,6 +3,12 @@
 
 import importlib
 import unittest
+from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover
+    import tomli as tomllib  # type: ignore[no-redef]
 
 
 class TestModularImports(unittest.TestCase):
@@ -176,10 +182,12 @@ class TestModularImports(unittest.TestCase):
     def test_version_info(self):
         from usif import RELEASE_DATE, RELEASE_ID, RELEASE_RECORD, __author__, __version__
 
-        self.assertEqual(__version__, "6.4.0")
-        self.assertEqual(RELEASE_DATE, "2026-06-05")
-        self.assertEqual(RELEASE_RECORD, "20260605.007")
-        self.assertEqual(RELEASE_ID, "usif-20260605-007")
+        pyproject = tomllib.loads(Path("pyproject.toml").read_text())
+        release = pyproject["tool"]["usif"]["release"]
+        self.assertEqual(__version__, pyproject["project"]["version"])
+        self.assertEqual(RELEASE_DATE, release["date"])
+        self.assertEqual(RELEASE_RECORD, release["record"])
+        self.assertEqual(RELEASE_ID, release["id"])
         self.assertIsNotNone(__author__)
 
 

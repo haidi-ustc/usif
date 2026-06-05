@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
+  # CI quality command guardrails for tests: black --check | isort --check-only | mypy usif | bandit -q -r usif | pip_audit | python scripts/check_release_metadata.py | pytest tests/unit | pytest tests/integration tests/reliability tests/examples | python -m build | dist/*.whl
   lint-type-security:
     runs-on: ubuntu-latest
     steps:
@@ -27,6 +28,8 @@ jobs:
         run: |
           bandit -q -r usif -x tests
           pip_audit
+      - name: Release metadata guard
+        run: python scripts/check_release_metadata.py
 
   unit:
     runs-on: ubuntu-latest
@@ -78,8 +81,8 @@ jobs:
           /tmp/usif-wheel-smoke/bin/python -m pip install dist/*.whl
           /tmp/usif-wheel-smoke/bin/python - <<'PY'
           import usif
-          assert usif.__version__ == "6.0.0"
-          assert usif.RELEASE_RECORD == "20260605.001"
+          assert usif.__version__ == "6.5.2"
+          assert usif.RELEASE_RECORD == "20260605.010"
           from usif import USIF, USIFStructure
           from usif.storage import StructureContainer
           print("USIF wheel smoke OK", usif.__version__)

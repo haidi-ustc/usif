@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover
+    import tomli as tomllib  # type: ignore[no-redef]
+
 
 TEST_LAYERS = {
     "unit",
@@ -53,6 +58,7 @@ def test_ci_workflow_covers_quality_test_and_build_smoke():
         "mypy usif",
         "bandit -q -r usif",
         "pip_audit",
+        "python scripts/check_release_metadata.py",
         "pytest tests/unit",
         "pytest tests/integration tests/reliability tests/examples",
         "python -m build",
@@ -68,9 +74,26 @@ def test_release_artifact_hygiene_files_are_configured():
         assert excluded in manifest
     assert "docs/RELEASE.md" in manifest
     assert "docs/TESTING.md" in manifest
+    assert "docs/API_STABILITY.md" in manifest
+    assert "docs/FORMAT_VERSIONING.md" in manifest
+    assert "recursive-include scripts *.py" in manifest
 
 
-def test_core_docs_match_current_6_4_code_boundaries():
+def test_release_governance_docs_and_script_exist():
+    assert Path("scripts/check_release_metadata.py").exists()
+    for doc in ("docs/API_STABILITY.md", "docs/FORMAT_VERSIONING.md"):
+        assert Path(doc).exists()
+    api = Path("docs/API_STABILITY.md").read_text()
+    fmt = Path("docs/FORMAT_VERSIONING.md").read_text()
+    assert "Public API" in api
+    assert "Internal API" in api
+    assert "FORMAT_VERSION = 5" in fmt
+    release_record = tomllib.loads(Path("pyproject.toml").read_text())["tool"]["usif"]["release"]["record"]
+    assert release_record in fmt
+    assert "python scripts/check_release_metadata.py" in fmt
+
+
+def test_core_docs_match_current_6_5_code_boundaries():
     docs = {
         name: Path(f"docs/{name}").read_text()
         for name in (
@@ -81,17 +104,22 @@ def test_core_docs_match_current_6_4_code_boundaries():
         )
     }
 
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text())
+    project_version = pyproject["project"]["version"]
+    release_record = pyproject["tool"]["usif"]["release"]["record"]
+
     architecture = docs["ARCHITECTURE.md"]
     for expected in (
-        "USIF 6.4.0 architecture",
+        f"USIF {project_version} architecture",
         "USIFStructure is a pure model",
         "RecordStore",
         "ContainerIndexStore",
         "usif.integrations.materials_project",
-        "20260605.007",
+        release_record,
         "official USIF JSON",
         "interop common protocols",
         "ASE adapter depends on pymatgen",
+        "scripts/check_release_metadata.py",
     ):
         assert expected in architecture
 

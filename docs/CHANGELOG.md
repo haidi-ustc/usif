@@ -1,3 +1,20 @@
+## 6.5.2
+
+- Fixed release governance packaging by making `scripts` an installable package so `scripts.check_release_metadata` can be imported consistently from source and installed test runs.
+- Ensured CI contains the exact `python scripts/check_release_metadata.py` release-guard command expected by engineering workflow tests.
+- Updated release metadata to the date record `20260605.010` and release ID `usif-20260605-010`.
+- Kept binary `FORMAT_VERSION` at 5 because the `.usif` single-record format did not change.
+
+## 6.5.1
+
+- Fixed the ASE interop contract test to construct a real ASE `Atoms` object with symbols and positions instead of using the invalid `Atoms(2)` form.
+- Added `scripts/check_release_metadata.py` to validate pyproject-driven package version, date-based release record, baked wheel fallback constants, CI wheel-smoke expectations, and the latest changelog entry.
+- Added `docs/FORMAT_VERSIONING.md` to separate package versioning, dated release records, `.usif` binary record format versioning, and `.usifc` container format governance.
+- Added `docs/API_STABILITY.md` to define stable public APIs, internal APIs, experimental APIs, and 6.x breaking-change expectations.
+- Updated CI and release documentation to run the release metadata checker and to support generating `release-checks.txt` next to published artifacts.
+- Updated release metadata to the date record `20260605.009` and release ID `usif-20260605-009`.
+- Kept binary `FORMAT_VERSION` at 5 because the `.usif` single-record format did not change.
+
 ## 6.4.0
 
 - Added `usif.interop.common` protocols and runtime type guards for pymatgen/ASE adapter contracts.

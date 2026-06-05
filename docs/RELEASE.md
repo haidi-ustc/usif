@@ -6,7 +6,13 @@ This project uses `pyproject.toml` as the single packaging configuration and rel
 
 1. Update `[project].version` and `[tool.usif.release]` in `pyproject.toml`.
 2. Update `docs/CHANGELOG.md`.
-3. Run formatting, type, security, and dependency checks:
+3. Validate release metadata:
+
+```bash
+python scripts/check_release_metadata.py --write-report release-checks.txt
+```
+
+4. Run formatting, type, security, and dependency checks:
 
 ```bash
 python -m black --check usif tests examples
@@ -16,28 +22,28 @@ python -m bandit -q -r usif -x tests
 python -m pip_audit
 ```
 
-4. Run the layered tests:
+5. Run the layered tests:
 
 ```bash
 python -m pytest tests/unit --cov=usif --cov-report=term-missing
 python -m pytest tests/integration tests/reliability tests/examples
 ```
 
-5. Build artifacts:
+6. Build artifacts:
 
 ```bash
 python -m build
 ```
 
-6. Install and smoke-test the built wheel in a clean virtual environment:
+7. Install and smoke-test the built wheel in a clean virtual environment:
 
 ```bash
 python -m venv /tmp/usif-wheel-smoke
 /tmp/usif-wheel-smoke/bin/python -m pip install dist/*.whl
 /tmp/usif-wheel-smoke/bin/python - <<'PY'
 import usif
-assert usif.__version__ == "6.4.0"
-assert usif.RELEASE_RECORD == "20260605.007"
+assert usif.__version__ == "6.5.2"
+assert usif.RELEASE_RECORD == "20260605.010"
 from usif import USIF, USIFStructure
 from usif.storage import StructureContainer
 print("USIF wheel smoke OK", usif.__version__)
