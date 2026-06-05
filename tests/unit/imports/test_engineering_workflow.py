@@ -70,7 +70,7 @@ def test_release_artifact_hygiene_files_are_configured():
     assert "docs/TESTING.md" in manifest
 
 
-def test_core_docs_match_current_6_1_code_boundaries():
+def test_core_docs_match_current_6_2_code_boundaries():
     docs = {
         name: Path(f"docs/{name}").read_text()
         for name in (
@@ -83,12 +83,12 @@ def test_core_docs_match_current_6_1_code_boundaries():
 
     architecture = docs["ARCHITECTURE.md"]
     for expected in (
-        "USIF 6.1.0 architecture",
+        "USIF 6.2.0 architecture",
         "USIFStructure is a pure model",
         "RecordStore",
         "ContainerIndexStore",
         "usif.integrations.materials_project",
-        "20260605.004",
+        "20260605.005",
         "official USIF JSON",
     ):
         assert expected in architecture
@@ -127,6 +127,7 @@ def test_core_docs_match_current_6_1_code_boundaries():
         "__USIF_JSON__:",
         "SymmetryPolicy",
         "usif.structure.json.v1",
+        "set_tensor",
     ):
         assert expected in properties
 
@@ -142,6 +143,7 @@ def test_examples_use_clear_descriptive_filenames():
         "04_properties_and_hashes.py",
         "05_symmetry_policy_import.py",
         "06_json_structure_roundtrip.py",
+        "07_property_management.py",
         "download_mp_data.py",
         "quickstart.py",
     ):
@@ -153,6 +155,7 @@ def test_example_docs_match_current_json_and_mp_workflows():
     mp_readme = Path("examples/README_MP_DOWNLOAD.md").read_text()
 
     assert "06_json_structure_roundtrip.py" in examples_readme
+    assert "07_property_management.py" in examples_readme
     assert "Official `.json` / `.usif.json`" in examples_readme
     assert "group_01/materials.json" in mp_readme
     assert "load_mp_group" in mp_readme

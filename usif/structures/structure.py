@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pure USIF structure domain model."""
 
-from typing import List, Optional
+from typing import Any, Iterable, List, Optional
 
 import numpy as np
 from usif.constants import StorageMode, StructureType, SymmetryConstants
@@ -83,6 +83,52 @@ class USIFStructure:
 
     def is_symmetric(self) -> bool:
         return self.storage_mode == StorageMode.SYMMETRIC
+
+
+    def get_structure_property(self, name: str, default: Any = None) -> Any:
+        """Return a structure-level property by name."""
+        return self.structure_properties.get(name, default)
+
+    def set_structure_property(self, name: str, value: Any) -> "USIFStructure":
+        """Set a structure-level property and return ``self`` for chaining."""
+        self.structure_properties.set(name, value)
+        return self
+
+    def remove_structure_property(self, name: str) -> Any:
+        """Remove a structure-level property and return its previous value."""
+        return self.structure_properties.remove(name)
+
+    def get_atom_property(self, index: int, name: str, default: Any = None) -> Any:
+        """Return one atom-level property by atom index. Requires full-atomic storage."""
+        sites = self._require_atom_sites()
+        return sites[index].properties.get(name, default)
+
+    def set_atom_property(self, index: int, name: str, value: Any) -> "USIFStructure":
+        """Set one atom-level property by atom index. Requires full-atomic storage."""
+        sites = self._require_atom_sites()
+        sites[index].properties.set(name, value)
+        return self
+
+    def get_atomic_property(self, name: str, default: Any = None) -> list[Any]:
+        """Return an atom-aligned list for one property across all atom sites."""
+        return [site.properties.get(name, default) for site in self._require_atom_sites()]
+
+    def set_atomic_property(self, name: str, values: Iterable[Any]) -> "USIFStructure":
+        """Set one property across all atom sites from an atom-aligned iterable."""
+        sites = self._require_atom_sites()
+        values_list = list(values)
+        if len(values_list) != len(sites):
+            raise ValueError(
+                f"Atomic property '{name}' expects {len(sites)} values, got {len(values_list)}"
+            )
+        for site, value in zip(sites, values_list):
+            site.properties.set(name, value)
+        return self
+
+    def _require_atom_sites(self) -> list[AtomSite]:
+        if self.storage_mode != StorageMode.FULL_ATOMIC or self.atom_sites is None:
+            raise ValidationError("Atomic property management requires FULL_ATOMIC storage")
+        return self.atom_sites
 
     def set_symmetry_metadata(self, metadata: SymmetryMetadata) -> None:
         self.structure_properties.custom[SYMMETRY_METADATA_KEY] = metadata.as_dict()

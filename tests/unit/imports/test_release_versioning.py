@@ -13,13 +13,13 @@ def test_pyproject_is_single_release_metadata_source():
     project = pyproject["project"]
     release = pyproject["tool"]["usif"]["release"]
 
-    assert project["version"] == "6.1.0"
+    assert project["version"] == "6.2.0"
     assert "dynamic" not in project
     assert release == {
         "date": "2026-06-05",
-        "sequence": 4,
-        "record": "20260605.004",
-        "id": "usif-20260605-004",
+        "sequence": 5,
+        "record": "20260605.005",
+        "id": "usif-20260605-005",
     }
 
 

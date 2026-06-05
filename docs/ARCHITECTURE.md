@@ -1,6 +1,6 @@
 # USIF Architecture
 
-This document describes the current USIF 6.1.0 architecture. It is intentionally code-facing: module names, public entry points, file-format boundaries, and dependency directions are aligned with the repository source tree.
+This document describes the current USIF 6.2.0 architecture. It is intentionally code-facing: module names, public entry points, file-format boundaries, and dependency directions are aligned with the repository source tree.
 
 ## 1. System profile
 
@@ -164,7 +164,7 @@ Services are the canonical application boundary for object import/export and fil
 
 ### Official USIF JSON
 
-USIF 6.1.0 supports an official USIF JSON document at the service boundary. The implementation lives in `usif.services.json_io` and uses the schema marker `usif.structure.json.v1`. The JSON service serializes the pure model dictionary into interoperable JSON and restores it through `USIFStructure.from_dict()`.
+USIF 6.2.0 supports an official USIF JSON document at the service boundary. The implementation lives in `usif.services.json_io` and uses the schema marker `usif.structure.json.v1`. The JSON service serializes the pure model dictionary into interoperable JSON and restores it through `USIFStructure.from_dict()`.
 
 Supported JSON path suffixes are `.json` and `.usif.json`. Unsupported non-`.usif` extensions are rejected by `save_structure()` and `load_structure()` so format selection remains explicit. JSON serialization accepts JSON-compatible custom values and normalized NumPy arrays/scalars; unsupported objects and non-finite floats raise `StorageError`.
 
@@ -280,13 +280,13 @@ Packaging version and the date-based unique release record are declared in `pypr
 
 ```toml
 [project]
-version = "6.1.0"
+version = "6.2.0"
 
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 4
-record = "20260605.004"
-id = "usif-20260605-004"
+sequence = 5
+record = "20260605.005"
+id = "usif-20260605-005"
 ```
 
 `usif.version` reads these values from `pyproject.toml` in a source checkout and falls back to baked constants or installed package metadata in wheel installs. `FORMAT_VERSION = 5` is the `.usif` binary record format version and changes only when the binary record layout changes.
@@ -304,3 +304,8 @@ tests/fixtures/      deterministic local data
 ```
 
 The CI workflow runs formatting (`black --check`, `isort --check-only`), type checks (`mypy usif`), security checks (`bandit -q -r usif`, `pip_audit`), unit tests, integration/reliability/example tests, source/wheel builds, and clean wheel installation smoke tests.
+
+
+## 6.2 property-management note
+
+The property layer provides shape-aware property management for structure and atomic scopes. `StructureProperties`, `AtomicProperties`, and pure-model helpers on `USIFStructure` normalize built-in scalar/vector/tensor values and JSON-compatible custom values before they enter binary, JSON, or container persistence.

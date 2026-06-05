@@ -1,5 +1,15 @@
 # Changelog
 
+## 6.2.0
+
+- Added ergonomic property management APIs for structure-level and atom-level values.
+- `StructureProperties` and `AtomicProperties` now support `get()`, `set()`, `remove()`, `has()`, `set_scalar()`, `set_vector()`, `set_tensor()`, and `set_custom()`.
+- `USIFStructure` now provides pure-model property helpers: `set_structure_property()`, `get_structure_property()`, `set_atom_property()`, `get_atom_property()`, `set_atomic_property()`, and `get_atomic_property()`.
+- Built-in scalar/vector/tensor values are normalized and validated consistently; structure stress accepts either Voigt `(xx, yy, zz, yz, xz, xy)` or a 3x3 tensor matrix.
+- Custom properties are normalized to JSON-compatible values so `.usif`, `.json`, `.usif.json`, and container records preserve scalars, vectors, tensors, nested dictionaries, booleans, and nulls.
+- Added `examples/07_property_management.py` and focused property-management regression tests.
+- Updated release metadata to the date record `20260605.005` and release ID `usif-20260605-005`.
+
 ## 6.1.0
 
 - Added official USIF JSON structure support with schema marker `usif.structure.json.v1`.

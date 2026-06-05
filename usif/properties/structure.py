@@ -57,6 +57,16 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 
 from usif.constants import SymmetryConstants
+from usif.properties.values import (
+    as_numeric_scalar,
+    as_numeric_tuple,
+    as_scalar,
+    as_tensor,
+    infer_shape,
+    normalize_json_value,
+    stress_matrix_to_voigt,
+    voigt_to_stress_matrix,
+)
 
 
 @dataclass
@@ -71,18 +81,90 @@ class StructureProperties:
     custom: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Validate structure properties"""
-        # Validate stress tensor has exactly 6 elements (Voigt notation)
-        if self.stress is not None and len(self.stress) != 6:
-            raise ValueError(
-                f"Stress tensor must have 6 elements (Voigt notation), got {len(self.stress)}"
-            )
+        """Validate and normalize structure properties."""
+        if self.stress is not None:
+            if infer_shape(self.stress) == (3, 3):
+                self.stress = stress_matrix_to_voigt(self.stress)
+            else:
+                self.stress = as_numeric_tuple("stress", self.stress, length=6)
 
-        # Validate numeric types for scalar properties
         for prop_name in ["energy", "volume", "pressure", "temperature"]:
             value = getattr(self, prop_name)
-            if value is not None and not isinstance(value, (int, float)):
-                raise TypeError(f"{prop_name} must be numeric, got {type(value)}")
+            if value is not None:
+                setattr(self, prop_name, as_numeric_scalar(prop_name, value))
+
+        self.custom = {key: normalize_json_value(value) for key, value in self.custom.items()}
+
+
+    def get(self, name: str, default: Any = None) -> Any:
+        """Return a built-in or custom structure property value."""
+        if name in {"energy", "stress", "volume", "pressure", "temperature"}:
+            value = getattr(self, name)
+            return default if value is None else value
+        return self.custom.get(name, default)
+
+    def has(self, name: str) -> bool:
+        """Return True when a built-in or custom structure property is set."""
+        return self.get(name, None) is not None if name in {"energy", "stress", "volume", "pressure", "temperature"} else name in self.custom
+
+    def set(self, name: str, value: Any) -> "StructureProperties":
+        """Set a built-in or custom structure property and return ``self`` for chaining."""
+        if name == "stress":
+            return self.set_tensor(name, value)
+        if name in {"energy", "volume", "pressure", "temperature"}:
+            return self.set_scalar(name, value)
+        return self.set_custom(name, value)
+
+    def remove(self, name: str) -> Any:
+        """Remove a built-in or custom structure property and return the old value."""
+        if name in {"energy", "stress", "volume", "pressure", "temperature"}:
+            old = getattr(self, name)
+            setattr(self, name, None)
+            return old
+        return self.custom.pop(name, None)
+
+    def set_scalar(self, name: str, value: Any) -> "StructureProperties":
+        """Set a scalar structure property. Built-in scalar names are validated."""
+        if name not in {"energy", "volume", "pressure", "temperature"}:
+            self.custom[name] = as_scalar(name, value)
+            return self
+        setattr(self, name, as_numeric_scalar(name, value))
+        return self
+
+    def set_vector(self, name: str, value: Any, *, length: int | None = None) -> "StructureProperties":
+        """Set a custom vector structure property as a JSON-safe list."""
+        expected = 3 if length is None else length
+        self.custom[name] = list(as_numeric_tuple(name, value, length=expected))
+        return self
+
+    def set_tensor(self, name: str, value: Any, *, shape: tuple[int, ...] | None = None) -> "StructureProperties":
+        """Set a tensor structure property. ``stress`` accepts Voigt or 3x3 matrix form."""
+        if name == "stress":
+            actual_shape = infer_shape(value)
+            if actual_shape == (3, 3):
+                self.stress = stress_matrix_to_voigt(value)
+            else:
+                self.stress = as_numeric_tuple("stress", value, length=6)
+            return self
+        self.custom[name] = as_tensor(name, value, shape=shape)
+        return self
+
+    def set_custom(self, name: str, value: Any) -> "StructureProperties":
+        """Set a JSON-compatible custom structure property."""
+        if name in {"energy", "stress", "volume", "pressure", "temperature"}:
+            raise ValueError(f"'{name}' is a built-in property; use set('{name}', value)")
+        self.custom[name] = normalize_json_value(value)
+        return self
+
+    def get_custom(self, name: str, default: Any = None) -> Any:
+        """Return a custom structure property value."""
+        return self.custom.get(name, default)
+
+    def stress_matrix(self) -> Optional[list[list[float]]]:
+        """Return the stress tensor as a symmetric 3x3 matrix when set."""
+        if self.stress is None:
+            return None
+        return voigt_to_stress_matrix(self.stress)
 
     def get_all_properties(self) -> Dict[str, Any]:
         """Get all properties as dictionary

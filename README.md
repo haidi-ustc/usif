@@ -118,9 +118,40 @@ python examples/01_manual_structure_binary_roundtrip.py
 ```
 
 
+
+## Property management
+
+USIF 6.2.0 provides shape-aware property helpers for structure-level and atom-level values:
+
+```python
+from usif import AtomicProperties, StructureProperties
+
+props = StructureProperties()
+props.set_scalar("energy", -10.5)
+props.set_tensor("stress", [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+props.set_vector("dipole", [0.0, 0.0, 1.2])
+props.set_custom("calculation", {"code": "example", "converged": True})
+
+atom = AtomicProperties()
+atom.set_scalar("charge", -0.25)
+atom.set_vector("force", [0.1, 0.0, 0.0])
+atom.set_tensor("quadrupole", [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+```
+
+For full-atomic structures, atom-aligned updates are available directly on the pure model:
+
+```python
+structure.set_structure_property("energy", -10.5)
+structure.set_atomic_property("charge", [1.0, -1.0])
+structure.set_atomic_property("force", [[0, 0, 0], [0.1, 0, 0]])
+structure.set_atom_property(1, "site_label", "Cl1")
+```
+
+Custom values are normalized to JSON-compatible scalars, lists, dictionaries, booleans, and `None`, so they round-trip through binary `.usif`, JSON `.json` / `.usif.json`, and container `.usifc` records.
+
 ## Official JSON structure files
 
-USIF 6.1.0 formally supports human-readable JSON alongside binary `.usif` files. Use `.json` or `.usif.json` with the same service functions:
+USIF 6.2.0+ formally supports human-readable JSON alongside binary `.usif` files. Use `.json` or `.usif.json` with the same service functions:
 
 ```python
 from pathlib import Path
@@ -288,13 +319,13 @@ structure = convert_mp_to_usif(docs[0])
 
 ```toml
 [project]
-version = "6.1.0"
+version = "6.2.0"
 
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 4
-record = "20260605.004"
-id = "usif-20260605-004"
+sequence = 5
+record = "20260605.005"
+id = "usif-20260605-005"
 ```
 
 `FORMAT_VERSION = 5` is the `.usif` binary record format version and changes only when the binary record layout changes.

@@ -54,6 +54,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 
 from usif.constants import SymmetryConstants
+from usif.properties.values import as_numeric_scalar, as_scalar, as_tensor, as_vector, normalize_json_value
 
 
 def validate_vector(value: Optional[Tuple[float, float, float]], name: str) -> None:
@@ -87,15 +88,16 @@ class AtomicProperties:
     custom: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Validate initialization data"""
-        validate_vector(self.force, "force")
-        validate_vector(self.velocity, "velocity")
-
-        # Validate scalar properties
-        if self.charge is not None and not isinstance(self.charge, (int, float)):
-            raise TypeError("charge must be a numeric value")
-        if self.magmom is not None and not isinstance(self.magmom, (int, float)):
-            raise TypeError("magmom must be a numeric value")
+        """Validate and normalize initialization data."""
+        if self.force is not None:
+            self.force = as_vector("force", self.force, length=3)  # type: ignore[assignment]
+        if self.velocity is not None:
+            self.velocity = as_vector("velocity", self.velocity, length=3)  # type: ignore[assignment]
+        if self.charge is not None:
+            self.charge = as_numeric_scalar("charge", self.charge)
+        if self.magmom is not None:
+            self.magmom = as_numeric_scalar("magmom", self.magmom)
+        self.custom = {key: normalize_json_value(value) for key, value in self.custom.items()}
 
     def get_all_properties(self) -> Dict[str, Any]:
         """Get all properties as dictionary
@@ -114,6 +116,67 @@ class AtomicProperties:
             props["velocity"] = self.velocity
         props.update(self.custom)
         return props
+
+
+    def get(self, name: str, default: Any = None) -> Any:
+        """Return a built-in or custom atomic property value."""
+        if name in {"force", "charge", "magmom", "velocity"}:
+            value = getattr(self, name)
+            return default if value is None else value
+        return self.custom.get(name, default)
+
+    def has(self, name: str) -> bool:
+        """Return True when a built-in or custom atomic property is set."""
+        return self.get(name, None) is not None if name in {"force", "charge", "magmom", "velocity"} else name in self.custom
+
+    def set(self, name: str, value: Any) -> "AtomicProperties":
+        """Set a built-in or custom atomic property and return ``self`` for chaining."""
+        if name in {"force", "velocity"}:
+            return self.set_vector(name, value)
+        if name in {"charge", "magmom"}:
+            return self.set_scalar(name, value)
+        return self.set_custom(name, value)
+
+    def remove(self, name: str) -> Any:
+        """Remove a built-in or custom atomic property and return the old value."""
+        if name in {"force", "charge", "magmom", "velocity"}:
+            old = getattr(self, name)
+            setattr(self, name, None)
+            return old
+        return self.custom.pop(name, None)
+
+    def set_scalar(self, name: str, value: Any) -> "AtomicProperties":
+        """Set a scalar atomic property. Built-in scalar names are validated."""
+        if name not in {"charge", "magmom"}:
+            self.custom[name] = as_scalar(name, value)
+            return self
+        setattr(self, name, as_numeric_scalar(name, value))
+        return self
+
+    def set_vector(self, name: str, value: Any, *, length: int = 3) -> "AtomicProperties":
+        """Set a vector atomic property. Built-in vectors are stored as tuples."""
+        vector = as_vector(name, value, length=length)
+        if name in {"force", "velocity"}:
+            setattr(self, name, vector)
+        else:
+            self.custom[name] = list(vector)
+        return self
+
+    def set_tensor(self, name: str, value: Any, *, shape: tuple[int, ...] | None = None) -> "AtomicProperties":
+        """Set a custom tensor atomic property as a JSON-safe nested list."""
+        self.custom[name] = as_tensor(name, value, shape=shape)
+        return self
+
+    def set_custom(self, name: str, value: Any) -> "AtomicProperties":
+        """Set a JSON-compatible custom atomic property."""
+        if name in {"force", "charge", "magmom", "velocity"}:
+            raise ValueError(f"'{name}' is a built-in property; use set('{name}', value)")
+        self.custom[name] = normalize_json_value(value)
+        return self
+
+    def get_custom(self, name: str, default: Any = None) -> Any:
+        """Return a custom atomic property value."""
+        return self.custom.get(name, default)
 
     def has_force(self) -> bool:
         """Check if force is set

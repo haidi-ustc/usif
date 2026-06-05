@@ -158,3 +158,42 @@ This policy is shared by services, pymatgen importers, ASE importers, and `Symme
 USIF 6.1.0 adds the official service-level JSON schema `usif.structure.json.v1`. It serializes `USIFStructure.as_dict()` through `usif.services.structure_to_json_dict()` and stores `StructureProperties` as an explicit dictionary containing `energy`, `stress`, `volume`, `pressure`, `temperature`, and `custom`. JSON custom values preserve standard JSON-compatible values including dicts, lists, strings, numbers, booleans, and `null`.
 
 Use `save_structure_json()` / `load_structure_json()` directly, or `save_structure()` / `load_structure()` with `.json` or `.usif.json` paths.
+
+
+## 11. Ergonomic property management API
+
+USIF 6.2.0 adds a uniform property-management API for both structure-level and atom-level properties. The API is shape-aware and supports scalar, vector, tensor, and custom values without requiring callers to manipulate the `custom` dictionaries directly.
+
+Structure-level properties:
+
+```python
+props = StructureProperties()
+props.set_scalar("energy", -10.5)
+props.set_tensor("stress", [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+props.set_vector("dipole", [0.0, 0.0, 1.2])
+props.set_tensor("elastic_tensor", zeros_3x3x3x3)
+props.set_custom("calculation", {"code": "VASP", "converged": True})
+```
+
+Atom-level properties:
+
+```python
+atom_props = AtomicProperties()
+atom_props.set_scalar("charge", -0.25)
+atom_props.set_vector("force", [0.1, 0.0, 0.0])
+atom_props.set_tensor("quadrupole", [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+atom_props.set_custom("label", "O1")
+```
+
+Pure-model helpers on `USIFStructure` make atom-aligned property updates concise for full-atomic structures:
+
+```python
+structure.set_structure_property("energy", -10.5)
+structure.set_atomic_property("charge", [1.0, -1.0])
+structure.set_atomic_property("force", [[0, 0, 0], [0.1, 0.0, 0.0]])
+structure.set_atom_property(1, "site_label", "Cl1")
+```
+
+Built-in properties are stored in their canonical representation: scalar built-ins as finite floats, `force`/`velocity` as 3-element tuples, and `stress` as the 6-element Voigt tuple `(xx, yy, zz, yz, xz, xy)`. `StructureProperties.stress_matrix()` returns the equivalent symmetric 3x3 matrix.
+
+Custom properties are normalized to JSON-compatible values. Numpy scalars and arrays are accepted at API boundaries and become Python scalars/lists, which means custom scalar/vector/tensor values round-trip through binary `.usif`, JSON `.json` / `.usif.json`, and container `.usifc` records.
