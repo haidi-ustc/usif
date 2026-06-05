@@ -19,6 +19,7 @@ from usif.properties.atomic import AtomicProperties
 from usif.properties.registry import DEFAULT_REGISTRY
 from usif.properties.serializer import PropertySerializer
 from usif.properties.structure import StructureProperties
+from usif.properties.values import PROPERTY_UNITS_KEY, unwrap_property_value
 
 logger = logging.getLogger(__name__)
 CUSTOM_JSON_PREFIX = "__USIF_JSON__:"
@@ -108,7 +109,7 @@ class PropertyCodec:
             data.extend(name_bytes)
 
             prop_data = PropertySerializer.serialize_value(
-                all_props[prop_name], prop_def, num_atoms
+                unwrap_property_value(all_props[prop_name]), prop_def, num_atoms
             )
             if len(prop_data) > MAX_PROPERTY_VALUE_SIZE:
                 raise EncodingError(
@@ -120,6 +121,9 @@ class PropertyCodec:
 
         built_in_props = set(self.registry.list_properties())
         custom_props = {k: v for k, v in all_props.items() if k not in built_in_props}
+        units_map = props.get_units_map() if hasattr(props, "get_units_map") else {}
+        if units_map:
+            custom_props[PROPERTY_UNITS_KEY] = units_map
         if len(custom_props) > MAX_CUSTOM_PROPERTY_COUNT:
             raise EncodingError(
                 f"Custom property count {len(custom_props)} exceeds maximum {MAX_CUSTOM_PROPERTY_COUNT}"
@@ -205,8 +209,14 @@ class PropertyCodec:
                     value_len, f"custom property '{custom_name}' value"
                 ).decode("utf-8")
 
-                props.custom[custom_name] = self.decode_custom_value(value_str)
+                decoded_value = self.decode_custom_value(value_str)
+                if custom_name == PROPERTY_UNITS_KEY and isinstance(decoded_value, dict):
+                    props.units = decoded_value
+                else:
+                    props.custom[custom_name] = decoded_value
 
+            if hasattr(props, "__post_init__"):
+                props.__post_init__()
             return props, reader.tell()
         except (struct.error, UnicodeDecodeError) as e:
             raise DecodingError(

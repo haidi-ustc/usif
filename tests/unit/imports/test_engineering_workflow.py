@@ -158,6 +158,8 @@ def test_core_docs_match_current_6_5_code_boundaries():
         "SymmetryPolicy",
         "usif.structure.json.v1",
         "set_tensor",
+        "Unit metadata",
+        "Ang^2",
     ):
         assert expected in properties
 
@@ -191,6 +193,7 @@ def test_examples_use_clear_descriptive_filenames():
         "05_symmetry_policy_import.py",
         "06_json_structure_roundtrip.py",
         "07_property_management.py",
+        "08_property_units.py",
         "download_mp_data.py",
         "quickstart.py",
     ):
@@ -203,6 +206,7 @@ def test_example_docs_match_current_json_and_mp_workflows():
 
     assert "06_json_structure_roundtrip.py" in examples_readme
     assert "07_property_management.py" in examples_readme
+    assert "08_property_units.py" in examples_readme
     assert "Official `.json` / `.usif.json`" in examples_readme
     assert "group_01/materials.json" in mp_readme
     assert "load_mp_group" in mp_readme

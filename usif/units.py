@@ -1,123 +1,146 @@
 #!/usr/bin/env python3
 """
-USIF Physical Units Module
+USIF physical units and unit normalization helpers.
 
-This module provides standardized unit definitions and conversion utilities
-for materials science properties. Units are stored as strings for simplicity,
-but this module ensures consistency and provides a central location for unit management.
-
-Main Classes:
-    Units: Physical unit constants for materials science
-    UnitConversions: Unit conversion factors (foundation for future conversion)
-
-Features:
-    - Standardized unit strings (eV, Å, GPa, K, etc.)
-    - Unit validation and compatibility checking
-    - Conversion factors to standard USIF units
-    - Support for energy, length, volume, force, pressure, temperature, etc.
-
-Usage:
-    >>> from usif import Units, PropertyRegistry
-    >>>
-    >>> # Use unit constants
-    >>> energy_unit = Units.EV
-    >>> length_unit = Units.ANGSTROM
-    >>>
-    >>> # Validate units
-    >>> Units.is_valid_unit("eV")  # True
-    >>> Units.get_unit_category("eV")  # "energy"
-    >>> Units.are_compatible("eV", "J")  # True
-    >>>
-    >>> # Use in property definitions
-    >>> prop_def = PropertyDefinition(
-    ...     name="energy",
-    ...     data_type=float,
-    ...     units=Units.EV
-    ... )
-
-See Also:
-    - PropertyRegistry: Uses Units constants
-    - PropertyDefinition: Stores unit strings
+USIF stores values in canonical project units but does not perform automatic
+unit conversion in property setters.  Unit strings are normalized so users can
+write convenient Unicode or ASCII aliases such as ``Å²``, ``Å^2``, ``Ang^2``
+or ``angstrom^2`` and get the same canonical representation.
 """
 
+from __future__ import annotations
+
+import re
 from typing import Optional, Set
+
+_SUPERSCRIPT_TRANSLATION = str.maketrans(
+    {
+        "⁰": "0",
+        "¹": "1",
+        "²": "2",
+        "³": "3",
+        "⁴": "4",
+        "⁵": "5",
+        "⁶": "6",
+        "⁷": "7",
+        "⁸": "8",
+        "⁹": "9",
+        "⁺": "+",
+        "⁻": "-",
+    }
+)
+_SUBSCRIPT_TRANSLATION = str.maketrans(
+    {
+        "₀": "0",
+        "₁": "1",
+        "₂": "2",
+        "₃": "3",
+        "₄": "4",
+        "₅": "5",
+        "₆": "6",
+        "₇": "7",
+        "₈": "8",
+        "₉": "9",
+        "₊": "+",
+        "₋": "-",
+    }
+)
+
+
+def _replace_superscript_runs(text: str) -> str:
+    """Convert Unicode superscript runs to caret exponents."""
+
+    chars = set("⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻")
+    result: list[str] = []
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char not in chars:
+            result.append(char)
+            index += 1
+            continue
+        start = index
+        while index < len(text) and text[index] in chars:
+            index += 1
+        exponent = text[start:index].translate(_SUPERSCRIPT_TRANSLATION)
+        result.append("^" + exponent)
+    return "".join(result)
 
 
 class Units:
-    """
-    Physical unit constants for materials science properties
-
-    All units use standard SI-derived units commonly used in computational materials science.
-    """
+    """Physical unit constants and normalization helpers for USIF."""
 
     # Energy units
-    EV = "eV"  # Electron volt
-    J = "J"  # Joule
-    KJ_MOL = "kJ/mol"  # Kilojoule per mole
-    KCAL_MOL = "kcal/mol"  # Kilocalorie per mole
+    EV = "eV"
+    J = "J"
+    KJ_MOL = "kJ/mol"
+    KCAL_MOL = "kcal/mol"
 
     # Length units
-    ANGSTROM = "Å"  # Angstrom
-    NANOMETER = "nm"  # Nanometer
-    METER = "m"  # Meter
-    BOHR = "a₀"  # Bohr radius
+    ANGSTROM = "Å"
+    NANOMETER = "nm"
+    METER = "m"
+    BOHR = "a0"
 
     # Volume units
-    ANGSTROM_CUBED = "Å³"  # Cubic Angstrom
-    NANOMETER_CUBED = "nm³"  # Cubic nanometer
+    ANGSTROM_CUBED = "Å^3"
+    NANOMETER_CUBED = "nm^3"
+
+    # Common custom tensor units
+    ANGSTROM_SQUARED = "Å^2"
 
     # Force units
-    EV_PER_ANGSTROM = "eV/Å"  # Electron volt per Angstrom
-    NEWTON = "N"  # Newton
+    EV_PER_ANGSTROM = "eV/Å"
+    NEWTON = "N"
 
     # Pressure/Stress units
-    GPA = "GPa"  # Gigapascal
-    MPA = "MPa"  # Megapascal
-    PA = "Pa"  # Pascal
-    BAR = "bar"  # Bar
-    ATM = "atm"  # Atmosphere
-    KBAR = "kbar"  # Kilobar
+    GPA = "GPa"
+    MPA = "MPa"
+    PA = "Pa"
+    BAR = "bar"
+    ATM = "atm"
+    KBAR = "kbar"
 
     # Temperature units
-    KELVIN = "K"  # Kelvin
-    CELSIUS = "°C"  # Celsius
-    FAHRENHEIT = "°F"  # Fahrenheit
+    KELVIN = "K"
+    CELSIUS = "°C"
+    FAHRENHEIT = "°F"
 
     # Charge units
-    ELEMENTARY_CHARGE = "e"  # Elementary charge
-    COULOMB = "C"  # Coulomb
+    ELEMENTARY_CHARGE = "e"
+    COULOMB = "C"
 
     # Magnetic moment units
-    BOHR_MAGNETON = "μB"  # Bohr magneton
-    J_T = "J/T"  # Joule per Tesla
+    BOHR_MAGNETON = "μB"
+    J_T = "J/T"
 
     # Time units
-    SECOND = "s"  # Second
-    FEMTOSECOND = "fs"  # Femtosecond
-    PICOSECOND = "ps"  # Picosecond
+    SECOND = "s"
+    FEMTOSECOND = "fs"
+    PICOSECOND = "ps"
 
     # Velocity units
-    ANGSTROM_PER_FS = "Å/fs"  # Angstrom per femtosecond
-    M_PER_S = "m/s"  # Meter per second
+    ANGSTROM_PER_FS = "Å/fs"
+    M_PER_S = "m/s"
 
     # Frequency units
-    HERTZ = "Hz"  # Hertz
-    THZ = "THz"  # Terahertz
-    CM_INV = "cm⁻¹"  # Wavenumber (cm^-1)
+    HERTZ = "Hz"
+    THZ = "THz"
+    CM_INV = "cm^-1"
 
     # Mass units
-    AMU = "amu"  # Atomic mass unit
-    KG = "kg"  # Kilogram
-    G = "g"  # Gram
+    AMU = "amu"
+    KG = "kg"
+    G = "g"
 
     # Density units
-    G_PER_CM3 = "g/cm³"  # Grams per cubic centimeter
-    KG_PER_M3 = "kg/m³"  # Kilograms per cubic meter
+    G_PER_CM3 = "g/cm^3"
+    KG_PER_M3 = "kg/m^3"
 
-    # Unit categories for validation
     ENERGY_UNITS: Set[str] = {EV, J, KJ_MOL, KCAL_MOL}
     LENGTH_UNITS: Set[str] = {ANGSTROM, NANOMETER, METER, BOHR}
     VOLUME_UNITS: Set[str] = {ANGSTROM_CUBED, NANOMETER_CUBED}
+    AREA_UNITS: Set[str] = {ANGSTROM_SQUARED, "nm^2", "m^2"}
     FORCE_UNITS: Set[str] = {EV_PER_ANGSTROM, NEWTON}
     PRESSURE_UNITS: Set[str] = {GPA, MPA, PA, BAR, ATM, KBAR}
     TEMPERATURE_UNITS: Set[str] = {KELVIN, CELSIUS, FAHRENHEIT}
@@ -125,10 +148,13 @@ class Units:
     MAGNETIC_MOMENT_UNITS: Set[str] = {BOHR_MAGNETON, J_T}
     TIME_UNITS: Set[str] = {SECOND, FEMTOSECOND, PICOSECOND}
     VELOCITY_UNITS: Set[str] = {ANGSTROM_PER_FS, M_PER_S}
+    FREQUENCY_UNITS: Set[str] = {HERTZ, THZ, CM_INV}
+    MASS_UNITS: Set[str] = {AMU, KG, G}
+    DENSITY_UNITS: Set[str] = {G_PER_CM3, KG_PER_M3}
 
-    # Standard units used in USIF (defaults)
     STANDARD_ENERGY = EV
     STANDARD_LENGTH = ANGSTROM
+    STANDARD_AREA = ANGSTROM_SQUARED
     STANDARD_VOLUME = ANGSTROM_CUBED
     STANDARD_FORCE = EV_PER_ANGSTROM
     STANDARD_PRESSURE = GPA
@@ -138,12 +164,57 @@ class Units:
     STANDARD_TIME = FEMTOSECOND
     STANDARD_VELOCITY = ANGSTROM_PER_FS
 
+    _ANGSTROM_TOKEN_RE = re.compile(r"(?i)(?<![A-Za-z])(?:angstroms?|ang)(?![A-Za-z])")
+
     @classmethod
-    def is_valid_unit(cls, unit: str) -> bool:
-        """Check if a unit string is recognized"""
+    def normalize_unit(cls, unit: Optional[str]) -> Optional[str]:
+        """Return the canonical USIF spelling for a unit string.
+
+        The normalizer intentionally accepts both Unicode and ASCII spellings.
+        Examples include ``Å²``/``Å^2``/``Ang^2``/``angstrom^2`` -> ``Å^2``
+        and ``eV/Ang``/``eV/Å`` -> ``eV/Å``.  The function normalizes spelling
+        only; it does not convert numerical values.
+        """
+
+        if unit is None:
+            return None
+        if not isinstance(unit, str):
+            raise TypeError(f"unit must be a string or None, got {type(unit).__name__}")
+        text = unit.strip()
+        if not text:
+            return ""
+        text = text.replace("Å", "Å")
+        text = text.translate(_SUBSCRIPT_TRANSLATION)
+        text = _replace_superscript_runs(text)
+        text = text.replace(" ** ", "^").replace("**", "^")
+        text = re.sub(r"\s*\^\s*", "^", text)
+        text = re.sub(r"\s*/\s*", "/", text)
+        text = re.sub(r"\s+", " ", text)
+        text = cls._ANGSTROM_TOKEN_RE.sub("Å", text)
+        text = re.sub(r"(?i)micro", "μ", text)
+        text = text.replace("uB", "μB").replace("mu_B", "μB").replace("muB", "μB")
+        text = text.replace("a₀", "a0")
+        text = text.replace("Ang", "Å")
+        return text
+
+    @classmethod
+    def canonicalize_units_map(cls, units: dict[str, str]) -> dict[str, str]:
+        """Normalize every unit string in a property-unit mapping."""
+
+        return {str(key): cls.normalize_unit(value) or "" for key, value in units.items()}
+
+    @classmethod
+    def _normalized_set(cls, units: Set[str]) -> Set[str]:
+        return {cls.normalize_unit(unit) or "" for unit in units}
+
+    @classmethod
+    def all_units(cls) -> Set[str]:
+        """Return all recognized units using canonical spellings."""
+
         all_units = (
             cls.ENERGY_UNITS
             | cls.LENGTH_UNITS
+            | cls.AREA_UNITS
             | cls.VOLUME_UNITS
             | cls.FORCE_UNITS
             | cls.PRESSURE_UNITS
@@ -152,159 +223,110 @@ class Units:
             | cls.MAGNETIC_MOMENT_UNITS
             | cls.TIME_UNITS
             | cls.VELOCITY_UNITS
+            | cls.FREQUENCY_UNITS
+            | cls.MASS_UNITS
+            | cls.DENSITY_UNITS
         )
-        return unit in all_units
+        return cls._normalized_set(all_units)
+
+    @classmethod
+    def is_valid_unit(cls, unit: str) -> bool:
+        """Check if a unit string is recognized after alias normalization."""
+
+        return (cls.normalize_unit(unit) or "") in cls.all_units()
 
     @classmethod
     def get_unit_category(cls, unit: str) -> Optional[str]:
-        """
-        Get the category of a unit
+        """Return the physical category of a recognized unit."""
 
-        Returns the physical category that a unit belongs to (e.g., "energy",
-        "length", "pressure"). Units in the same category are compatible.
-
-        Args:
-            unit: Unit string (e.g., "eV", "Å", "GPa")
-
-        Returns:
-            str: Category name if unit is recognized, None otherwise
-
-        Example:
-            >>> Units.get_unit_category("eV")  # "energy"
-            >>> Units.get_unit_category("Å")  # "length"
-            >>> Units.get_unit_category("invalid")  # None
-        """
-        if unit in cls.ENERGY_UNITS:
-            return "energy"
-        elif unit in cls.LENGTH_UNITS:
-            return "length"
-        elif unit in cls.VOLUME_UNITS:
-            return "volume"
-        elif unit in cls.FORCE_UNITS:
-            return "force"
-        elif unit in cls.PRESSURE_UNITS:
-            return "pressure"
-        elif unit in cls.TEMPERATURE_UNITS:
-            return "temperature"
-        elif unit in cls.CHARGE_UNITS:
-            return "charge"
-        elif unit in cls.MAGNETIC_MOMENT_UNITS:
-            return "magnetic_moment"
-        elif unit in cls.TIME_UNITS:
-            return "time"
-        elif unit in cls.VELOCITY_UNITS:
-            return "velocity"
+        normalized = cls.normalize_unit(unit) or ""
+        categories = {
+            "energy": cls.ENERGY_UNITS,
+            "length": cls.LENGTH_UNITS,
+            "area": cls.AREA_UNITS,
+            "volume": cls.VOLUME_UNITS,
+            "force": cls.FORCE_UNITS,
+            "pressure": cls.PRESSURE_UNITS,
+            "temperature": cls.TEMPERATURE_UNITS,
+            "charge": cls.CHARGE_UNITS,
+            "magnetic_moment": cls.MAGNETIC_MOMENT_UNITS,
+            "time": cls.TIME_UNITS,
+            "velocity": cls.VELOCITY_UNITS,
+            "frequency": cls.FREQUENCY_UNITS,
+            "mass": cls.MASS_UNITS,
+            "density": cls.DENSITY_UNITS,
+        }
+        for category, units in categories.items():
+            if normalized in cls._normalized_set(units):
+                return category
         return None
 
     @classmethod
     def are_compatible(cls, unit1: str, unit2: str) -> bool:
-        """
-        Check if two units are compatible (same category)
+        """Return True when two unit strings normalize into the same category."""
 
-        Determines whether two units belong to the same physical category and
-        can be converted between each other.
-
-        Args:
-            unit1: First unit string
-            unit2: Second unit string
-
-        Returns:
-            bool: True if units are compatible, False otherwise
-
-        Example:
-            >>> Units.are_compatible("eV", "J")  # True (both energy)
-            >>> Units.are_compatible("eV", "Å")  # False (different categories)
-        """
         cat1 = cls.get_unit_category(unit1)
         cat2 = cls.get_unit_category(unit2)
         return cat1 is not None and cat1 == cat2
 
 
-# Unit conversion factors (to standard USIF units)
-# These can be used for future unit conversion functionality
 class UnitConversions:
-    """
-    Unit conversion factors to standard USIF units
+    """Conversion factors to standard USIF units.
 
-    All conversions are to the standard USIF unit for each category.
+    Property setters in 6.6 store unit metadata but do not automatically convert
+    numerical values.  These constants are retained as low-level utilities.
     """
 
-    # Energy: eV (standard)
     EV_TO_EV = 1.0
-    J_TO_EV = 6.241509074e18  # 1 J = 6.241509074e18 eV
-    KJ_MOL_TO_EV = 0.01036427  # 1 kJ/mol ≈ 0.01036427 eV
-    KCAL_MOL_TO_EV = 0.0433641  # 1 kcal/mol ≈ 0.0433641 eV
+    J_TO_EV = 6.241509074e18
+    KJ_MOL_TO_EV = 0.01036427
+    KCAL_MOL_TO_EV = 0.0433641
 
-    # Length: Å (standard)
     ANGSTROM_TO_ANGSTROM = 1.0
-    NANOMETER_TO_ANGSTROM = 10.0  # 1 nm = 10 Å
-    METER_TO_ANGSTROM = 1e10  # 1 m = 1e10 Å
-    BOHR_TO_ANGSTROM = 0.529177  # 1 a₀ ≈ 0.529177 Å
+    NANOMETER_TO_ANGSTROM = 10.0
+    METER_TO_ANGSTROM = 1e10
+    BOHR_TO_ANGSTROM = 0.529177
 
-    # Volume: Å³ (standard)
     ANGSTROM_CUBED_TO_ANGSTROM_CUBED = 1.0
-    NANOMETER_CUBED_TO_ANGSTROM_CUBED = 1000.0  # 1 nm³ = 1000 Å³
+    NANOMETER_CUBED_TO_ANGSTROM_CUBED = 1000.0
 
-    # Force: eV/Å (standard)
     EV_PER_ANGSTROM_TO_EV_PER_ANGSTROM = 1.0
-    NEWTON_TO_EV_PER_ANGSTROM = 6.241509074e18 / 1e10  # N to eV/Å
+    NEWTON_TO_EV_PER_ANGSTROM = 6.241509074e18 / 1e10
 
-    # Pressure: GPa (standard)
     GPA_TO_GPA = 1.0
-    MPA_TO_GPA = 0.001  # 1 MPa = 0.001 GPa
-    PA_TO_GPA = 1e-9  # 1 Pa = 1e-9 GPa
-    BAR_TO_GPA = 0.0001  # 1 bar = 0.0001 GPa
-    ATM_TO_GPA = 0.000101325  # 1 atm ≈ 0.000101325 GPa
-    KBAR_TO_GPA = 0.1  # 1 kbar = 0.1 GPa
+    MPA_TO_GPA = 0.001
+    PA_TO_GPA = 1e-9
+    BAR_TO_GPA = 0.0001
+    ATM_TO_GPA = 0.000101325
+    KBAR_TO_GPA = 0.1
 
-    # Temperature: K (standard)
     KELVIN_TO_KELVIN = 1.0
-    CELSIUS_TO_KELVIN = lambda c: c + 273.15  # noqa: E731
-    FAHRENHEIT_TO_KELVIN = lambda f: (f - 32) * 5 / 9 + 273.15  # noqa: E731
+    CELSIUS_TO_KELVIN = staticmethod(lambda c: c + 273.15)
+    FAHRENHEIT_TO_KELVIN = staticmethod(lambda f: (f - 32) * 5 / 9 + 273.15)
 
-    # Charge: e (standard)
     ELEMENTARY_CHARGE_TO_ELEMENTARY_CHARGE = 1.0
-    COULOMB_TO_ELEMENTARY_CHARGE = 6.241509074e18  # 1 C = 6.241509074e18 e
+    COULOMB_TO_ELEMENTARY_CHARGE = 6.241509074e18
 
-    # Magnetic moment: μB (standard)
     BOHR_MAGNETON_TO_BOHR_MAGNETON = 1.0
-    J_T_TO_BOHR_MAGNETON = 1.0 / 9.274009994e-24  # J/T to μB
+    J_T_TO_BOHR_MAGNETON = 1.0 / 9.274009994e-24
 
-    # Time: fs (standard)
     FEMTOSECOND_TO_FEMTOSECOND = 1.0
-    SECOND_TO_FEMTOSECOND = 1e15  # 1 s = 1e15 fs
-    PICOSECOND_TO_FEMTOSECOND = 1000.0  # 1 ps = 1000 fs
+    SECOND_TO_FEMTOSECOND = 1e15
+    PICOSECOND_TO_FEMTOSECOND = 1000.0
 
-    # Velocity: Å/fs (standard)
     ANGSTROM_PER_FS_TO_ANGSTROM_PER_FS = 1.0
-    M_PER_S_TO_ANGSTROM_PER_FS = 1e-5  # 1 m/s = 1e-5 Å/fs
+    M_PER_S_TO_ANGSTROM_PER_FS = 1e-5
 
     @classmethod
     def get_conversion_factor(cls, from_unit: str, to_unit: str) -> Optional[float]:
-        """
-        Get conversion factor from one unit to another
+        """Return a factor for supported conversions to the standard unit."""
 
-        Args:
-            from_unit: Source unit
-            to_unit: Target unit
-
-        Returns:
-            Conversion factor (multiply source value by this to get target value)
-            Returns None if units are incompatible or conversion not supported
-        """
-        from_units = Units()
-
-        # Check if units are compatible
-        if not from_units.are_compatible(from_unit, to_unit):
+        from_unit = Units.normalize_unit(from_unit) or ""
+        to_unit = Units.normalize_unit(to_unit) or ""
+        if not Units.are_compatible(from_unit, to_unit):
             return None
 
-        # Get category
-        category = from_units.get_unit_category(from_unit)
-        if category is None:
-            return None
-
-        # For now, only support conversions to standard units
-        # This can be extended later
+        category = Units.get_unit_category(from_unit)
         standard_units = {
             "energy": Units.STANDARD_ENERGY,
             "length": Units.STANDARD_LENGTH,
@@ -317,15 +339,9 @@ class UnitConversions:
             "time": Units.STANDARD_TIME,
             "velocity": Units.STANDARD_VELOCITY,
         }
-
-        standard = standard_units.get(category)
+        standard = standard_units.get(category or "")
         if standard is None:
             return None
-
-        # If already in standard unit, return 1.0
         if from_unit == standard and to_unit == standard:
             return 1.0
-
-        # For now, return None for non-standard conversions
-        # This can be implemented later with a full conversion table
         return None

@@ -25,7 +25,7 @@ The built-in registry is created by `PropertyRegistry.with_builtins()` and expos
 | `velocity` | atom | `tuple` | `(3,)` | Å/fs |
 | `energy` | structure | `float` | scalar | eV |
 | `stress` | structure | `tuple` | `(6,)` | GPa |
-| `volume` | structure | `float` | scalar | Å³ |
+| `volume` | structure | `float` | scalar | Å^3 |
 | `pressure` | structure | `float` | scalar | GPa |
 | `temperature` | structure | `float` | scalar | K |
 
@@ -162,7 +162,7 @@ Use `save_structure_json()` / `load_structure_json()` directly, or `save_structu
 
 ## 11. Ergonomic property management API
 
-USIF 6.4.0 adds a uniform property-management API for both structure-level and atom-level properties. The API is shape-aware and supports scalar, vector, tensor, and custom values without requiring callers to manipulate the `custom` dictionaries directly.
+USIF 6.2.0 added a uniform property-management API for both structure-level and atom-level properties. The API is shape-aware and supports scalar, vector, tensor, and custom values without requiring callers to manipulate the `custom` dictionaries directly.
 
 Structure-level properties:
 
@@ -197,3 +197,60 @@ structure.set_atom_property(1, "site_label", "Cl1")
 Built-in properties are stored in their canonical representation: scalar built-ins as finite floats, `force`/`velocity` as 3-element tuples, and `stress` as the 6-element Voigt tuple `(xx, yy, zz, yz, xz, xy)`. `StructureProperties.stress_matrix()` returns the equivalent symmetric 3x3 matrix.
 
 Custom properties are normalized to JSON-compatible values. Numpy scalars and arrays are accepted at API boundaries and become Python scalars/lists, which means custom scalar/vector/tensor values round-trip through binary `.usif`, JSON `.json` / `.usif.json`, and container `.usifc` records.
+
+## 12. Unit metadata and aliases
+
+USIF 6.6.0 adds unit metadata to the ergonomic property API. Setters accept an
+optional `units=` argument and normalize common Unicode/ASCII aliases. Unit
+metadata is declarative: setters store and round-trip the unit string but do not
+automatically convert numerical values.
+
+```python
+props = StructureProperties()
+props.set_scalar("energy", -10.5)                         # default units: eV
+props.set_tensor("stress", [[1, 0, 0], [0, 1, 0], [0, 0, 1]], units="GPa")
+props.set_vector("dipole", [0.0, 0.0, 1.2], units="Debye")
+props.set_tensor("quadrupole", [[1, 0, 0], [0, 1, 0], [0, 0, 1]], units="Ang^2")
+
+atom = AtomicProperties()
+atom.set_vector("force", [0.1, 0.0, 0.0], units="eV/Ang")
+atom.set_tensor("quadrupole", [[1, 0, 0], [0, 1, 0], [0, 0, 1]], units="e Å²")
+```
+
+Canonical unit lookups return normalized spellings:
+
+```python
+props.get_units("energy")      # "eV"
+props.get_units("quadrupole")  # "Å^2"
+atom.get_units("force")        # "eV/Å"
+```
+
+The unit normalizer treats these forms as equivalent:
+
+| User spelling | Canonical spelling |
+|---|---|
+| `Å²`, `Å^2`, `Ang^2`, `angstrom^2` | `Å^2` |
+| `Å^3`, `Å^3`, `Ang^3`, `angstrom^3` | `Å^3` |
+| `eV/Ang`, `eV/angstrom` | `eV/Å` |
+| `cm⁻¹`, `cm^-1` | `cm^-1` |
+| `g/cm³`, `g/cm^3` | `g/cm^3` |
+
+Built-in properties keep default units when values are set:
+
+| Property | Default units |
+|---|---|
+| `energy` | `eV` |
+| `stress` | `GPa` |
+| `volume` | `Å^3` |
+| `pressure` | `GPa` |
+| `temperature` | `K` |
+| `force` | `eV/Å` |
+| `charge` | `e` |
+| `magmom` | `μB` |
+| `velocity` | `Å/fs` |
+
+Custom properties with unit metadata are stored as `PropertyValue` envelopes in
+the JSON-compatible custom dictionary. Ergonomic getters still return the bare
+payload value, while `get_custom_envelope()` exposes the full metadata envelope.
+Unit metadata is preserved through `.usif`, `.json`, `.usif.json`, and `.usifc`
+records.

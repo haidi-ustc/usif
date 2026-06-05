@@ -53,6 +53,8 @@ See Also:
 from dataclasses import dataclass
 from typing import Any, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
+from usif.units import Units
+
 T = TypeVar("T")
 
 # Supported data types for properties
@@ -80,6 +82,8 @@ class PropertyDefinition(Generic[T]):
 
     def __post_init__(self) -> None:
         """Validate the property definition itself"""
+        if self.units:
+            self.units = Units.normalize_unit(self.units) or self.units
         self._validate_definition()
 
     def _validate_definition(self) -> None:

@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from pymatgen.core import Element, Lattice
-from pymatgen.core import Structure as PMGStructure
+from typing import Any
 
 from usif.constants import StorageMode
 from usif.structures.structure import USIFStructure
@@ -18,7 +17,10 @@ class CrystalExporter:
     """Export crystal USIF structures to pymatgen ``Structure`` objects."""
 
     @staticmethod
-    def to_pymatgen_structure(usif_structure: USIFStructure) -> PMGStructure:
+    def to_pymatgen_structure(usif_structure: USIFStructure) -> Any:
+        from pymatgen.core import Element, Lattice
+        from pymatgen.core import Structure as PMGStructure
+
         lattice = Lattice(usif_structure.lattice_matrix)
         species = []
         coords = []

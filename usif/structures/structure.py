@@ -89,9 +89,9 @@ class USIFStructure:
         """Return a structure-level property by name."""
         return self.structure_properties.get(name, default)
 
-    def set_structure_property(self, name: str, value: Any) -> "USIFStructure":
+    def set_structure_property(self, name: str, value: Any, *, units: str | None = None) -> "USIFStructure":
         """Set a structure-level property and return ``self`` for chaining."""
-        self.structure_properties.set(name, value)
+        self.structure_properties.set(name, value, units=units)
         return self
 
     def remove_structure_property(self, name: str) -> Any:
@@ -103,17 +103,17 @@ class USIFStructure:
         sites = self._require_atom_sites()
         return sites[index].properties.get(name, default)
 
-    def set_atom_property(self, index: int, name: str, value: Any) -> "USIFStructure":
+    def set_atom_property(self, index: int, name: str, value: Any, *, units: str | None = None) -> "USIFStructure":
         """Set one atom-level property by atom index. Requires full-atomic storage."""
         sites = self._require_atom_sites()
-        sites[index].properties.set(name, value)
+        sites[index].properties.set(name, value, units=units)
         return self
 
     def get_atomic_property(self, name: str, default: Any = None) -> list[Any]:
         """Return an atom-aligned list for one property across all atom sites."""
         return [site.properties.get(name, default) for site in self._require_atom_sites()]
 
-    def set_atomic_property(self, name: str, values: Iterable[Any]) -> "USIFStructure":
+    def set_atomic_property(self, name: str, values: Iterable[Any], *, units: str | None = None) -> "USIFStructure":
         """Set one property across all atom sites from an atom-aligned iterable."""
         sites = self._require_atom_sites()
         values_list = list(values)
@@ -122,7 +122,7 @@ class USIFStructure:
                 f"Atomic property '{name}' expects {len(sites)} values, got {len(values_list)}"
             )
         for site, value in zip(sites, values_list):
-            site.properties.set(name, value)
+            site.properties.set(name, value, units=units)
         return self
 
     def _require_atom_sites(self) -> list[AtomSite]:
@@ -302,6 +302,7 @@ def _structure_properties_to_dict(properties: StructureProperties) -> dict:
         "pressure": properties.pressure,
         "temperature": properties.temperature,
         "custom": properties.custom,
+        "units": properties.units,
     }
 
 
@@ -331,6 +332,7 @@ def _atom_site_to_dict(site: AtomSite) -> dict:
             "magmom": site.properties.magmom,
             "velocity": site.properties.velocity,
             "custom": site.properties.custom,
+            "units": site.properties.units,
         },
     }
 
@@ -348,6 +350,7 @@ def _atom_site_from_dict(data: dict) -> AtomSite:
                 tuple(props["velocity"]) if props.get("velocity") is not None else None
             ),
             custom=props.get("custom", {}),
+            units=props.get("units", {}),
         ),
     )
 
@@ -368,9 +371,9 @@ def _format_properties(properties: StructureProperties) -> str:
 
     parts = []
     if properties.energy is not None:
-        parts.append(f"E={properties.energy:.6f} {Units.EV}")
+        parts.append(f"E={properties.energy:.6f} {properties.get_units('energy', Units.EV)}")
     if properties.volume is not None:
-        parts.append(f"V={properties.volume:.3f} {Units.ANGSTROM_CUBED}")
+        parts.append(f"V={properties.volume:.3f} {properties.get_units('volume', Units.ANGSTROM_CUBED)}")
     if properties.pressure is not None:
-        parts.append(f"P={properties.pressure:.3f} {Units.GPA}")
+        parts.append(f"P={properties.pressure:.3f} {properties.get_units('pressure', Units.GPA)}")
     return ", ".join(parts)

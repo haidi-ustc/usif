@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Union
-
-from pymatgen.core import Molecule as PMGMolecule
-from pymatgen.core import Structure as PMGStructure
+from typing import Any
 
 from usif.interop.pymatgen.crystal_exporter import CrystalExporter
 from usif.interop.pymatgen.molecule_exporter import MoleculeExporter
@@ -16,7 +13,7 @@ class PymatgenExporter:
     """Dispatch USIF exports to focused pymatgen exporters."""
 
     @staticmethod
-    def to_pymatgen(usif_structure: USIFStructure) -> Union[PMGStructure, PMGMolecule]:
+    def to_pymatgen(usif_structure: USIFStructure) -> Any:
         """Convert a USIFStructure to a pymatgen Structure or Molecule."""
         if usif_structure.is_molecular():
             return MoleculeExporter.to_pymatgen_molecule(usif_structure)

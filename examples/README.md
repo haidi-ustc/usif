@@ -12,6 +12,7 @@ Run examples from the repository root with an editable install or with the repos
 | `05_symmetry_policy_import.py` | SymmetryPolicy import behavior. |
 | `06_json_structure_roundtrip.py` | Official `.json` / `.usif.json` save-load workflow. |
 | `07_property_management.py` | Scalar, vector, tensor, and custom property management. |
+| `08_property_units.py` | Property unit metadata and Unicode/ASCII unit alias normalization. |
 | `download_mp_data.py` | Optional live Materials Project downloader CLI. |
 
 The Materials Project downloader requires the `mp` extra and an API key. Its `--help` command does not require either.

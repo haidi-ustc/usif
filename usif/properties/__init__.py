@@ -5,7 +5,7 @@ from .definitions import PropertyDefinition
 from .registry import DEFAULT_REGISTRY, PropertyRegistry, create_default_registry
 from .serializer import PropertySerializer
 from .structure import StructureProperties
-from .values import PropertyValueKind, normalize_json_value
+from .values import PropertyValue, PropertyValueKind, normalize_json_value
 
 __all__ = [
     "PropertyDefinition",
@@ -15,6 +15,7 @@ __all__ = [
     "create_default_registry",
     "AtomicProperties",
     "StructureProperties",
+    "PropertyValue",
     "PropertyValueKind",
     "normalize_json_value",
 ]

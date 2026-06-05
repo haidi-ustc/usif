@@ -148,6 +148,7 @@ def _structure_properties_payload(structure: USIFStructure) -> Any:
             "pressure": props.pressure,
             "temperature": props.temperature,
             "custom": props.custom,
+            "units": props.units,
         }
     )
 
@@ -167,6 +168,7 @@ def _atomic_properties_payload(structure: USIFStructure) -> Any:
                     "magmom": site.properties.magmom,
                     "velocity": site.properties.velocity,
                     "custom": site.properties.custom,
+                    "units": site.properties.units,
                 },
             }
             for site in structure.atom_sites

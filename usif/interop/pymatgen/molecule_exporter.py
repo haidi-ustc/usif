@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from pymatgen.core import Element
-from pymatgen.core import Molecule as PMGMolecule
+from typing import Any
 
 from usif.constants import StorageMode
 from usif.structures.structure import USIFStructure
@@ -18,7 +17,10 @@ class MoleculeExporter:
     """Export molecule USIF structures to pymatgen ``Molecule`` objects."""
 
     @staticmethod
-    def to_pymatgen_molecule(usif_structure: USIFStructure) -> PMGMolecule:
+    def to_pymatgen_molecule(usif_structure: USIFStructure) -> Any:
+        from pymatgen.core import Element
+        from pymatgen.core import Molecule as PMGMolecule
+
         species = []
         coords = []
         site_properties = {}

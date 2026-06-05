@@ -77,3 +77,10 @@ def test_json_structure_roundtrip_example_runs(capsys):
 def test_download_mp_data_help_runs_without_api_key(capsys):
     run_script("examples/download_mp_data.py", "--help")
     assert "Materials Project" in capsys.readouterr().out
+
+
+def test_property_units_example_runs(capsys):
+    run_script("examples/08_property_units.py")
+    out = capsys.readouterr().out
+    assert "Angstrom alias: Å^2" in out
+    assert "Force units: eV/Å" in out

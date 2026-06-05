@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Hashable, List, Tuple
 
 from usif.format.hashing import calculate_geometry_hash
-from usif.properties.values import normalize_json_value
+from usif.properties.values import is_property_value_dict, normalize_json_value
 from usif.structures.structure import USIFStructure
 
 
@@ -45,6 +45,11 @@ def iter_indexable_properties(prefix: str, value: Any):
     for queries without requiring dictionaries to become hash keys.
     """
     normalized = normalize_json_value(value)
+    if is_property_value_dict(normalized):
+        yield from iter_indexable_properties(prefix, normalized.get("value"))
+        if isinstance(normalized.get("units"), str):
+            yield from iter_indexable_properties(f"{prefix}.units", normalized["units"])
+        return
     if isinstance(normalized, dict):
         for sub_key, sub_value in normalized.items():
             yield from iter_indexable_properties(f"{prefix}.{sub_key}", sub_value)

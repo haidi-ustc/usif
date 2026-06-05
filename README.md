@@ -13,7 +13,7 @@ loaded = load_structure("nacl.usif")
 print(loaded.formula)
 ```
 
-## Current 6.1 API boundaries
+## Current 6.6 API boundaries
 
 | Area | Canonical import | Responsibility |
 |---|---|---|
@@ -123,21 +123,22 @@ python examples/01_manual_structure_binary_roundtrip.py
 
 ## Property management
 
-USIF 6.5.2 provides shape-aware property helpers for structure-level and atom-level values:
+USIF 6.6.0 provides shape-aware property helpers for structure-level and atom-level values:
 
 ```python
 from usif import AtomicProperties, StructureProperties
 
 props = StructureProperties()
-props.set_scalar("energy", -10.5)
-props.set_tensor("stress", [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-props.set_vector("dipole", [0.0, 0.0, 1.2])
+props.set_scalar("energy", -10.5)  # default units: eV
+props.set_tensor("stress", [[1, 0, 0], [0, 1, 0], [0, 0, 1]], units="GPa")
+props.set_vector("dipole", [0.0, 0.0, 1.2], units="Debye")
+props.set_tensor("quadrupole", [[1, 0, 0], [0, 1, 0], [0, 0, 1]], units="Ang^2")
 props.set_custom("calculation", {"code": "example", "converged": True})
 
 atom = AtomicProperties()
-atom.set_scalar("charge", -0.25)
-atom.set_vector("force", [0.1, 0.0, 0.0])
-atom.set_tensor("quadrupole", [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+atom.set_scalar("charge", -0.25)  # default units: e
+atom.set_vector("force", [0.1, 0.0, 0.0], units="eV/Ang")
+atom.set_tensor("quadrupole", [[1, 0, 0], [0, 1, 0], [0, 0, 1]], units="e Å²")
 ```
 
 For full-atomic structures, atom-aligned updates are available directly on the pure model:
@@ -151,9 +152,11 @@ structure.set_atom_property(1, "site_label", "Cl1")
 
 Custom values are normalized to JSON-compatible scalars, lists, dictionaries, booleans, and `None`, so they round-trip through binary `.usif`, JSON `.json` / `.usif.json`, and container `.usifc` records.
 
+USIF 6.6.0 also stores unit metadata for built-in and custom properties. Unit strings are normalized but values are not automatically converted: `Å²`, `Å^2`, `Ang^2`, and `angstrom^2` all store as `Å^2`; `eV/Ang` stores as `eV/Å`. Use `get_units(name)` to read canonical unit metadata.
+
 ## Official JSON structure files
 
-USIF 6.5.2+ formally supports human-readable JSON alongside binary `.usif` files. Use `.json` or `.usif.json` with the same service functions:
+USIF 6.6.0+ formally supports human-readable JSON alongside binary `.usif` files. Use `.json` or `.usif.json` with the same service functions:
 
 ```python
 from pathlib import Path
@@ -225,7 +228,7 @@ python examples/02_container_write_query_validate.py
 
 Container implementation is split across focused modules under `usif.storage`, but the public storage package intentionally exports only `StructureContainer`, `USIFGroup`, and `ContainerValidationResult`. Internal record/index/cache/query modules are imported from their concrete submodules when needed by contributors.
 
-USIF 6.5.2 persists formula, geometry, and property secondary indexes inside the `.usifc` index generation. Opening a large container no longer needs to decode every record just to query by formula, property, group, or geometry. Validation is explicit and cost-aware: `validate(level="index")` checks metadata only, `validate(level="records")` verifies byte ranges and USIF record headers, and `validate(level="full")` decodes every structure and verifies record hashes.
+USIF 6.6.0 persists formula, geometry, and property secondary indexes inside the `.usifc` index generation. Opening a large container no longer needs to decode every record just to query by formula, property, group, or geometry. Validation is explicit and cost-aware: `validate(level="index")` checks metadata only, `validate(level="records")` verifies byte ranges and USIF record headers, and `validate(level="full")` decodes every structure and verifies record hashes.
 
 ## Conversion with pymatgen and ASE
 
@@ -323,13 +326,13 @@ structure = convert_mp_to_usif(docs[0])
 
 ```toml
 [project]
-version = "6.5.2"
+version = "6.6.0"
 
 [tool.usif.release]
 date = "2026-06-05"
 sequence = 9
-record = "20260605.010"
-id = "usif-20260605-010"
+record = "20260605.011"
+id = "usif-20260605-011"
 ```
 
 `FORMAT_VERSION = 5` is the `.usif` binary record format version and changes only when the binary record layout changes. See `docs/FORMAT_VERSIONING.md` for the distinction between package versions, date-based release records, `.usif` record format versions, and `.usifc` container metadata. See `docs/API_STABILITY.md` for the 6.x public API stability policy.
