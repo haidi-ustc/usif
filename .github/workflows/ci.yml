@@ -81,8 +81,8 @@ jobs:
           /tmp/usif-wheel-smoke/bin/python -m pip install dist/*.whl
           /tmp/usif-wheel-smoke/bin/python - <<'PY'
           import usif
-          assert usif.__version__ == "6.8.0"
-          assert usif.RELEASE_RECORD == "20260605.013"
+          assert usif.__version__ == "6.10.0"
+          assert usif.RELEASE_RECORD == "20260605.014"
           from usif import USIF, USIFStructure
           from usif.storage import StructureContainer
           print("USIF wheel smoke OK", usif.__version__)

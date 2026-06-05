@@ -77,6 +77,7 @@ def test_release_artifact_hygiene_files_are_configured():
     assert "docs/API_STABILITY.md" in manifest
     assert "docs/FORMAT_VERSIONING.md" in manifest
     assert "recursive-include scripts *.py" in manifest
+    assert "recursive-include docs/site *.md" in manifest
 
 
 def test_release_governance_docs_and_script_exist():
@@ -120,6 +121,7 @@ def test_core_docs_match_current_6_5_code_boundaries():
         "interop common protocols",
         "ASE adapter depends on pymatgen",
         "scripts/check_release_metadata.py",
+        "docs/site",
     ):
         assert expected in architecture
 
@@ -164,6 +166,31 @@ def test_core_docs_match_current_6_5_code_boundaries():
         assert expected in properties
 
 
+def test_documentation_site_is_productized_and_packaged():
+    site = Path("docs/site")
+    required = (
+        "index.md",
+        "quickstart.md",
+        "concepts/structure-model.md",
+        "concepts/properties-and-units.md",
+        "concepts/binary-format.md",
+        "concepts/container-format.md",
+        "tutorials/README.md",
+        "tutorials/container-workflow.md",
+        "tutorials/materials-project.md",
+        "cookbook/README.md",
+        "api/public-api.md",
+    )
+    for relative in required:
+        assert (site / relative).exists()
+    index = (site / "index.md").read_text()
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text())
+    assert pyproject["project"]["version"] in index
+    assert pyproject["tool"]["usif"]["release"]["record"] in index
+    assert "USIFStructure is a pure model" in index
+    assert "docs/site" in Path("README.md").read_text()
+
+
 def test_mypy_no_longer_ignores_interop_adapters():
     pyproject = Path("pyproject.toml").read_text()
     assert 'module = ["usif.interop.*"]' not in pyproject
@@ -195,6 +222,7 @@ def test_examples_use_clear_descriptive_filenames():
         "07_property_management.py",
         "08_property_units.py",
         "09_large_container_workflow.py",
+        "10_materials_project_dataset.py",
         "download_mp_data.py",
         "quickstart.py",
     ):
@@ -209,6 +237,7 @@ def test_example_docs_match_current_json_and_mp_workflows():
     assert "07_property_management.py" in examples_readme
     assert "08_property_units.py" in examples_readme
     assert "09_large_container_workflow.py" in examples_readme
+    assert "10_materials_project_dataset.py" in examples_readme
     assert "Official `.json` / `.usif.json`" in examples_readme
     assert "group_01/materials.json" in mp_readme
     assert "load_mp_group" in mp_readme

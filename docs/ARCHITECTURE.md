@@ -1,6 +1,6 @@
 # USIF Architecture
 
-This document describes the current USIF 6.8.0 architecture. It is intentionally code-facing: module names, public entry points, file-format boundaries, and dependency directions are aligned with the repository source tree.
+This document describes the current USIF 6.10.0 architecture. It is intentionally code-facing: module names, public entry points, file-format boundaries, and dependency directions are aligned with the repository source tree.
 
 ## 1. System profile
 
@@ -14,7 +14,7 @@ USIF is a Python 3.10+ library for atomistic structure interchange. It provides:
 - application services for import/export/save/load/optimization;
 - optional Materials Project integration and compression benchmarks.
 
-Core runtime dependencies are declared in `pyproject.toml`: `numpy`, `pymatgen`, `monty`, and `tomli` for Python 3.10. Optional extras provide ASE, Materials Project, benchmark, and development tooling. Interop modules are type-checked in 6.8.0; external-library imports are tolerated through mypy's missing-import policy rather than hiding USIF adapter code behind `ignore_errors`.
+Core runtime dependencies are declared in `pyproject.toml`: `numpy`, `pymatgen`, `monty`, and `tomli` for Python 3.10. Optional extras provide ASE, Materials Project, benchmark, and development tooling. Interop modules are type-checked in 6.10.0; external-library imports are tolerated through mypy's missing-import policy rather than hiding USIF adapter code behind `ignore_errors`.
 
 ## 2. Package layout
 
@@ -171,7 +171,7 @@ Services are the canonical application boundary for object import/export and fil
 
 ### Official USIF JSON
 
-USIF 6.8.0 supports an official USIF JSON document at the service boundary. The implementation lives in `usif.services.json_io` and uses the schema marker `usif.structure.json.v1`. The JSON service serializes the pure model dictionary into interoperable JSON and restores it through `USIFStructure.from_dict()`.
+USIF 6.10.0 supports an official USIF JSON document at the service boundary. The implementation lives in `usif.services.json_io` and uses the schema marker `usif.structure.json.v1`. The JSON service serializes the pure model dictionary into interoperable JSON and restores it through `USIFStructure.from_dict()`.
 
 Supported JSON path suffixes are `.json` and `.usif.json`. Unsupported non-`.usif` extensions are rejected by `save_structure()` and `load_structure()` so format selection remains explicit. JSON serialization accepts JSON-compatible custom values and normalized NumPy arrays/scalars; unsupported objects and non-finite floats raise `StorageError`.
 
@@ -269,7 +269,7 @@ StructureContainer(mode="r")
 
 If the header points to an invalid index generation, `ContainerIndexStore.find_latest_valid_index_offset()` scans in bounded chunks for the newest valid committed index block.
 
-USIF 6.8.0 persists secondary indexes (`geometry_index`, `formula_index`, and `property_index`) in the checksummed container index generation. This keeps read-only open cost bounded to header + index payload reads, instead of decoding every stored record before the first query. Older index payloads without the secondary section can still be rebuilt from records by `IndexPersistenceMixin._build_secondary_indexes()`.
+USIF 6.10.0 persists secondary indexes (`geometry_index`, `formula_index`, and `property_index`) in the checksummed container index generation. This keeps read-only open cost bounded to header + index payload reads, instead of decoding every stored record before the first query. Older index payloads without the secondary section can still be rebuilt from records by `IndexPersistenceMixin._build_secondary_indexes()`.
 
 `StructureContainer.validate()` is explicit about validation cost: `level="index"` checks metadata/index references, `level="records"` also reads record byte ranges and USIF headers, and `level="full"` decodes every structure and verifies record hashes.
 
@@ -291,18 +291,18 @@ Packaging version and the date-based unique release record are declared in `pypr
 
 ```toml
 [project]
-version = "6.8.0"
+version = "6.10.0"
 
 [tool.usif.release]
 date = "2026-06-05"
-sequence = 12
-record = "20260605.013"
-id = "usif-20260605-013"
+sequence = 14
+record = "20260605.014"
+id = "usif-20260605-014"
 ```
 
 `usif.version` reads these values from `pyproject.toml` in a source checkout and falls back to baked constants or installed package metadata in wheel installs. `FORMAT_VERSION = 5` is the `.usif` binary record format version and changes only when the binary record layout changes.
 
-USIF 6.8.0 adds `scripts/check_release_metadata.py` as the release governance gate. The checker validates `pyproject.toml`, baked `usif.version` fallback constants, CI wheel-smoke expectations, and the latest changelog entry before packaging. `docs/FORMAT_VERSIONING.md` defines package, release-record, `.usif`, and `.usifc` version boundaries; `docs/API_STABILITY.md` defines the stable 6.x public API surface.
+USIF 6.10.0 adds `scripts/check_release_metadata.py` as the release governance gate. The checker validates `pyproject.toml`, baked `usif.version` fallback constants, CI wheel-smoke expectations, and the latest changelog entry before packaging. `docs/FORMAT_VERSIONING.md` defines package, release-record, `.usif`, and `.usifc` version boundaries; `docs/API_STABILITY.md` defines the stable 6.x public API surface.
 
 ## 8. Testing and release boundaries
 
@@ -322,3 +322,8 @@ The CI workflow runs formatting (`black --check`, `isort --check-only`), type ch
 ## 6.2 property-management note
 
 The property layer provides shape-aware property management for structure and atomic scopes. `StructureProperties`, `AtomicProperties`, and pure-model helpers on `USIFStructure` normalize built-in scalar/vector/tensor values and JSON-compatible custom values before they enter binary, JSON, or container persistence.
+
+
+## Documentation site
+
+USIF 6.10.0 adds a plain-Markdown documentation site under `docs/site/`. The site is organized around concepts, tutorials, cookbook recipes, and the public API map. It complements the normative engineering documents (`ARCHITECTURE.md`, `BINARY_FORMAT.md`, `CONTAINER_FORMAT.md`, and `PROPERTY_SYSTEM.md`) without replacing them.

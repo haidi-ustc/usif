@@ -14,7 +14,13 @@ Run examples from the repository root with an editable install or with the repos
 | `07_property_management.py` | Scalar, vector, tensor, and custom property management. |
 | `08_property_units.py` | Property unit metadata and Unicode/ASCII unit alias normalization. |
 | `download_mp_data.py` | Optional live Materials Project downloader CLI. |
+| `10_materials_project_dataset.py` | Local Materials Project group JSON loading and conversion guidance. |
 
 The Materials Project downloader requires the `mp` extra and an API key. Its `--help` command does not require either.
 
 - `09_large_container_workflow.py` — lightweight `.usifc` introspection, stats, and indexed query filters.
+
+
+## Complete documentation site
+
+See `docs/site/` for the productized documentation set: quickstart, concepts, tutorials, cookbook recipes, and public API map.

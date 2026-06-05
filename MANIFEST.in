@@ -12,6 +12,7 @@ include docs/PROPERTY_SYSTEM.md
 include docs/RELEASE.md
 include docs/TESTING.md
 include docs/VERSIONING.md
+recursive-include docs/site *.md
 recursive-include examples *.py *.md
 recursive-include scripts *.py
 recursive-include tests *.py

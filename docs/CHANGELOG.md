@@ -1,3 +1,12 @@
+## 6.10.0
+
+- Skipped the 6.9 line and added a productized user documentation site under `docs/site/` with quickstart, concepts, tutorials, cookbook recipes, and a public API map.
+- Added documentation-site release guardrails so site pages are packaged, tested, and kept aligned with the current package version and release record.
+- Added `examples/10_materials_project_dataset.py` as a clearer Materials Project dataset example with safe `--help` behavior and explicit local dataset conversion guidance.
+- Updated README and examples documentation to point users from quick-start snippets to the complete documentation site.
+- Updated release metadata to the date record `20260605.014` and release ID `usif-20260605-014`.
+- Kept binary `FORMAT_VERSION` at 5 because the `.usif` single-record format layout did not change.
+
 ## 6.8.0
 
 - Fixed pymatgen import property extraction to use `StructureProperties` and `AtomicProperties` setters so built-in default units are present before record hashing; full container validation now remains stable after encode/decode round-trips.

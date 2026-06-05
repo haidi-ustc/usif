@@ -92,3 +92,8 @@ def test_large_container_workflow_example_runs(capsys):
     assert "Indexed records: 3" in out
     assert "Indexed properties include metadata.family: True" in out
     assert "Hydride query count: 2" in out
+
+
+def test_materials_project_dataset_example_help_runs(capsys):
+    run_script("examples/10_materials_project_dataset.py", "--help")
+    assert "Materials Project" in capsys.readouterr().out
