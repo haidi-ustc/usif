@@ -20,7 +20,7 @@ from usif import (
 )
 from usif.storage import StructureContainer
 from usif.constants import BinaryFormat
-from usif.utils.mp_downloader import load_mp_data_from_archive, safe_extract
+from usif.integrations.materials_project import load_mp_data_from_archive, safe_extract
 
 
 def make_structure(energy=-1.0):

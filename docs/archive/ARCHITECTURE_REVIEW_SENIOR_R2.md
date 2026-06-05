@@ -151,7 +151,7 @@
 **仍存在/无法在本包复核**：
 
 - 本包为 sdist，**不含 `.github/`、`.flake8`**：CHANGELOG 声称“CI 扩至 3.8–3.12”，但无法在本包内验证矩阵与 lint 阈值是否真正落地，建议在仓库层确认。
-- `mypy` 配置对 `usif.interop.*`、`usif.utils.*` 设 `ignore_errors=true`，即**最大的 `converter_core` 与 `mp_downloader` 被排除在类型检查之外**，类型保障覆盖面有限（务实但需知悉）。
+- `mypy` 配置对 `usif.interop.*`、`usif.services / usif.benchmarks / usif.integrations.*` 设 `ignore_errors=true`，即**最大的 `converter_core` 与 `mp_downloader` 被排除在类型检查之外**，类型保障覆盖面有限（务实但需知悉）。
 - 覆盖率门槛 70%、`check_untyped_defs=false`，属起步级门槛，可逐步收紧。
 - 仍是 pytest 与（历史）`run_tests.py` 双入口的取舍（次要）。
 

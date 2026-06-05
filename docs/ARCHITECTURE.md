@@ -283,9 +283,8 @@ Binary Data
                               └─────────────┘
                                     │
                                     └─→ ┌─────────────┐
-                                        │    utils    │
-                                        │  - optimizer│
-                                        │  - benchmark│
+                                        │  services   │
+                                        │ - optimizer │
                                         └─────────────┘
 ```
 
@@ -411,3 +410,12 @@ Pymatgen interoperability is now split by structure family instead of keeping cr
 
 `usif.symmetry.__init__` exports lightweight constants, metadata, operations, and policies without importing `SymmetryReducer` eagerly. The reducer remains available through lazy attribute resolution or explicit import from `usif.symmetry.reduce`.
 
+
+### USIF 5.8 Services, Benchmarks, and Integrations Boundary
+
+USIF 5.8 removes the generic `usif.utils` package. Domain services now live in
+`usif.services`, performance helpers live in `usif.benchmarks`, and external data-source
+integration code lives under `usif.integrations`. Materials Project support is split into
+focused modules for API access, query presets, document mapping, archive safety, group
+loading, and high-level downloading. Ordinary imports of `usif`, `usif.services`, and
+`usif.benchmarks` avoid importing `mp-api`; Materials Project downloads import it lazily.

@@ -117,7 +117,7 @@ no_implicit_optional = true
 check_untyped_defs = false
 
 [[tool.mypy.overrides]]
-module = ["usif.interop.*", "usif.utils.*"]
+module = ["usif.interop.*"]
 ignore_errors = true
 
 [tool.bandit]

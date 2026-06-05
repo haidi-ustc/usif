@@ -127,7 +127,7 @@ Examples:
         )
 
     # Import only after argparse handles --help and an API key is present.
-    from usif.utils.mp_downloader import download_mp_data
+    from usif.integrations.materials_project import download_mp_data
 
     # Download
     stats = download_mp_data(
@@ -157,7 +157,7 @@ Examples:
     if "zip_file" in stats:
         print(f"Zip archive: {stats['zip_file']}")
     print("\nTo load and convert to USIF:")
-    print("  from usif.utils.mp_downloader import load_mp_group, convert_mp_to_usif")
+    print("  from usif.integrations.materials_project import load_mp_group, convert_mp_to_usif")
     print("  docs = load_mp_group('<output_dir>/group_01/materials.json')")
     print("  usif_struct = convert_mp_to_usif(docs[0])")
     print("=" * 60)

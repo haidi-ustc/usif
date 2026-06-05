@@ -152,7 +152,7 @@ The import structure has been verified with:
 # Test import order
 import usif.structures.structure
 import usif.converter
-import usif.utils.optimizer
+import usif.services / usif.benchmarks / usif.integrations.optimizer
 from usif.structures.structure import USIFStructure
 # All imports successful - no circular dependency
 ```

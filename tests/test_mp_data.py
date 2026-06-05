@@ -33,7 +33,7 @@ from usif import (
 )
 from usif.services import load_structure, save_structure
 from usif.storage import StructureContainer
-from usif.utils.mp_downloader import (
+from usif.integrations.materials_project import (
     convert_mp_to_usif,
     load_mp_data_from_archive,
     load_mp_group,

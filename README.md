@@ -20,7 +20,7 @@ print(loaded.formula)
 - `.usifc` containers for many structures, names, groups, attributes, and indexed queries.
 - Conversion from and to pymatgen and ASE objects.
 - A property model for energy, stress, temperature, pressure, volume, forces, charges, magnetic moments, and custom metadata.
-- Materials Project helper utilities behind the optional `mp` extra.
+- Materials Project integration utilities behind the optional `mp` extra.
 
 ## Installation
 
@@ -127,7 +127,7 @@ Container internals are split across focused modules under `usif.storage`: `cont
 
 ## Conversion with pymatgen and ASE
 
-USIF 5.7 keeps `USIFStructure` as a pure model and splits pymatgen conversion into crystal/molecule adapters. Use services at application boundaries, or use `PymatgenImporter` / `PymatgenExporter`, `CrystalImporter` / `MoleculeImporter`, and `ASEImporter` / `ASEExporter` for direct conversions. Symmetry behavior is controlled by `SymmetryPolicy`.
+USIF 5.8 keeps `USIFStructure` as a pure model, splits pymatgen conversion into crystal/molecule adapters, and moves optional tooling into explicit service, benchmark, and integration packages. Use services at application boundaries, or use `PymatgenImporter` / `PymatgenExporter`, `CrystalImporter` / `MoleculeImporter`, and `ASEImporter` / `ASEExporter` for direct conversions. Symmetry behavior is controlled by `SymmetryPolicy`.
 
 
 ```python
@@ -180,7 +180,7 @@ Run the property/hash example:
 python examples/properties_and_hashes.py
 ```
 
-## Materials Project utilities
+## Materials Project integration
 
 ```bash
 python -m pip install -e ".[mp]"
@@ -190,6 +190,22 @@ python examples/download_mp_data.py --help
 ```
 
 Prefer the `MP_API_KEY` environment variable over command-line API keys because shell history and process listings may expose arguments.
+
+Programmatic Materials Project use lives under `usif.integrations.materials_project`:
+
+```python
+from usif.integrations.materials_project import load_mp_group, convert_mp_to_usif
+
+docs = load_mp_group("data/mp_structures/group_01/materials.json")
+structure = convert_mp_to_usif(docs[0])
+```
+
+Optimization and benchmarking are no longer exposed through a generic `utils` package:
+
+```python
+from usif.services import optimize_structure
+from usif.benchmarks import benchmark_compression
+```
 
 ## Repository examples
 

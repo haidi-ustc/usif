@@ -49,7 +49,7 @@ You can also import from specific modules:
 ```python
 from usif.properties import PropertyDefinition, PropertySerializer
 from usif.structures import WyckoffSite, AtomSite
-from usif.utils import USIFOptimizer, USIFBenchmark
+from usif.services import USIFOptimizer, USIFBenchmark
 ```
 
 ## Testing

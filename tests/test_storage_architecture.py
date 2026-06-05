@@ -13,6 +13,10 @@ REMOVED_COMPATIBILITY_MODULES = (
     "usif.io",
     "usif.structures.io",
     "usif.structures.source",
+    "usif.utils",
+    "usif.utils.optimizer",
+    "usif.utils.benchmark",
+    "usif.utils.mp_downloader",
 )
 
 
@@ -105,6 +109,54 @@ def test_services_are_canonical_application_boundary():
     assert export_structure is not None
     assert save_structure is not None
     assert load_structure is not None
+
+
+def test_services_benchmarks_and_integrations_have_explicit_boundaries():
+    from usif.benchmarks import USIFBenchmark, benchmark_compression
+    from usif.integrations.materials_project import (
+        convert_mp_to_usif,
+        create_mp_data_archive,
+        download_mp_data,
+        load_mp_data_from_archive,
+        load_mp_group,
+        safe_extract,
+    )
+    from usif.services import USIFOptimizer, optimize_structure
+
+    assert USIFOptimizer is not None
+    assert optimize_structure is not None
+    assert USIFBenchmark is not None
+    assert benchmark_compression is not None
+    assert download_mp_data is not None
+    assert load_mp_group is not None
+    assert convert_mp_to_usif is not None
+    assert create_mp_data_archive is not None
+    assert load_mp_data_from_archive is not None
+    assert safe_extract is not None
+
+    assert not Path("usif/utils").exists()
+    assert Path("usif/services/optimizer.py").exists()
+    assert Path("usif/benchmarks/compression.py").exists()
+    assert Path("usif/integrations/materials_project/downloader.py").exists()
+
+
+def test_materials_project_integration_is_split_into_focused_modules():
+    mp_root = Path("usif/integrations/materials_project")
+    expected = {
+        "archive.py",
+        "client.py",
+        "dependencies.py",
+        "downloader.py",
+        "loader.py",
+        "mapper.py",
+        "query.py",
+    }
+    assert expected.issubset({path.name for path in mp_root.glob("*.py")})
+    downloader_source = (mp_root / "downloader.py").read_text()
+    assert "MaterialsProjectClient" in downloader_source
+    assert "create_mp_data_archive" in downloader_source
+    assert "convert_mp_to_usif" not in downloader_source
+    assert "safe_extract" not in downloader_source
 
 
 def test_registry_default_factory_creates_isolated_registry():

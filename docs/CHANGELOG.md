@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.8.0
+
+- Removed the generic `usif.utils` package.
+- Moved structure optimization to `usif.services.optimizer` and exported `USIFOptimizer` / `optimize_structure` from `usif.services`.
+- Moved compression benchmarking to `usif.benchmarks.compression` and exported `USIFBenchmark` / `benchmark_compression` from `usif.benchmarks`.
+- Split Materials Project tooling into `usif.integrations.materials_project` modules for client access, query presets, downloading, archive safety, group loading, and MP document mapping.
+- Updated tests, examples, README, and architecture documentation to use explicit service/benchmark/integration imports.
+- Removed the `usif.utils.*` mypy ignore override; only interop adapters remain temporarily ignored.
+- Kept binary `FORMAT_VERSION` at 5 because the USIF record format did not change.
+
 ## 5.7.0
 
 - Split pymatgen import logic into `CrystalImporter` and `MoleculeImporter`, with `PymatgenImporter` now acting as a small dispatch facade.
@@ -79,7 +89,7 @@
 - Raised the package baseline to Python 3.10+ and version 5.1.0.
 - Added `monty` as an explicit core dependency because core structure JSON I/O imports it directly.
 - Replaced stale `run_lint.py` documentation with direct black/isort/mypy/bandit commands.
-- Fixed `usif.utils.__all__` by exporting the documented convenience aliases.
+- Fixed `usif.services / usif.benchmarks / usif.integrations.__all__` by exporting the documented convenience aliases.
 - Container deduplication now keeps byte-level de-duplication while still recording new aliases, groups, and attributes for duplicate records.
 - Container structure and group attributes are persisted through a JSON typed codec instead of lossy string conversion.
 - Read-only containers now reject structure attribute mutation.

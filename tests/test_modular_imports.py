@@ -74,10 +74,12 @@ class TestModularImports(unittest.TestCase):
 
     def test_services_imports(self):
         from usif.services import (
+            USIFOptimizer,
             export_structure,
             import_pymatgen,
             import_structure,
             load_structure,
+            optimize_structure,
             save_structure,
         )
 
@@ -86,6 +88,32 @@ class TestModularImports(unittest.TestCase):
         self.assertIsNotNone(export_structure)
         self.assertIsNotNone(load_structure)
         self.assertIsNotNone(save_structure)
+        self.assertIsNotNone(USIFOptimizer)
+        self.assertIsNotNone(optimize_structure)
+
+
+    def test_benchmark_imports(self):
+        from usif.benchmarks import USIFBenchmark, benchmark_compression
+
+        self.assertIsNotNone(USIFBenchmark)
+        self.assertIsNotNone(benchmark_compression)
+
+    def test_materials_project_integration_imports(self):
+        from usif.integrations.materials_project import (
+            convert_mp_to_usif,
+            create_mp_data_archive,
+            download_mp_data,
+            load_mp_data_from_archive,
+            load_mp_group,
+            safe_extract,
+        )
+
+        self.assertIsNotNone(download_mp_data)
+        self.assertIsNotNone(load_mp_group)
+        self.assertIsNotNone(convert_mp_to_usif)
+        self.assertIsNotNone(create_mp_data_archive)
+        self.assertIsNotNone(load_mp_data_from_archive)
+        self.assertIsNotNone(safe_extract)
 
     def test_removed_compatibility_modules(self):
         for module in (
@@ -96,6 +124,10 @@ class TestModularImports(unittest.TestCase):
             "usif.io",
                 "usif.structures.io",
                 "usif.structures.source",
+                "usif.utils",
+                "usif.utils.optimizer",
+                "usif.utils.benchmark",
+                "usif.utils.mp_downloader",
         ):
             with self.subTest(module=module):
                 with self.assertRaises(ModuleNotFoundError):
@@ -136,7 +168,7 @@ class TestModularImports(unittest.TestCase):
     def test_version_info(self):
         from usif import __author__, __version__
 
-        self.assertEqual(__version__, "5.7.0")
+        self.assertEqual(__version__, "5.8.0")
         self.assertIsNotNone(__author__)
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests for USIF utils module
+Tests for USIF services and benchmark modules
 Test USIFOptimizer and USIFBenchmark
 """
 
@@ -17,7 +17,8 @@ from usif import (
     USIFStructure,
     WyckoffSite,
 )
-from usif.utils import USIFBenchmark, USIFOptimizer
+from usif.benchmarks import USIFBenchmark
+from usif.services import USIFOptimizer
 
 
 class TestUSIFOptimizer(unittest.TestCase):
