@@ -1,4 +1,4 @@
-"""Regression tests for P1 reliability and defensive decoding fixes."""
+"""Regression tests for reliability and defensive decoding fixes."""
 
 import struct
 import zipfile
@@ -13,12 +13,12 @@ from usif import (
     ContainerIndexError,
     CorruptedDataError,
     StorageMode,
-    StructureContainer,
     StructureProperties,
     StructureType,
     USIFStructure,
     WyckoffSite,
 )
+from usif.storage import StructureContainer
 from usif.constants import BinaryFormat
 from usif.utils.mp_downloader import load_mp_data_from_archive, safe_extract
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Legacy example 2: container write/read/query workflow."""
+"""Container write/read/query workflow."""
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -7,7 +7,8 @@ from tempfile import TemporaryDirectory
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from pymatgen.core import Lattice, Structure
 
-from usif import StructureContainer, USIFStructure
+from usif import USIFStructure
+from usif.storage import StructureContainer
 
 
 def make_structure(formula: str, energy: float):

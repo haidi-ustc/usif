@@ -18,7 +18,8 @@ Features:
     - Query and filter structures
 
 Usage:
-    >>> from usif import StructureContainer, USIFStructure
+    >>> from usif import USIFStructure
+    >>> from usif.storage import StructureContainer
     >>>
     >>> # Create container
     >>> container = StructureContainer('structures.usifc')

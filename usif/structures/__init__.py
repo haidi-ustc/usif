@@ -42,7 +42,7 @@ Usage:
     >>> structure.num_atoms()  # 8
 
 See Also:
-    - StructureConverter: Convert from pymatgen
+    - PymatgenImporter/PymatgenExporter: Convert from pymatgen
     - PropertySystem: Attach properties to structures
 """
 

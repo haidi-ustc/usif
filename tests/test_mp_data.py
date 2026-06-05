@@ -27,11 +27,11 @@ from usif import (
     DecodingError,
     EncodingError,
     StorageMode,
-    StructureContainer,
     StructureType,
     USIFStructure,
     ValidationError,
 )
+from usif.storage import StructureContainer
 from usif.utils.mp_downloader import (
     convert_mp_to_usif,
     load_mp_data_from_archive,

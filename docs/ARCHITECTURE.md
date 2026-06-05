@@ -147,7 +147,7 @@ The encoding system handles binary serialization, compression, and integrity che
 
 ### 4. Container System
 
-The container system provides HDF5-like storage for multiple structures. In v5.2, `StructureContainer` is a coordination layer over focused storage helpers rather than a monolithic implementation: `attributes.py` owns typed JSON metadata, `cache.py` owns the decoded-structure LRU cache, `group_ops.py` owns hierarchy and group attributes, `io_ops.py` owns chunked file reads/writes, `index_persistence.py` owns append-only CRC-protected index generations, `prefetch.py` owns background/batch reads, and `recovery.py` owns data-section scanning.
+The container system provides HDF5-like storage for multiple structures. Since v5.2, `StructureContainer` is a coordination layer over focused storage helpers rather than a monolithic implementation: `attributes.py` owns typed JSON metadata, `cache.py` owns the decoded-structure LRU cache, `group_ops.py` owns hierarchy and group attributes, `io_ops.py` owns chunked file reads/writes, `index_persistence.py` owns append-only CRC-protected index generations, `prefetch.py` owns background/batch reads, and `recovery.py` owns data-section scanning.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -367,3 +367,8 @@ Binary Data
 *For detailed binary format specification, see [BINARY_FORMAT.md](BINARY_FORMAT.md)*
 *For import structure analysis, see [IMPORT_STRUCTURE.md](IMPORT_STRUCTURE.md)*
 
+
+
+### 5.3 interop cleanup
+
+USIF 5.3 removed the old conversion and compatibility facades. `usif.interop.pymatgen.importer` and `usif.interop.pymatgen.exporter` now own pymatgen conversion logic directly. ASE import/export modules convert through those canonical adapters. Container access is canonical through `usif.storage`, and public I/O helpers re-export structure source/I/O functions directly instead of routing through `usif.io.facade`.

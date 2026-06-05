@@ -4,12 +4,12 @@ import numpy as np
 
 from usif import (
     StorageMode,
-    StructureContainer,
     StructureProperties,
     StructureType,
     USIFStructure,
     WyckoffSite,
 )
+from usif.storage import StructureContainer
 
 
 def structure_with_energy(formula, energy, coords=(0.0, 0.0, 0.0)):

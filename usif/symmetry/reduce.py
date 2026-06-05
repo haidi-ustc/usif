@@ -38,9 +38,9 @@ class SymmetryReducer:
             return structure
 
         try:
-            from usif.converter import StructureConverter
+            from usif.interop.pymatgen.exporter import PymatgenExporter
 
-            pmg_structure = StructureConverter.to_pymatgen(structure)
+            pmg_structure = PymatgenExporter.to_pymatgen(structure)
             spacegroup_number, wyckoff_sites = extract_wyckoff_sites(
                 pmg_structure, symprec=tolerance
             )
@@ -94,9 +94,9 @@ class SymmetryReducer:
             return structure
 
         try:
-            from usif.converter import StructureConverter
+            from usif.interop.pymatgen.exporter import PymatgenExporter
 
-            pmg_molecule = StructureConverter.to_pymatgen(structure)
+            pmg_molecule = PymatgenExporter.to_pymatgen(structure)
             pga = PointGroupAnalyzer(pmg_molecule)
             point_group = pga.sch_symbol
 

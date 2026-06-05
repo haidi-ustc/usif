@@ -14,11 +14,10 @@ from usif import (
     StorageMode,
     StructureProperties,
     StructureType,
-    USIFBenchmark,
-    USIFOptimizer,
     USIFStructure,
     WyckoffSite,
 )
+from usif.utils import USIFBenchmark, USIFOptimizer
 
 
 class TestUSIFOptimizer(unittest.TestCase):

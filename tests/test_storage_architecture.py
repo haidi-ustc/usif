@@ -1,6 +1,17 @@
-"""P2 architecture boundary smoke tests."""
+"""Storage and architectural boundary smoke tests."""
 
+import importlib
 import inspect
+from pathlib import Path
+
+
+REMOVED_COMPATIBILITY_MODULES = (
+    "usif.converter",
+    "usif.container",
+    "usif.interop.converter_core",
+    "usif.interop.symmetry",
+    "usif.io.facade",
+)
 
 
 def test_encoder_is_thin_facade_and_binary_modules_are_importable():
@@ -15,41 +26,37 @@ def test_encoder_is_thin_facade_and_binary_modules_are_importable():
     assert "structure_codec.decode_body" in inspect.getsource(USIF.decode)
 
 
-def test_container_top_level_reexports_storage_implementation():
-    from usif.container import StructureContainer as PublicContainer
-    from usif.storage.container import StructureContainer as StorageContainer
+def test_deleted_backward_compatibility_modules_are_gone():
+    for module in REMOVED_COMPATIBILITY_MODULES:
+        try:
+            importlib.import_module(module)
+        except ModuleNotFoundError:
+            continue
+        raise AssertionError(f"legacy compatibility module still importable: {module}")
 
-    assert PublicContainer is StorageContainer
 
-
-def test_converter_facade_routes_to_interop_packages():
-    from usif.converter import StructureConverter
+def test_canonical_interop_adapters_own_conversion_logic():
     from usif.interop.ase import ASEExporter, ASEImporter
     from usif.interop.pymatgen import PymatgenExporter, PymatgenImporter
 
-    assert StructureConverter is not None
     assert ASEImporter is not None
     assert ASEExporter is not None
     assert PymatgenImporter is not None
     assert PymatgenExporter is not None
-    assert "usif.interop.pymatgen.importer" in inspect.getsource(
-        StructureConverter.from_pymatgen
-    )
-    assert "usif.interop.ase.importer" in inspect.getsource(
-        StructureConverter.from_ase
-    )
+    assert "converter_core" not in inspect.getsource(PymatgenImporter.from_pymatgen)
+    assert "converter_core" not in inspect.getsource(PymatgenExporter.to_pymatgen)
+    assert "PymatgenImporter.from_pymatgen" in inspect.getsource(ASEImporter.from_ase)
+    assert "PymatgenExporter.to_pymatgen" in inspect.getsource(ASEExporter.to_ase)
 
 
-def test_symmetry_package_is_single_source_import_path():
-    from usif.interop.symmetry import SymmetryOperations as CompatOperations
-    from usif.symmetry import SymmetryOperations as PackageOperations
-    from usif.symmetry import SymmetryReducer
+def test_symmetry_package_is_canonical_import_path():
+    from usif.symmetry import SymmetryOperations, SymmetryReducer
 
-    assert CompatOperations is PackageOperations
+    assert SymmetryOperations is not None
     assert SymmetryReducer is not None
 
 
-def test_io_facade_is_public_and_structure_methods_delegate():
+def test_io_public_helpers_delegate_directly_to_structure_modules():
     from usif.io import convert_to, from_pymatgen, from_source, load_structure, save_structure
     from usif.structures.structure import USIFStructure
 
@@ -58,8 +65,8 @@ def test_io_facade_is_public_and_structure_methods_delegate():
     assert convert_to is not None
     assert save_structure is not None
     assert load_structure is not None
-    assert "usif.io.facade" in inspect.getsource(USIFStructure.from_source)
-    assert "usif.io.facade" in inspect.getsource(USIFStructure.save)
+    assert "usif.structures.source" in inspect.getsource(USIFStructure.from_source)
+    assert "usif.structures.io" in inspect.getsource(USIFStructure.save)
 
 
 def test_registry_default_factory_and_isolated_registry():
@@ -67,15 +74,13 @@ def test_registry_default_factory_and_isolated_registry():
 
     assert default_registry() is PropertyRegistry
     registry = isolated_registry()
-    registry.register(PropertyDefinition("p2_isolated_prop", float))
-    assert registry.exists("p2_isolated_prop")
-    assert not PropertyRegistry.exists("p2_isolated_prop")
+    registry.register(PropertyDefinition("storage_arch_isolated_prop", float))
+    assert registry.exists("storage_arch_isolated_prop")
+    assert not PropertyRegistry.exists("storage_arch_isolated_prop")
 
 
 def test_storage_container_is_decomposed_into_focused_modules():
-    """P2 keeps StructureContainer as coordinator, not a monolithic storage class."""
-    from pathlib import Path
-
+    """StructureContainer remains a coordinator, not a monolithic storage class."""
     from usif.storage.attributes import AttributeCodecMixin
     from usif.storage.cache import StructureCache
     from usif.storage.group_ops import GroupOperationsMixin
@@ -96,10 +101,8 @@ def test_storage_container_is_decomposed_into_focused_modules():
     assert StructureCache is not None
 
 
-def test_p2_removed_legacy_container_code_paths():
+def test_removed_legacy_container_code_paths():
     """No unchecked legacy index/attribute fallback remains in storage modules."""
-    from pathlib import Path
-
     storage_text = "\n".join(
         path.read_text()
         for path in Path("usif/storage").glob("*.py")

@@ -1,7 +1,8 @@
-"""Regression tests for P4 architecture cleanup fixes."""
+"""Regression tests for conversion cleanup fixes."""
 
 import numpy as np
 import pytest
+from usif.interop.pymatgen import PymatgenExporter
 
 
 def test_query_numeric_tolerance_is_distinct_from_symmetry_tolerance():
@@ -25,7 +26,6 @@ def test_mixed_per_atom_properties_roundtrip_to_pymatgen():
         AtomicProperties,
         AtomSite,
         StorageMode,
-        StructureConverter,
         StructureType,
         USIFStructure,
     )
@@ -44,7 +44,7 @@ def test_mixed_per_atom_properties_roundtrip_to_pymatgen():
         formula="H2",
     )
 
-    pmg = StructureConverter.to_pymatgen(structure)
+    pmg = PymatgenExporter.to_pymatgen(structure)
 
     forces = pmg.site_properties.get("forces")
     assert forces is not None

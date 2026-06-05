@@ -1,4 +1,4 @@
-"""P1 container metadata and batch-read regression tests."""
+"""Container metadata and batch-read regression tests."""
 
 import numpy as np
 import pytest
@@ -6,12 +6,12 @@ import pytest
 from usif import (
     CompressionType,
     StorageMode,
-    StructureContainer,
     StructureProperties,
     StructureType,
     USIFStructure,
     WyckoffSite,
 )
+from usif.storage import StructureContainer
 
 
 def make_structure(energy=-1.0):

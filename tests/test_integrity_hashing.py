@@ -1,4 +1,4 @@
-"""Regression tests for P0 data correctness fixes."""
+"""Regression tests for data correctness fixes."""
 
 import struct
 
@@ -12,15 +12,15 @@ from usif import (
     CompressionType,
     IntegrityError,
     StorageMode,
-    StructureContainer,
-    StructureConverter,
     StructureProperties,
     StructureType,
     USIFStructure,
     ValidationError,
     WyckoffSite,
 )
+from usif.storage import StructureContainer
 from usif.format.hashing import calculate_geometry_hash, calculate_record_hash
+from usif.interop.pymatgen import PymatgenImporter
 
 
 def make_symmetric_structure(energy=-1.0):
@@ -113,9 +113,9 @@ def test_force_symmetric_with_atomic_properties_requires_explicit_policy():
     forces = np.array([[0.1, 0.0, 0.0]])
 
     with pytest.raises(ValidationError):
-        StructureConverter.from_pymatgen(pmg, forces=forces, force_symmetric=True)
+        PymatgenImporter.from_pymatgen(pmg, forces=forces, force_symmetric=True)
 
-    fallback = StructureConverter.from_pymatgen(
+    fallback = PymatgenImporter.from_pymatgen(
         pmg,
         forces=forces,
         force_symmetric=True,
@@ -124,7 +124,7 @@ def test_force_symmetric_with_atomic_properties_requires_explicit_policy():
     assert fallback.storage_mode == StorageMode.FULL_ATOMIC
     assert fallback.atom_sites[0].properties.force == tuple(forces[0])
 
-    dropped = StructureConverter.from_pymatgen(
+    dropped = PymatgenImporter.from_pymatgen(
         pmg,
         forces=forces,
         force_symmetric=True,

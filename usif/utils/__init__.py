@@ -23,14 +23,15 @@ Features:
     - Materials Project data download and conversion
 
 Usage:
-    >>> from usif import USIFOptimizer, USIFStructure
+    >>> from usif import USIFStructure
+    >>> from usif.utils import USIFOptimizer
     >>>
     >>> # Optimize structure for compression
     >>> optimizer = USIFOptimizer()
     >>> optimized = optimizer.optimize_structure(structure)
     >>>
     >>> # Benchmark compression
-    >>> from usif import USIFBenchmark
+    >>> from usif.utils import USIFBenchmark
     >>> benchmark = USIFBenchmark()
     >>> results = benchmark.benchmark_compression(structure)
     >>>
@@ -41,7 +42,7 @@ Usage:
 
 See Also:
     - USIFStructure: Structure to optimize
-    - StructureConverter: Conversion utilities
+    - PymatgenImporter/PymatgenExporter: Conversion utilities
 """
 
 from .benchmark import USIFBenchmark

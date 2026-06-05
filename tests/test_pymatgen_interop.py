@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests for USIF StructureConverter
+Tests for USIF pymatgen interop adapters
 Test conversion between USIF and pymatgen formats
 """
 
@@ -9,19 +9,20 @@ import unittest
 import numpy as np
 from pymatgen.core import Lattice, Molecule, Structure
 
-from usif import StorageMode, StructureConverter, StructureType, USIFStructure
+from usif import StorageMode, StructureType, USIFStructure
 from usif.exceptions import SymmetryAnalysisError
+from usif.interop.pymatgen import PymatgenExporter, PymatgenImporter
 
 
-class TestStructureConverter(unittest.TestCase):
-    """Test StructureConverter class"""
+class TestPymatgenInterop(unittest.TestCase):
+    """Test pymatgen import/export adapters"""
 
     def test_from_pymatgen_structure(self):
         """Test converting from pymatgen Structure"""
         lattice = Lattice.cubic(5.0)
         structure = Structure(lattice, ["Si", "Si"], [[0, 0, 0], [0.25, 0.25, 0.25]])
 
-        usif_structure = StructureConverter.from_pymatgen(structure)
+        usif_structure = PymatgenImporter.from_pymatgen(structure)
         self.assertIsInstance(usif_structure, USIFStructure)
         self.assertTrue(usif_structure.is_crystal())
         self.assertEqual(usif_structure.num_atoms(), 2)
@@ -31,7 +32,7 @@ class TestStructureConverter(unittest.TestCase):
         coords = [[0, 0, 0], [0.76, 0.59, 0], [-0.76, 0.59, 0]]
         molecule = Molecule(["O", "H", "H"], coords)
 
-        usif_structure = StructureConverter.from_pymatgen(molecule)
+        usif_structure = PymatgenImporter.from_pymatgen(molecule)
         self.assertIsInstance(usif_structure, USIFStructure)
         self.assertTrue(usif_structure.is_molecular())
         self.assertEqual(usif_structure.num_atoms(), 3)
@@ -44,7 +45,7 @@ class TestStructureConverter(unittest.TestCase):
         forces = np.array([[0.1, 0.2, 0.3]])
         energy = -10.5
 
-        usif_structure = StructureConverter.from_pymatgen(
+        usif_structure = PymatgenImporter.from_pymatgen(
             structure, forces=forces, energy=energy, calculator="VASP"
         )
         self.assertAlmostEqual(
@@ -70,7 +71,7 @@ class TestStructureConverter(unittest.TestCase):
             formula="Si",
         )
 
-        pmg_structure = StructureConverter.to_pymatgen(usif_structure)
+        pmg_structure = PymatgenExporter.to_pymatgen(usif_structure)
         self.assertIsInstance(pmg_structure, Structure)
         self.assertEqual(len(pmg_structure), 2)
 
@@ -91,7 +92,7 @@ class TestStructureConverter(unittest.TestCase):
             formula="H2O",
         )
 
-        pmg_molecule = StructureConverter.to_pymatgen(usif_structure)
+        pmg_molecule = PymatgenExporter.to_pymatgen(usif_structure)
         self.assertIsInstance(pmg_molecule, Molecule)
         self.assertEqual(len(pmg_molecule), 3)
 
@@ -100,8 +101,8 @@ class TestStructureConverter(unittest.TestCase):
         lattice = Lattice.cubic(5.0)
         structure = Structure(lattice, ["Si", "Si"], [[0, 0, 0], [0.25, 0.25, 0.25]])
 
-        usif_structure = StructureConverter.from_pymatgen(structure)
-        pmg_structure = StructureConverter.to_pymatgen(usif_structure)
+        usif_structure = PymatgenImporter.from_pymatgen(structure)
+        pmg_structure = PymatgenExporter.to_pymatgen(usif_structure)
 
         self.assertEqual(len(structure), len(pmg_structure))
         self.assertAlmostEqual(structure.volume, pmg_structure.volume, places=3)
@@ -118,8 +119,8 @@ class TestStructureConverter(unittest.TestCase):
         coords = [[0, 0, 0], [0.76, 0.59, 0], [-0.76, 0.59, 0]]
         molecule = Molecule(["O", "H", "H"], coords)
 
-        usif_structure = StructureConverter.from_pymatgen(molecule)
-        pmg_molecule = StructureConverter.to_pymatgen(usif_structure)
+        usif_structure = PymatgenImporter.from_pymatgen(molecule)
+        pmg_molecule = PymatgenExporter.to_pymatgen(usif_structure)
 
         self.assertEqual(len(molecule), len(pmg_molecule))
 
@@ -353,7 +354,7 @@ class TestUSIFStructureToMethod(unittest.TestCase):
 
         # Convert to pymatgen and back
         pmg_structure = self.usif_structure.to(fmt="pymatgen")
-        usif_back = StructureConverter.from_pymatgen(pmg_structure)
+        usif_back = PymatgenImporter.from_pymatgen(pmg_structure)
 
         # Energy might not be preserved in pymatgen, but structure should be
         self.assertEqual(usif_back.num_atoms(), self.usif_structure.num_atoms())

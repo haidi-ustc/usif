@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Legacy example 1: basic binary round trip."""
+"""Basic binary round trip."""
 import sys
 from pathlib import Path
 

@@ -13,12 +13,12 @@ import numpy as np
 from usif import (
     CompressionType,
     StorageMode,
-    StructureContainer,
     StructureProperties,
     StructureType,
     USIFStructure,
     WyckoffSite,
 )
+from usif.storage import StructureContainer
 
 
 class TestStructureContainer(unittest.TestCase):

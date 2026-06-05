@@ -3,8 +3,8 @@
 import numpy as np
 from pymatgen.core import Lattice, Structure
 
-from usif import USIF, CompressionType, StorageMode, StructureConverter, SymmetryMetadata
-from usif.interop import PymatgenExporter, PymatgenImporter
+from usif import USIF, CompressionType, StorageMode, SymmetryMetadata
+from usif.interop.pymatgen import PymatgenExporter, PymatgenImporter
 
 
 def test_symmetry_metadata_roundtrips_through_binary_encoding():
@@ -13,7 +13,7 @@ def test_symmetry_metadata_roundtrips_through_binary_encoding():
         ["Si", "Si"],
         [[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]],
     )
-    structure = StructureConverter.from_pymatgen(pmg, force_symmetric=True)
+    structure = PymatgenImporter.from_pymatgen(pmg, force_symmetric=True)
 
     metadata = structure.get_symmetry_metadata()
     assert isinstance(metadata, SymmetryMetadata)
@@ -28,7 +28,7 @@ def test_symmetry_metadata_roundtrips_through_binary_encoding():
     assert decoded_metadata == metadata
 
 
-def test_pymatgen_interop_wrappers_delegate_to_converter():
+def test_pymatgen_interop_adapters_roundtrip():
     pmg = Structure(
         Lattice.cubic(3.5),
         ["Na", "Cl"],

@@ -102,7 +102,8 @@ Hash semantics are intentionally separate:
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from pymatgen.core import Lattice, Structure
-from usif import StructureContainer, USIFStructure
+from usif import USIFStructure
+from usif.storage import StructureContainer
 
 with TemporaryDirectory() as tmp:
     path = Path(tmp) / "materials.usifc"
@@ -125,13 +126,17 @@ Container internals are split across focused modules under `usif.storage`: `cont
 
 ## Conversion with pymatgen and ASE
 
+USIF 5.3 uses explicit interop adapters instead of a top-level converter facade. Use `PymatgenImporter` / `PymatgenExporter` and `ASEImporter` / `ASEExporter` for direct conversions.
+
+
 ```python
 from pymatgen.core import Lattice, Structure
-from usif import StructureConverter, USIFStructure
+from usif import USIFStructure
+from usif.interop.pymatgen import PymatgenExporter
 
 pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
 structure = USIFStructure.from_source(pmg, energy=-10.5)
-round_tripped = StructureConverter.to_pymatgen(structure)
+round_tripped = PymatgenExporter.to_pymatgen(structure)
 print(round_tripped.composition.reduced_formula)
 ```
 

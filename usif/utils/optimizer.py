@@ -20,7 +20,8 @@ Requirements:
     - pymatgen: Required dependency for symmetry analysis
 
 Usage:
-    >>> from usif import USIFOptimizer, USIFStructure
+    >>> from usif import USIFStructure
+    >>> from usif.utils import USIFOptimizer
     >>>
     >>> # Create optimizer
     >>> optimizer = USIFOptimizer()
@@ -43,7 +44,7 @@ Note:
 
 See Also:
     - USIFStructure: Structure to optimize
-    - StructureConverter: Conversion utilities
+    - PymatgenImporter/PymatgenExporter: Conversion utilities
     - SymmetryConstants: Symmetry tolerance constants
 """
 

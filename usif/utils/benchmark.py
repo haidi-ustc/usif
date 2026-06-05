@@ -16,7 +16,7 @@ Features:
     - Performance metrics
 
 Usage:
-    >>> from usif import USIFBenchmark, USIFStructure
+    >>> from usif.utils import USIFBenchmark, USIFStructure
     >>>
     >>> # Create benchmark instance
     >>> benchmark = USIFBenchmark()
@@ -44,7 +44,7 @@ from typing import Any, Dict, List
 
 import numpy as np
 
-from usif.converter import StructureConverter
+from usif.interop.pymatgen.exporter import PymatgenExporter
 from usif.encoder import USIF
 from usif.structures.structure import USIFStructure
 
@@ -98,7 +98,7 @@ class USIFBenchmark:
                 decoded, _ = encoder.decode(compressed)
                 decompression_times.append(time.time() - start)
 
-                pmg_structure = StructureConverter.to_pymatgen(structure)
+                pmg_structure = PymatgenExporter.to_pymatgen(structure)
                 cif_size = len(pmg_structure.to(fmt="cif"))
                 total_original_size += cif_size
                 total_compressed_size += len(compressed)

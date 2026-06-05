@@ -31,7 +31,7 @@ Usage:
 
 See Also:
     - PropertySerializer: Uses BinaryFormat for serialization
-    - StructureConverter: Uses SymmetryConstants for analysis
+    - PymatgenImporter/PymatgenExporter: Uses SymmetryConstants for analysis
     - USIFStructure: Uses StructureType and StorageMode
 """
 

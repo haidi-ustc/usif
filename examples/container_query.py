@@ -7,7 +7,8 @@ from tempfile import TemporaryDirectory
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from pymatgen.core import Lattice, Structure
 
-from usif import USIF, StructureContainer, USIFStructure
+from usif import USIF, USIFStructure
+from usif.storage import StructureContainer
 
 
 def main() -> None:
