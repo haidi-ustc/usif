@@ -46,3 +46,52 @@ def extract_wyckoff_sites(
         )
 
     return spacegroup_number, wyckoff_sites
+
+
+
+def extract_point_group_sites(pmg_molecule, *, tolerance: float):
+    """Extract point group representatives for a pymatgen ``Molecule``."""
+    from collections import defaultdict
+
+    import numpy as np
+
+    from usif.structures.sites import PointGroupSite
+
+    pga = pointgroup_analyzer(pmg_molecule)
+    point_group = pga.sch_symbol
+
+    atom_groups = defaultdict(list)
+    for i, site in enumerate(pmg_molecule):
+        atom_groups[site.specie.Z].append((i, np.array(site.coords)))
+
+    point_group_sites = []
+    used = set()
+    symmetry_operations = pga.get_symmetry_operations()
+
+    for atomic_number, atoms in atom_groups.items():
+        for idx, coords in atoms:
+            if idx in used:
+                continue
+
+            multiplicity = 1
+            used.add(idx)
+
+            for other_idx, other_coords in atoms:
+                if other_idx in used:
+                    continue
+
+                min_distance = float("inf")
+                for sym_op in symmetry_operations:
+                    transformed = sym_op.operate(coords)
+                    distance = np.linalg.norm(transformed - other_coords)
+                    min_distance = min(min_distance, distance)
+
+                if min_distance < tolerance:
+                    multiplicity += 1
+                    used.add(other_idx)
+
+            point_group_sites.append(
+                PointGroupSite(atomic_number, multiplicity, tuple(coords))
+            )
+
+    return point_group, point_group_sites

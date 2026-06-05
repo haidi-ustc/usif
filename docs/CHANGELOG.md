@@ -1,5 +1,16 @@
 # Changelog
 
+## 5.7.0
+
+- Split pymatgen import logic into `CrystalImporter` and `MoleculeImporter`, with `PymatgenImporter` now acting as a small dispatch facade.
+- Split pymatgen export logic into `CrystalExporter` and `MoleculeExporter`, with `PymatgenExporter` dispatching to focused exporters.
+- Added `usif.interop.pymatgen.property_extractor` for shared atomic-property and structure-property normalization.
+- Added `SymmetryPolicy` to make import/reduction symmetry behavior explicit instead of scattering boolean decisions through importer code.
+- Added `extract_point_group_sites()` as the shared molecule point-group extraction path used by both importer and reducer.
+- Updated `usif.symmetry.__init__` to avoid eager importing `SymmetryReducer`; reducer is now resolved lazily.
+- Updated architecture tests and documentation to enforce focused interop/symmetry boundaries.
+- Kept binary `FORMAT_VERSION` at 5 because the USIF record format did not change.
+
 ## 5.6.0
 
 - Slimmed `USIFStructure` into a pure domain model: removed `from_source()`, `from_pymatgen()`, `to()`, `save()`, and `load()` from the model class.

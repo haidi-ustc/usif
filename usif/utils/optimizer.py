@@ -52,7 +52,7 @@ import logging
 
 from usif.constants import SymmetryConstants
 from usif.structures.structure import USIFStructure
-from usif.symmetry import SymmetryReducer
+from usif.symmetry.reduce import SymmetryReducer
 
 logger = logging.getLogger(__name__)
 

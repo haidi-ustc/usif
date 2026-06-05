@@ -39,23 +39,44 @@ def test_removed_adapter_facades_are_gone():
 
 def test_canonical_interop_adapters_own_conversion_logic():
     from usif.interop.ase import ASEExporter, ASEImporter
-    from usif.interop.pymatgen import PymatgenExporter, PymatgenImporter
+    from usif.interop.pymatgen import (
+        CrystalExporter,
+        CrystalImporter,
+        MoleculeExporter,
+        MoleculeImporter,
+        PymatgenExporter,
+        PymatgenImporter,
+        SymmetryPolicy,
+    )
 
     assert ASEImporter is not None
     assert ASEExporter is not None
     assert PymatgenImporter is not None
     assert PymatgenExporter is not None
+    assert CrystalImporter is not None
+    assert MoleculeImporter is not None
+    assert CrystalExporter is not None
+    assert MoleculeExporter is not None
+    assert SymmetryPolicy is not None
     assert "converter_core" not in inspect.getsource(PymatgenImporter.from_pymatgen)
-    assert "converter_core" not in inspect.getsource(PymatgenExporter.to_pymatgen)
+    assert "CrystalImporter.from_pymatgen_structure" in inspect.getsource(PymatgenImporter.from_pymatgen)
+    assert "MoleculeImporter.from_pymatgen_molecule" in inspect.getsource(PymatgenImporter.from_pymatgen)
+    assert "CrystalExporter.to_pymatgen_structure" in inspect.getsource(PymatgenExporter.to_pymatgen)
+    assert "MoleculeExporter.to_pymatgen_molecule" in inspect.getsource(PymatgenExporter.to_pymatgen)
     assert "PymatgenImporter.from_pymatgen" in inspect.getsource(ASEImporter.from_ase)
     assert "PymatgenExporter.to_pymatgen" in inspect.getsource(ASEExporter.to_ase)
 
 
-def test_symmetry_package_is_canonical_import_path():
-    from usif.symmetry import SymmetryOperations, SymmetryReducer
+def test_symmetry_package_uses_lazy_reducer_import_and_explicit_policy():
+    import usif.symmetry as symmetry
+    from usif.symmetry import SymmetryOperations, SymmetryPolicy
 
+    init_source = Path("usif/symmetry/__init__.py").read_text()
+    top_level_imports = [line for line in init_source.splitlines() if line.startswith("from ")]
+    assert all("symmetry.reduce" not in line for line in top_level_imports)
     assert SymmetryOperations is not None
-    assert SymmetryReducer is not None
+    assert SymmetryPolicy is not None
+    assert symmetry.SymmetryReducer is not None
 
 
 def test_structure_model_has_no_io_or_conversion_methods():

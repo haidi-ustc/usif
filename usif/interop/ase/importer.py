@@ -1,6 +1,6 @@
 """ASE -> USIF importer."""
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -26,6 +26,7 @@ class ASEImporter:
         force_symmetric: bool = False,
         drop_atomic_properties: bool = False,
         fallback_full_atomic: bool = False,
+        symmetry_policy: Optional[Any] = None,
         **kwargs,
     ) -> USIFStructure:
         """Convert an ASE Atoms object to USIF."""
@@ -84,6 +85,7 @@ class ASEImporter:
                 force_symmetric=force_symmetric,
                 drop_atomic_properties=drop_atomic_properties,
                 fallback_full_atomic=fallback_full_atomic,
+                symmetry_policy=symmetry_policy,
                 **kwargs,
             )
 
@@ -95,5 +97,6 @@ class ASEImporter:
             force_symmetric=force_symmetric,
             drop_atomic_properties=drop_atomic_properties,
             fallback_full_atomic=fallback_full_atomic,
+            symmetry_policy=symmetry_policy,
             **kwargs,
         )

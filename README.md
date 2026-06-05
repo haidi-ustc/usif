@@ -127,16 +127,16 @@ Container internals are split across focused modules under `usif.storage`: `cont
 
 ## Conversion with pymatgen and ASE
 
-USIF 5.6 keeps `USIFStructure` as a pure model; use services or explicit interop adapters at application boundaries. Use `PymatgenImporter` / `PymatgenExporter` and `ASEImporter` / `ASEExporter` for direct conversions.
+USIF 5.7 keeps `USIFStructure` as a pure model and splits pymatgen conversion into crystal/molecule adapters. Use services at application boundaries, or use `PymatgenImporter` / `PymatgenExporter`, `CrystalImporter` / `MoleculeImporter`, and `ASEImporter` / `ASEExporter` for direct conversions. Symmetry behavior is controlled by `SymmetryPolicy`.
 
 
 ```python
 from pymatgen.core import Lattice, Structure
-from usif.interop.pymatgen import PymatgenExporter
+from usif.interop.pymatgen import PymatgenExporter, SymmetryPolicy
 from usif.services import import_structure
 
 pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-structure = import_structure(pmg, energy=-10.5)
+structure = import_structure(pmg, energy=-10.5, symmetry_policy=SymmetryPolicy(mode="analyze"))
 round_tripped = PymatgenExporter.to_pymatgen(structure)
 print(round_tripped.composition.reduced_formula)
 ```

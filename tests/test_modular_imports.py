@@ -47,12 +47,25 @@ class TestModularImports(unittest.TestCase):
     def test_canonical_functionality_imports(self):
         from usif.encoder import USIF
         from usif.interop.ase import ASEExporter, ASEImporter
-        from usif.interop.pymatgen import PymatgenExporter, PymatgenImporter
+        from usif.interop.pymatgen import (
+            CrystalExporter,
+            CrystalImporter,
+            MoleculeExporter,
+            MoleculeImporter,
+            PymatgenExporter,
+            PymatgenImporter,
+            SymmetryPolicy,
+        )
         from usif.storage import StructureContainer, USIFGroup
 
         self.assertIsNotNone(USIF)
         self.assertIsNotNone(PymatgenImporter)
         self.assertIsNotNone(PymatgenExporter)
+        self.assertIsNotNone(CrystalImporter)
+        self.assertIsNotNone(MoleculeImporter)
+        self.assertIsNotNone(CrystalExporter)
+        self.assertIsNotNone(MoleculeExporter)
+        self.assertIsNotNone(SymmetryPolicy)
         self.assertIsNotNone(ASEImporter)
         self.assertIsNotNone(ASEExporter)
         self.assertIsNotNone(StructureContainer)
@@ -123,7 +136,7 @@ class TestModularImports(unittest.TestCase):
     def test_version_info(self):
         from usif import __author__, __version__
 
-        self.assertEqual(__version__, "5.6.0")
+        self.assertEqual(__version__, "5.7.0")
         self.assertIsNotNone(__author__)
 
 

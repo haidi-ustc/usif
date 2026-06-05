@@ -398,3 +398,16 @@ Application-boundary operations live in `usif.services`:
 - `load_structure(filename)` reads `.usif` or Monty JSON.
 
 Removed model/facade paths include `USIFStructure.from_source`, `USIFStructure.from_pymatgen`, `USIFStructure.to`, `USIFStructure.save`, `USIFStructure.load`, `usif.structures.source`, `usif.structures.io`, and `usif.io`.
+
+### USIF 5.7 Interop and Symmetry Policy Boundary
+
+Pymatgen interoperability is now split by structure family instead of keeping crystal and molecule conversion inside one importer/exporter implementation:
+
+- `PymatgenImporter` dispatches to `CrystalImporter` or `MoleculeImporter`.
+- `PymatgenExporter` dispatches to `CrystalExporter` or `MoleculeExporter`.
+- `property_extractor.py` owns shared atomic-property and structure-property normalization.
+- `SymmetryPolicy` centralizes the choice between full atomic storage and symmetric reduction.
+- `extract_wyckoff_sites()` and `extract_point_group_sites()` are the shared symmetry-analysis helpers for crystal and molecule reduction.
+
+`usif.symmetry.__init__` exports lightweight constants, metadata, operations, and policies without importing `SymmetryReducer` eagerly. The reducer remains available through lazy attribute resolution or explicit import from `usif.symmetry.reduce`.
+

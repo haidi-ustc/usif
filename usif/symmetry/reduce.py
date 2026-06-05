@@ -1,29 +1,23 @@
 """Symmetry reduction service."""
 
+from __future__ import annotations
+
 import copy
 import logging
-from collections import defaultdict
-
-import numpy as np
-from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 
 from usif.constants import StorageMode, StructureType
 from usif.exceptions import ValidationError
 from usif.structures.metadata import SYMMETRY_METADATA_KEY, SymmetryMetadata
-from usif.structures.sites import PointGroupSite
 from usif.structures.structure import USIFStructure
-from usif.symmetry.analysis import extract_wyckoff_sites
+from usif.symmetry.analysis import extract_point_group_sites, extract_wyckoff_sites
 from usif.symmetry.equivalence import SymmetryOperations
+from usif.symmetry.policies import SymmetryPolicy
 
 logger = logging.getLogger(__name__)
 
 
 def _properties_with_metadata(structure: USIFStructure, metadata: SymmetryMetadata):
-    """Return a copy of ``structure``'s properties carrying symmetry metadata.
-
-    The input structure is never mutated: reduction returns a new structure with
-    its own ``structure_properties`` so callers' originals stay unchanged.
-    """
+    """Return copied structure properties carrying symmetry metadata."""
     props = copy.deepcopy(structure.structure_properties)
     props.custom[SYMMETRY_METADATA_KEY] = metadata.as_dict()
     return props
@@ -37,12 +31,13 @@ class SymmetryReducer:
         if structure.storage_mode == StorageMode.SYMMETRIC:
             return structure
 
+        policy = SymmetryPolicy(mode="reduce", tolerance=tolerance)
         try:
             from usif.interop.pymatgen.exporter import PymatgenExporter
 
             pmg_structure = PymatgenExporter.to_pymatgen(structure)
             spacegroup_number, wyckoff_sites = extract_wyckoff_sites(
-                pmg_structure, symprec=tolerance
+                pmg_structure, symprec=policy.tolerance
             )
 
             lossless = SymmetryOperations.crystal_sites_match(
@@ -61,7 +56,7 @@ class SymmetryReducer:
                     reconstruction_mode="spacegroup_expansion",
                     symmetry_origin="pymatgen_spacegroup",
                     source_coordinate_frame="fractional",
-                    tolerance=tolerance,
+                    tolerance=policy.tolerance,
                 ),
             )
 
@@ -93,44 +88,14 @@ class SymmetryReducer:
         if structure.storage_mode == StorageMode.SYMMETRIC:
             return structure
 
+        policy = SymmetryPolicy(mode="reduce", molecular_tolerance=tolerance)
         try:
             from usif.interop.pymatgen.exporter import PymatgenExporter
 
             pmg_molecule = PymatgenExporter.to_pymatgen(structure)
-            pga = PointGroupAnalyzer(pmg_molecule)
-            point_group = pga.sch_symbol
-
-            atom_groups = defaultdict(list)
-            for i, site in enumerate(pmg_molecule):
-                atom_groups[site.specie.Z].append((i, np.array(site.coords)))
-
-            point_group_sites = []
-            used = set()
-            for atomic_num, atoms in atom_groups.items():
-                for idx, coords in atoms:
-                    if idx in used:
-                        continue
-
-                    equiv_count = 1
-                    used.add(idx)
-
-                    for other_idx, other_coords in atoms:
-                        if other_idx in used:
-                            continue
-
-                        min_dist = float("inf")
-                        for sym_op in pga.get_symmetry_operations():
-                            transformed = sym_op.operate(coords)
-                            dist = np.linalg.norm(transformed - other_coords)
-                            min_dist = min(min_dist, dist)
-
-                        if min_dist < tolerance:
-                            equiv_count += 1
-                            used.add(other_idx)
-
-                    point_group_sites.append(
-                        PointGroupSite(atomic_num, equiv_count, tuple(coords))
-                    )
+            point_group, point_group_sites = extract_point_group_sites(
+                pmg_molecule, tolerance=policy.molecular_tolerance
+            )
 
             total_multiplicity = sum(s.multiplicity for s in point_group_sites)
             if total_multiplicity == len(pmg_molecule) and len(point_group_sites) < len(
@@ -152,7 +117,7 @@ class SymmetryReducer:
                         reconstruction_mode="point_group_expansion",
                         symmetry_origin="pymatgen_point_group",
                         source_coordinate_frame="cartesian",
-                        tolerance=tolerance,
+                        tolerance=policy.molecular_tolerance,
                     ),
                 )
 

@@ -19,6 +19,7 @@ def import_structure(
     force_symmetric: bool = False,
     drop_atomic_properties: bool = False,
     fallback_full_atomic: bool = False,
+    symmetry_policy: Optional[Any] = None,
     **kwargs: Any,
 ) -> USIFStructure:
     """Create a USIFStructure from a file path, pymatgen object, or ASE Atoms."""
@@ -56,6 +57,7 @@ def import_structure(
             force_symmetric=force_symmetric,
             drop_atomic_properties=drop_atomic_properties,
             fallback_full_atomic=fallback_full_atomic,
+            symmetry_policy=symmetry_policy,
             **kwargs,
         )
 
@@ -74,6 +76,7 @@ def import_structure(
                 force_symmetric=force_symmetric,
                 drop_atomic_properties=drop_atomic_properties,
                 fallback_full_atomic=fallback_full_atomic,
+                symmetry_policy=symmetry_policy,
                 **kwargs,
             )
     except ImportError:
@@ -95,6 +98,7 @@ def import_structure(
                 force_symmetric=force_symmetric,
                 drop_atomic_properties=drop_atomic_properties,
                 fallback_full_atomic=fallback_full_atomic,
+                symmetry_policy=symmetry_policy,
                 **kwargs,
             )
     except ImportError:
@@ -116,6 +120,7 @@ def import_pymatgen(
     force_symmetric: bool = False,
     drop_atomic_properties: bool = False,
     fallback_full_atomic: bool = False,
+    symmetry_policy: Optional[Any] = None,
     **kwargs: Any,
 ) -> USIFStructure:
     """Create a USIFStructure from a pymatgen Structure or Molecule."""
@@ -131,6 +136,7 @@ def import_pymatgen(
         force_symmetric=force_symmetric,
         drop_atomic_properties=drop_atomic_properties,
         fallback_full_atomic=fallback_full_atomic,
+        symmetry_policy=symmetry_policy,
         **kwargs,
     )
 
