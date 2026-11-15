@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from typing import Any, Dict, List
@@ -9,6 +10,7 @@ from typing import Any, Dict, List
 import numpy as np
 
 from usif.encoder import USIF
+from usif.services.json_io import structure_to_json_dict
 from usif.structures.structure import USIFStructure
 
 logger = logging.getLogger(__name__)
@@ -36,11 +38,10 @@ class USIFBenchmark:
                 encoder.decode(compressed)
                 decompression_times.append(time.time() - start)
 
-                from usif.interop.pymatgen.exporter import PymatgenExporter
-
-                pmg_structure = PymatgenExporter.to_pymatgen(structure)
-                cif_size = len(pmg_structure.to(fmt="cif"))
-                total_original_size += cif_size
+                # Baseline: the uncompressed official USIF JSON document,
+                # which needs no external structure library.
+                text_size = len(json.dumps(structure_to_json_dict(structure)).encode("utf-8"))
+                total_original_size += text_size
                 total_compressed_size += len(compressed)
             except Exception as e:
                 logger.debug("Benchmark skipped structure: %s", e)

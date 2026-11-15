@@ -1,4 +1,4 @@
-"""Runtime-code guardrails for the 7.1 cleanup line."""
+"""Runtime-code guardrails for the 0.7 cleanup line."""
 
 from __future__ import annotations
 

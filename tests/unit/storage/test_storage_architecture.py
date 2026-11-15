@@ -30,8 +30,8 @@ def test_encoder_is_thin_facade_and_binary_modules_are_importable():
     assert USIFHeader is not None
     assert StructureBinaryCodec is not None
     assert validate_geometry_hash is not None
-    assert "structure_codec.encode_body" in inspect.getsource(USIF.encode)
-    assert "structure_codec.decode_body" in inspect.getsource(USIF.decode)
+    assert "structure_codec.encode_body" in inspect.getsource(USIF._encode_body)
+    assert "structure_codec.decode_body" in inspect.getsource(USIF._decode_body)
 
 
 def test_removed_adapter_facades_are_gone():
@@ -43,46 +43,56 @@ def test_removed_adapter_facades_are_gone():
         raise AssertionError(f"removed facade module still importable: {module}")
 
 
-def test_canonical_interop_adapters_own_conversion_logic():
+def test_canonical_interop_adapters_share_the_array_layer():
     from usif.interop.ase import ASEExporter, ASEImporter
-    from usif.interop.pymatgen import (
-        CrystalExporter,
-        CrystalImporter,
-        MoleculeExporter,
-        MoleculeImporter,
-        PymatgenExporter,
-        PymatgenImporter,
-        SymmetryPolicy,
-    )
+    from usif.interop.matsimpy import MatsimpyExporter, MatsimpyImporter
+    from usif.interop.pymatgen import PymatgenExporter, PymatgenImporter
 
-    assert ASEImporter is not None
-    assert ASEExporter is not None
-    assert PymatgenImporter is not None
-    assert PymatgenExporter is not None
-    assert CrystalImporter is not None
-    assert MoleculeImporter is not None
-    assert CrystalExporter is not None
-    assert MoleculeExporter is not None
-    assert SymmetryPolicy is not None
-    assert "converter_core" not in inspect.getsource(PymatgenImporter.from_pymatgen)
-    assert "CrystalImporter.from_pymatgen_structure" in inspect.getsource(PymatgenImporter.from_pymatgen)
-    assert "MoleculeImporter.from_pymatgen_molecule" in inspect.getsource(PymatgenImporter.from_pymatgen)
-    assert "CrystalExporter.to_pymatgen_structure" in inspect.getsource(PymatgenExporter.to_pymatgen)
-    assert "MoleculeExporter.to_pymatgen_molecule" in inspect.getsource(PymatgenExporter.to_pymatgen)
-    assert "PymatgenImporter.from_pymatgen" in inspect.getsource(ASEImporter.from_ase)
-    assert "PymatgenExporter.to_pymatgen" in inspect.getsource(ASEExporter.to_ase)
+    for importer in (
+        PymatgenImporter.from_pymatgen,
+        ASEImporter.from_ase,
+        MatsimpyImporter.from_matsimpy,
+    ):
+        assert "import_atoms(" in inspect.getsource(importer)
+    for exporter in (
+        PymatgenExporter.to_pymatgen,
+        ASEExporter.to_ase,
+        MatsimpyExporter.to_matsimpy,
+    ):
+        assert "structure_to_arrays(" in inspect.getsource(exporter)
+    ase_source = Path("usif/interop/ase/adapter.py").read_text()
+    assert "import pymatgen" not in ase_source
+    assert "from pymatgen" not in ase_source
+    assert "usif.interop.pymatgen" not in ase_source
+
+
+def test_core_imports_no_optional_structure_library():
+    import subprocess
+    import sys
+
+    code = (
+        "import sys, usif, usif.services, usif.storage, usif.interop, usif.symmetry, usif.cli;"
+        "import usif.integrations.materials_project, usif.benchmarks;"
+        "loaded = [m for m in ('pymatgen', 'ase', 'matsimpy') if m in sys.modules];"
+        "print(','.join(loaded))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == ""
 
 
 def test_symmetry_package_uses_lazy_reducer_import_and_explicit_policy():
     import usif.symmetry as symmetry
-    from usif.symmetry import SymmetryOperations, SymmetryPolicy
+    from usif.symmetry import SymmetryPolicy, apply_symmetry_policy
 
     init_source = Path("usif/symmetry/__init__.py").read_text()
     top_level_imports = [line for line in init_source.splitlines() if line.startswith("from ")]
     assert all("symmetry.reduce" not in line for line in top_level_imports)
-    assert SymmetryOperations is not None
     assert SymmetryPolicy is not None
+    assert callable(apply_symmetry_policy)
     assert symmetry.SymmetryReducer is not None
+    assert callable(symmetry.expand_structure)
 
 
 def test_structure_model_has_no_io_or_conversion_methods():

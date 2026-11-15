@@ -1,6 +1,7 @@
 """Tests for model/service architecture boundaries."""
 
 import numpy as np
+import pytest
 
 from usif import (
     AtomicProperties,
@@ -107,9 +108,17 @@ def test_unsupported_service_file_extension_is_rejected(tmp_path):
 
 
 def test_export_service_converts_to_pymatgen():
+    pytest.importorskip("pymatgen")
     structure = make_structure()
 
     assert export_structure(structure, fmt="pymatgen").composition.reduced_formula == "Si"
+
+
+def test_export_service_converts_to_backend_free_arrays():
+    data = export_structure(make_structure(), fmt="arrays")
+
+    assert data.is_crystal
+    assert list(data.numbers) == [14]
 
 
 def test_export_service_supports_json_filename(tmp_path):
@@ -123,6 +132,7 @@ def test_export_service_supports_json_filename(tmp_path):
 
 
 def test_import_pymatgen_service_roundtrip():
+    pytest.importorskip("pymatgen")
     pmg = export_structure(make_structure(), fmt="pymatgen")
 
     imported = import_pymatgen(pmg, force_symmetric=True)

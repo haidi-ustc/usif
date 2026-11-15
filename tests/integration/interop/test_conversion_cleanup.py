@@ -50,7 +50,7 @@ def test_mixed_per_atom_properties_roundtrip_to_pymatgen():
     assert forces is not None
     assert len(forces) == len(pmg)  # index-aligned, no length mismatch
     assert tuple(forces[0]) == (0.1, 0.0, 0.0)
-    assert tuple(forces[1]) == (0.0, 0.0, 0.0)  # neutral default for missing value
+    assert forces[1] is None  # a missing value stays missing; nothing is invented
 
 
 def test_reduce_crystal_does_not_mutate_input_structure():
@@ -86,9 +86,11 @@ def test_reduce_crystal_does_not_mutate_input_structure():
         assert reduced.structure_properties is not structure.structure_properties
 
 
-def test_shared_wyckoff_extractor_is_importable():
-    pytest.importorskip("pymatgen")
+def test_symmetry_engine_does_not_need_pymatgen():
+    import sys
 
-    from usif.symmetry import extract_wyckoff_sites
+    from usif.symmetry import SymmetryReducer, expand_structure
 
-    assert callable(extract_wyckoff_sites)
+    assert callable(SymmetryReducer.reduce_crystal)
+    assert callable(expand_structure)
+    assert "pymatgen.symmetry" not in sys.modules or "usif.symmetry.analysis" not in sys.modules

@@ -1,18 +1,26 @@
 #!/usr/bin/env python3
-"""Minimal USIF quickstart: pymatgen -> USIF -> .usif -> USIF."""
+"""Minimal USIF quickstart: arrays -> USIF -> .usif -> USIF (no optional backend needed)."""
+
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from pymatgen.core import Lattice, Structure
+import numpy as np  # noqa: E402
 
-from usif.services import import_structure, load_structure, save_structure
+from usif.interop.common import build_structure  # noqa: E402
+from usif.services import load_structure, save_structure  # noqa: E402
 
 
 def main() -> None:
-    pmg = Structure(Lattice.cubic(5.64), ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-    structure = import_structure(pmg, energy=-10.5, calculator="VASP")
+    structure = build_structure(
+        [11, 17],
+        [[0, 0, 0], [0.5, 0.5, 0.5]],
+        lattice=np.eye(3) * 5.64,
+        cartesian=False,
+        energy=-10.5,
+        custom={"calculator": "VASP"},
+    )
     with TemporaryDirectory() as tmp:
         path = Path(tmp) / "nacl.usif"
         save_structure(structure, path)

@@ -9,25 +9,33 @@ from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from pymatgen.core import Lattice, Structure  # noqa: E402
+import numpy as np  # noqa: E402
 
 from usif import USIF  # noqa: E402
-from usif.services import import_structure  # noqa: E402
+from usif.interop.common import build_structure  # noqa: E402
 from usif.storage import StructureContainer  # noqa: E402
 
 
 def make_nacl(energy: float):
-    pmg = Structure(
-        Lattice.cubic(5.64),
-        ["Na", "Cl"],
+    return build_structure(
+        [11, 17],
         [[0, 0, 0], [0.5, 0.5, 0.5]],
+        lattice=np.eye(3) * 5.64,
+        cartesian=False,
+        energy=energy,
+        custom={"calculator": "example"},
     )
-    return import_structure(pmg, energy=energy, calculator="example")
 
 
 def make_li(energy: float):
-    pmg = Structure(Lattice.cubic(3.0), ["Li"], [[0, 0, 0]])
-    return import_structure(pmg, energy=energy, calculator="example")
+    return build_structure(
+        [3],
+        [[0, 0, 0]],
+        lattice=np.eye(3) * 3.0,
+        cartesian=False,
+        energy=energy,
+        custom={"calculator": "example"},
+    )
 
 
 def main() -> None:

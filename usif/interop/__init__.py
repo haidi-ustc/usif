@@ -1,27 +1,36 @@
-"""Interoperability adapters for external structure libraries.
+"""Optional adapters for external structure libraries.
 
-The package-level module exposes lightweight protocols and runtime type guards
-eagerly. Concrete pymatgen/ASE adapters are resolved lazily so importing
-``usif.services`` or ``usif.interop.common`` does not import optional adapter
-classes before they are needed.
+USIF itself depends on none of them. Install the one you use:
+
+* ``pip install usif[matsimpy]`` -> :mod:`usif.interop.matsimpy`
+* ``pip install usif[pymatgen]`` -> :mod:`usif.interop.pymatgen`
+* ``pip install usif[ase]``      -> :mod:`usif.interop.ase`
+
+Each adapter converts through :mod:`usif.interop.common.arrays`, so they all
+produce identical USIF structures. Adapter classes are resolved lazily so that
+importing :mod:`usif.interop` never imports an external library.
 """
 
 from __future__ import annotations
 
 from usif.interop.common import (
-    ASEAtomsLike,
-    PymatgenMoleculeLike,
-    PymatgenObject,
-    PymatgenStructureLike,
+    AtomsData,
+    build_structure,
     is_ase_atoms,
+    is_matsimpy_crystal,
+    is_matsimpy_molecule,
+    is_matsimpy_object,
     is_pymatgen_molecule,
     is_pymatgen_object,
     is_pymatgen_structure,
+    structure_to_arrays,
 )
 
 _LAZY_EXPORTS = {
     "ASEExporter": ("usif.interop.ase", "ASEExporter"),
     "ASEImporter": ("usif.interop.ase", "ASEImporter"),
+    "MatsimpyExporter": ("usif.interop.matsimpy", "MatsimpyExporter"),
+    "MatsimpyImporter": ("usif.interop.matsimpy", "MatsimpyImporter"),
     "PymatgenExporter": ("usif.interop.pymatgen", "PymatgenExporter"),
     "PymatgenImporter": ("usif.interop.pymatgen", "PymatgenImporter"),
 }
@@ -39,16 +48,20 @@ def __getattr__(name: str):
 
 
 __all__ = [
-    "ASEAtomsLike",
     "ASEExporter",
     "ASEImporter",
+    "AtomsData",
+    "MatsimpyExporter",
+    "MatsimpyImporter",
     "PymatgenExporter",
     "PymatgenImporter",
-    "PymatgenMoleculeLike",
-    "PymatgenObject",
-    "PymatgenStructureLike",
+    "build_structure",
     "is_ase_atoms",
+    "is_matsimpy_crystal",
+    "is_matsimpy_molecule",
+    "is_matsimpy_object",
     "is_pymatgen_molecule",
     "is_pymatgen_object",
     "is_pymatgen_structure",
+    "structure_to_arrays",
 ]

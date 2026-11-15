@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Convert pymatgen -> USIF -> pymatgen using the canonical service/adapter APIs."""
+"""Convert pymatgen -> USIF -> pymatgen using the canonical service/adapter APIs.
+
+Needs the optional pymatgen backend: pip install usif[pymatgen]
+"""
 
 from __future__ import annotations
 
@@ -10,8 +13,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pymatgen.core import Lattice, Structure  # noqa: E402
 
-from usif.interop.pymatgen import PymatgenExporter, SymmetryPolicy  # noqa: E402
+from usif.interop.pymatgen import PymatgenExporter  # noqa: E402
 from usif.services import export_structure, import_structure  # noqa: E402
+from usif.symmetry import SymmetryPolicy  # noqa: E402
 
 
 def main() -> None:

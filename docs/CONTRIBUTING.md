@@ -1,6 +1,6 @@
 # Contributing
 
-Install development dependencies with `python -m pip install -e ".[dev,ase,mp]"`. Before opening a PR, run the same layered checks used by CI:
+Install development dependencies with `python -m pip install -e ".[dev,pymatgen,ase,mp]"`. Before opening a PR, run the same layered checks used by CI:
 
 ```bash
 python -m black --check usif tests examples

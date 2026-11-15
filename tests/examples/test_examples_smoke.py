@@ -6,6 +6,8 @@ import runpy
 import sys
 from pathlib import Path
 
+import pytest
+
 
 def _repo_root() -> Path:
     for parent in Path(__file__).resolve().parents:
@@ -49,6 +51,7 @@ def test_container_write_query_validate_example_runs(capsys):
 
 
 def test_pymatgen_conversion_roundtrip_example_runs(capsys):
+    pytest.importorskip("pymatgen")
     run_script("examples/03_pymatgen_conversion_roundtrip.py")
     assert "pymatgen formula:" in capsys.readouterr().out
 
@@ -104,3 +107,11 @@ def test_cli_workflow_example_runs(capsys):
     out = capsys.readouterr().out
     assert "CLI workflow completed" in out
     assert "Formula: NaCl" in out
+
+
+def test_matsimpy_conversion_roundtrip_example_runs(capsys):
+    pytest.importorskip("matsimpy")
+    run_script("examples/12_matsimpy_conversion_roundtrip.py")
+    out = capsys.readouterr().out
+    assert "USIF formula: NaCl" in out
+    assert "matsimpy sites: 2" in out

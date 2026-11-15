@@ -23,15 +23,3 @@ def require_mp_rester():
             "mp-api is required for Materials Project downloads. Install with: pip install mp-api"
         ) from e
     return MPRester
-
-
-def require_pymatgen_structure():
-    """Return pymatgen Structure class, importing it only when conversion needs it."""
-    try:
-        from pymatgen.core import Structure
-    except ImportError as e:
-        raise ImportError(
-            "pymatgen is required for converting Materials Project structures. "
-            "Install with: pip install pymatgen"
-        ) from e
-    return Structure

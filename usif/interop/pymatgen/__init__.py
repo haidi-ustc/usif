@@ -1,19 +1,6 @@
-"""pymatgen interoperability adapters."""
+"""Optional pymatgen adapter (``pip install usif[pymatgen]``)."""
 
-from usif.interop.pymatgen.crystal_exporter import CrystalExporter
-from usif.interop.pymatgen.crystal_importer import CrystalImporter
-from usif.interop.pymatgen.exporter import PymatgenExporter
-from usif.interop.pymatgen.importer import PymatgenImporter
-from usif.interop.pymatgen.molecule_exporter import MoleculeExporter
-from usif.interop.pymatgen.molecule_importer import MoleculeImporter
+from usif.interop.pymatgen.adapter import PymatgenExporter, PymatgenImporter
 from usif.symmetry.policies import SymmetryPolicy
 
-__all__ = [
-    "CrystalExporter",
-    "CrystalImporter",
-    "MoleculeExporter",
-    "MoleculeImporter",
-    "PymatgenExporter",
-    "PymatgenImporter",
-    "SymmetryPolicy",
-]
+__all__ = ["PymatgenExporter", "PymatgenImporter", "SymmetryPolicy"]

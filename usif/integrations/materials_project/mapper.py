@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
-from usif.services import import_pymatgen
+import numpy as np
+
+from usif.elements import atomic_number
+from usif.exceptions import ValidationError
+from usif.interop.common.arrays import AtomsData
+from usif.interop.common.importing import import_atoms
+from usif.interop.pymatgen.adapter import OXIDATION_STATE_KEY, _SITE_PROPERTY_MAP
 from usif.structures.structure import USIFStructure
-
-from .dependencies import require_pymatgen_structure
 
 CUSTOM_FIELDS = (
     "band_gap",
@@ -27,14 +31,51 @@ def _get_value(doc: Union[Dict[str, Any], Any], key: str) -> Any:
     return getattr(doc, key, None)
 
 
-def _extract_structure(doc: Union[Dict[str, Any], Any]) -> Any:
-    structure = _get_value(doc, "structure")
-    if structure is None:
-        raise ValueError("Materials Project document does not contain structure data")
-    if isinstance(structure, dict):
-        Structure = require_pymatgen_structure()
-        return Structure.from_dict(structure)
-    return structure
+def atoms_from_structure_dict(structure: Dict[str, Any]) -> AtomsData:
+    """Parse a Materials Project / pymatgen ``Structure.as_dict()`` document.
+
+    Needs no pymatgen. Only ordered structures (one species with occupancy 1
+    per site) are supported.
+    """
+    try:
+        lattice = np.array(structure["lattice"]["matrix"], dtype=float).reshape(3, 3)
+        sites = structure["sites"]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(f"Not a structure document: {exc}") from exc
+
+    numbers: List[int] = []
+    frac: List[List[float]] = []
+    site_custom: List[Dict[str, Any]] = []
+    atomic: Dict[str, List[Any]] = {}
+    for index, site in enumerate(sites):
+        species = site.get("species") or []
+        if len(species) != 1 or abs(float(species[0].get("occu", 1.0)) - 1.0) > 1e-8:
+            raise ValidationError(
+                f"Site {index} is disordered (partially occupied); USIF stores ordered structures only"
+            )
+        specie = species[0]
+        numbers.append(atomic_number(specie["element"]))
+        frac.append([float(x) for x in site["abc"]])
+        extra: Dict[str, Any] = {}
+        if specie.get("oxidation_state") is not None:
+            extra[OXIDATION_STATE_KEY] = float(specie["oxidation_state"])
+        for name, value in (site.get("properties") or {}).items():
+            target = _SITE_PROPERTY_MAP.get(name)
+            if target is not None and value is not None and (
+                target not in ("charge", "magmom") or np.ndim(value) == 0
+            ):
+                atomic.setdefault(target, [None] * len(sites))[index] = value
+            elif value is not None:
+                extra[name] = value
+        site_custom.append(extra)
+
+    return AtomsData(
+        numbers=numbers,
+        positions=np.array(frac, dtype=float).reshape(len(numbers), 3) @ lattice,
+        lattice=lattice,
+        atomic=atomic,
+        site_custom=site_custom,
+    )
 
 
 def _extract_properties(doc: Union[Dict[str, Any], Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -59,15 +100,28 @@ def _extract_properties(doc: Union[Dict[str, Any], Any]) -> Tuple[Dict[str, Any]
 
 
 def convert_mp_to_usif(doc: Union[Dict[str, Any], Any]) -> USIFStructure:
-    """Convert a Materials Project summary document to ``USIFStructure``."""
-    structure = _extract_structure(doc)
+    """Convert a Materials Project summary document to ``USIFStructure``.
+
+    ``doc["structure"]`` may be a structure dictionary (parsed natively) or a
+    pymatgen ``Structure`` as returned by mp-api (converted with the optional
+    pymatgen adapter).
+    """
+    structure = _get_value(doc, "structure")
+    if structure is None:
+        raise ValueError("Materials Project document does not contain structure data")
     built_in, custom = _extract_properties(doc)
 
-    usif_structure = import_pymatgen(
-        structure,
-        energy=built_in.get("energy"),
-        volume=built_in.get("volume"),
-    )
+    if isinstance(structure, dict):
+        usif_structure = import_atoms(
+            atoms_from_structure_dict(structure), energy=built_in.get("energy")
+        )
+    else:
+        from usif.services import import_structure
+
+        usif_structure = import_structure(structure, energy=built_in.get("energy"))
+
+    if built_in.get("volume") is not None:
+        usif_structure.structure_properties.set_scalar("volume", float(built_in["volume"]))
     if custom:
         usif_structure.structure_properties.custom.update(custom)
     return usif_structure

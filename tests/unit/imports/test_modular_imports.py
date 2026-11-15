@@ -53,29 +53,24 @@ class TestModularImports(unittest.TestCase):
     def test_canonical_functionality_imports(self):
         from usif.encoder import USIF
         from usif.interop.ase import ASEExporter, ASEImporter
-        from usif.interop.pymatgen import (
-            CrystalExporter,
-            CrystalImporter,
-            MoleculeExporter,
-            MoleculeImporter,
-            PymatgenExporter,
-            PymatgenImporter,
-            SymmetryPolicy,
-        )
+        from usif.interop.matsimpy import MatsimpyExporter, MatsimpyImporter
+        from usif.interop.pymatgen import PymatgenExporter, PymatgenImporter, SymmetryPolicy
         from usif.storage import StructureContainer, USIFGroup
 
-        self.assertIsNotNone(USIF)
-        self.assertIsNotNone(PymatgenImporter)
-        self.assertIsNotNone(PymatgenExporter)
-        self.assertIsNotNone(CrystalImporter)
-        self.assertIsNotNone(MoleculeImporter)
-        self.assertIsNotNone(CrystalExporter)
-        self.assertIsNotNone(MoleculeExporter)
-        self.assertIsNotNone(SymmetryPolicy)
-        self.assertIsNotNone(ASEImporter)
-        self.assertIsNotNone(ASEExporter)
-        self.assertIsNotNone(StructureContainer)
-        self.assertIsNotNone(USIFGroup)
+        # Adapter modules import without their optional libraries installed.
+        for value in (
+            USIF,
+            PymatgenImporter,
+            PymatgenExporter,
+            MatsimpyImporter,
+            MatsimpyExporter,
+            SymmetryPolicy,
+            ASEImporter,
+            ASEExporter,
+            StructureContainer,
+            USIFGroup,
+        ):
+            self.assertIsNotNone(value)
 
 
     def test_services_imports(self):

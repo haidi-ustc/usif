@@ -7,7 +7,10 @@ Test conversion between USIF and pymatgen formats
 import unittest
 
 import numpy as np
-from pymatgen.core import Lattice, Molecule, Structure
+import pytest
+
+pytest.importorskip("pymatgen")
+from pymatgen.core import Lattice, Molecule, Structure  # noqa: E402
 
 from usif import StorageMode, StructureType, USIFStructure
 from usif.exceptions import SymmetryAnalysisError
@@ -199,9 +202,10 @@ class TestStructureExportService(unittest.TestCase):
         self.assertEqual(len(pmg_structure), 2)  # 2 Si atoms
         self.assertAlmostEqual(pmg_structure.volume, 125.0, places=1)
 
-        # Test default (no args) defaults to pymatgen
-        pmg_structure2 = export_structure(self.usif_structure)
-        self.assertIsInstance(pmg_structure2, Structure)
+        # Object export needs an explicit format: pymatgen is optional, so
+        # the returned type never depends on what happens to be installed.
+        with self.assertRaises(ValueError):
+            export_structure(self.usif_structure)
 
         # Test that providing filename with pymatgen raises error
         import tempfile

@@ -1,6 +1,5 @@
-"""ASE import/export adapters."""
+"""Optional ASE adapter (``pip install usif[ase]``)."""
 
-from usif.interop.ase.exporter import ASEExporter
-from usif.interop.ase.importer import ASEImporter
+from usif.interop.ase.adapter import ASEExporter, ASEImporter
 
-__all__ = ["ASEImporter", "ASEExporter"]
+__all__ = ["ASEExporter", "ASEImporter"]
