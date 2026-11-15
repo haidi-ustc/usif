@@ -48,9 +48,9 @@ def test_cli_uses_typer():
 def test_cli_version_json(capsys):
     assert main(["version", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["version"] == "7.1.0"
-    assert payload["release_record"] == "20260605.016"
-    assert payload["format_version"] == 5
+    assert payload["version"] == "0.8.0"
+    assert payload["release_record"] == "20261115.017"
+    assert payload["format_version"] == 6
 
 
 def test_cli_convert_inspect_and_validate_structure(tmp_path, capsys):

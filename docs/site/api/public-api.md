@@ -24,8 +24,11 @@ from usif.storage import StructureContainer, USIFGroup, ContainerValidationResul
 ## Interop
 
 ```python
-from usif.interop.pymatgen import PymatgenImporter, PymatgenExporter
-from usif.interop.ase import ASEImporter, ASEExporter
+from usif.interop.common import build_structure, structure_to_arrays  # no backend needed
+from usif.interop.matsimpy import MatsimpyImporter, MatsimpyExporter    # usif[matsimpy]
+from usif.interop.pymatgen import PymatgenImporter, PymatgenExporter    # usif[pymatgen]
+from usif.interop.ase import ASEImporter, ASEExporter                   # usif[ase]
+from usif.symmetry import SymmetryPolicy, apply_symmetry_policy
 ```
 
 ## Integrations and benchmarks

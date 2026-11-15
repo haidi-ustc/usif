@@ -1,6 +1,6 @@
 # USIF Architecture
 
-This document describes the current USIF 7.1.0 architecture. It is intentionally code-facing: module names, public entry points, file-format boundaries, and dependency directions are aligned with the repository source tree.
+This document describes the current USIF 0.8.0 architecture. It is intentionally code-facing: module names, public entry points, file-format boundaries, and dependency directions are aligned with the repository source tree.
 
 ## 1. System profile
 
@@ -10,12 +10,13 @@ USIF is a Python 3.10+ library for atomistic structure interchange. It provides:
 - `.usif` single-record binary encoding through `USIF`;
 - `.usifc` multi-record containers through `StructureContainer`;
 - structure-level and atom-level properties with an injectable registry;
-- explicit pymatgen and ASE adapters;
+- symmetry analysis, reduction and expansion with spglib (no structure library in the core);
+- a backend-neutral array layer plus optional matsimpy, pymatgen and ASE adapters;
 - application services for import/export/save/load/optimization;
 - optional Materials Project integration and compression benchmarks;
 - an official `usif.cli` command-line interface for version, inspect, convert, validate, and container workflows.
 
-Core runtime dependencies are declared in `pyproject.toml`: `numpy`, `pymatgen`, `monty`, and `tomli` for Python 3.10. Optional extras provide ASE, Materials Project, benchmark, and development tooling. Interop modules are type-checked in 7.1.0; external-library imports are tolerated through mypy's missing-import policy rather than hiding USIF adapter code behind `ignore_errors`.
+Core runtime dependencies are declared in `pyproject.toml`: `numpy`, `spglib`, `typer`, and `tomli` for Python 3.10. The core imports no structure library: matsimpy, pymatgen and ASE are optional extras (`usif[matsimpy]`, `usif[pymatgen]`, `usif[ase]`), loaded only when a conversion to or from their objects or files is requested. Further extras provide Materials Project (`mp`, which also brings `monty`), benchmark, and development tooling. Interop modules are type-checked; external-library imports are tolerated through mypy's missing-import policy rather than hiding USIF adapter code behind `ignore_errors`.
 
 ## 2. Package layout
 
@@ -48,7 +49,7 @@ usif/
     compression.py                     # NONE/GZIP helpers
     hashing.py                         # geometry, record, payload hashes
     binary/
-      header.py                        # 64-byte .usif v5 header
+      header.py                        # 64-byte .usif header (format 6; format 5 still decoded)
       reader.py / writer.py            # bounds-checked primitive I/O
       structure_codec.py               # uncompressed .usif payload body
       property_codec.py                # binary property-section codec
@@ -69,30 +70,28 @@ usif/
     recovery.py                        # record scanning recovery helpers
     validation.py                      # container.validate() service
 
+  elements.py                          # element table (Z, symbol, electronegativity)
+  formula.py                           # reduced_formula(): core-owned reduced formula
+  fileio.py                            # atomic file replacement (temp file + fsync + rename)
+
   interop/
     common/
-      protocols.py                    # adapter Protocol contracts for pymatgen/ASE surfaces
-      type_guards.py                  # runtime TypeGuard helpers for supported objects
-    pymatgen/
-      importer.py                      # small dispatch facade
-      crystal_importer.py              # pymatgen Structure -> USIF crystal
-      molecule_importer.py             # pymatgen Molecule -> USIF molecule
-      exporter.py                      # small dispatch facade
-      crystal_exporter.py              # USIF crystal -> pymatgen Structure
-      molecule_exporter.py             # USIF molecule -> pymatgen Molecule
-      property_extractor.py            # property extraction helpers
-    ase/
-      importer.py / exporter.py        # ASE adapters through canonical pymatgen adapters
+      arrays.py                        # AtomsData, build_structure(), structure_to_arrays()
+      importing.py                     # import_atoms(): shared per-atom overrides + SymmetryPolicy
+      type_guards.py                   # import-free runtime guards for supported objects
+    matsimpy/adapter.py                # matsimpy Crystal/Molecule <-> USIF
+    pymatgen/adapter.py                # pymatgen Structure/Molecule <-> USIF
+    ase/adapter.py                     # ase.Atoms <-> USIF (no pymatgen)
 
   symmetry/
-    policies.py                        # SymmetryPolicy
-    analysis.py                        # pymatgen-backed Wyckoff/point-group extraction
-    equivalence.py                     # losslessness checks and orbit expansion
-    reduce.py                          # SymmetryReducer service, lazily imported by package __getattr__
-    expand.py                          # expansion helpers
+    policies.py                        # SymmetryPolicy, apply_symmetry_policy()
+    spacegroup.py                      # spglib analysis, Hall-number settings, orbit expansion
+    tables.py                          # frozen format-5 space-group -> Hall and point-group tables
+    reduce.py                          # SymmetryReducer (lossless-gated), lazily imported
+    expand.py                          # expand_structure(): SYMMETRIC -> FULL_ATOMIC
 
   services/
-    convert.py                         # import_structure/export_structure/import_pymatgen
+    convert.py                         # import_structure/export_structure, foreign file I/O
     io.py                              # .usif and official JSON save/load dispatch
     json_io.py                         # official USIF JSON schema helpers
     optimizer.py                       # USIFOptimizer/optimize_structure
@@ -104,7 +103,7 @@ usif/
     client.py                          # lazy mp-api client wrapper
     query.py                           # query group definitions and kwargs
     downloader.py                      # high-level dataset download orchestration
-    mapper.py                          # MP document -> USIFStructure
+    mapper.py                          # MP document -> USIFStructure (no pymatgen needed)
     archive.py                         # zip creation and safe extraction
     loader.py                          # load local fixture/downloaded groups
     dependencies.py                    # lazy optional imports
@@ -125,7 +124,7 @@ format/binary ----+
     |
 storage
 
-structures <- interop <- services
+structures <- symmetry (spglib) <- interop/common <- interop/<backend> <- services
 structures <- symmetry <- services/optimizer
 structures <- integrations/materials_project
 structures <- benchmarks
@@ -136,9 +135,10 @@ Important boundaries:
 1. USIFStructure is a pure model. `USIFStructure` It does not import `usif.services`, `usif.interop`, `usif.storage`, or `usif.encoder`.
 2. `USIF` is the `.usif` codec facade. It delegates header, payload, property, compression, and integrity work to `usif.format` modules.
 3. `StructureContainer` stores encoded `.usif` records. It depends on `USIF`, but the `.usif` codec does not depend on storage.
-4. Interop adapters depend on model/properties/symmetry, not on storage.
-5. Services are application-boundary helpers; they may call codec, interop, and model modules.
-6. Materials Project and benchmarks live outside `services` because they are optional integrations/tooling.
+4. Interop adapters depend on model/properties/symmetry, not on storage. Every adapter converts through the backend-neutral array layer (`usif.interop.common`), so per-atom property mapping, `SymmetryPolicy` handling and validation exist once.
+5. Nothing outside `usif/interop/<backend>/` and the service-level file readers imports matsimpy, pymatgen or ASE; `import usif` loads none of them.
+6. Services are application-boundary helpers; they may call codec, interop, and model modules.
+7. Materials Project and benchmarks live outside `services` because they are optional integrations/tooling.
 
 ## 4. Public API boundaries
 
@@ -163,32 +163,43 @@ from usif import USIF, CompressionType
 ### Services
 
 ```python
-from usif.services import import_structure, import_pymatgen, export_structure
+from usif.services import import_structure, export_structure
+from usif.services import import_matsimpy, import_pymatgen, read_foreign_file
 from usif.services import save_structure, load_structure
 from usif.services import optimize_structure, USIFOptimizer
 ```
 
-Services are the canonical application boundary for object import/export and file save/load. They replace model-level convenience methods.
+Services are the canonical application boundary for object import/export and file save/load. They replace model-level convenience methods. `import_structure()` accepts a path or a matsimpy, pymatgen or ASE object and dispatches on the object type; `export_structure(s, fmt=...)` returns a `"matsimpy"`, `"pymatgen"`, `"ase"` or backend-free `"arrays"` object. Non-USIF files (CIF, POSCAR, XYZ, ...) are read and written with the first installed backend, tried in the order matsimpy, ASE, pymatgen.
 
 ### Official USIF JSON
 
-USIF 7.1.0 supports an official USIF JSON document at the service boundary. The implementation lives in `usif.services.json_io` and uses the schema marker `usif.structure.json.v1`. The JSON service serializes the pure model dictionary into interoperable JSON and restores it through `USIFStructure.from_dict()`.
+USIF 0.8.0 supports an official USIF JSON document at the service boundary. The implementation lives in `usif.services.json_io` and uses the schema marker `usif.structure.json.v1`. The JSON service serializes the pure model dictionary into interoperable JSON and restores it through `USIFStructure.from_dict()`.
 
 Supported JSON path suffixes are `.json` and `.usif.json`. Unsupported non-`.usif` extensions are rejected by `save_structure()` and `load_structure()` so format selection remains explicit. JSON serialization accepts JSON-compatible custom values and normalized NumPy arrays/scalars; unsupported objects and non-finite floats raise `StorageError`.
 
 ### Interop
 
 ```python
-from usif.interop.pymatgen import (
-    PymatgenImporter, PymatgenExporter,
-    CrystalImporter, CrystalExporter,
-    MoleculeImporter, MoleculeExporter,
-    SymmetryPolicy,
-)
+from usif.interop.common import AtomsData, build_structure, structure_to_arrays
+from usif.interop.matsimpy import MatsimpyImporter, MatsimpyExporter
+from usif.interop.pymatgen import PymatgenImporter, PymatgenExporter
 from usif.interop.ase import ASEImporter, ASEExporter
+from usif.symmetry import SymmetryPolicy
 ```
 
-`PymatgenImporter` and `PymatgenExporter` are dispatch facades. Crystal/molecule adapters own the specific conversion paths. The interop common protocols (`PymatgenStructureLike`, `PymatgenMoleculeLike`, and `ASEAtomsLike`) document the minimal external-library surfaces USIF consumes, while runtime type guards (`is_pymatgen_structure()`, `is_pymatgen_molecule()`, and `is_ase_atoms()`) keep adapter errors explicit. ASE adapter depends on pymatgen because ASE import/export intentionally routes through pymatgen's `AseAtomsAdaptor` and the canonical pymatgen adapters.
+`usif.interop.common` is the backend-neutral array layer. `build_structure()` turns atomic numbers, positions, an optional lattice and property arrays into a FULL_ATOMIC `USIFStructure` (a missing or degenerate lattice means a molecule); `structure_to_arrays()` returns `AtomsData` (Cartesian positions, lattice, pbc, per-atom arrays, energy, stress, custom values), expanding SYMMETRIC records first. `import_atoms()` applies caller overrides (forces, charges, magmoms, energy, stress) and the `SymmetryPolicy`.
+
+Each backend adapter only maps its objects to and from `AtomsData`:
+
+- matsimpy: `Crystal`/`Molecule`; per-site dicts and `metadata` (energy, stress, custom values).
+- pymatgen: `Structure`/`Molecule`; oxidation states, molecule charge and spin multiplicity are kept as custom values and restored on export; disordered structures are rejected.
+- ASE: `Atoms`; calculator energy/forces/stress, charges, magnetic moments, velocities and per-atom arrays. Stress is converted from eV/Å³ to GPa and velocities to Å/fs. The ASE adapter does not depend on pymatgen.
+
+Runtime type guards (`is_matsimpy_object()`, `is_pymatgen_structure()`, `is_pymatgen_molecule()`, `is_ase_atoms()`) check the class lineage by module and name, so they never import the optional library.
+
+### Symmetry
+
+SYMMETRIC crystals are produced and expanded with spglib. A format-6 record stores the spglib Hall number and, when it is not the default, the transformation `(P, p)` from the stored cell to the standard setting (`x_std = P x + p`), so expansion reproduces the stored cell and origin exactly. Reduction is attempted at several `symprec` values and is accepted only when re-expansion reproduces every original atom within `SymmetryConstants.LOSSLESS_TOLERANCE` (1e-5 Å, after float32 rounding); otherwise the structure stays FULL_ATOMIC. Molecules are not reduced. Format-5 records, which store only a space-group number, are expanded with a frozen space-group -> Hall table (`usif/symmetry/tables.py`) matching the settings they were written with.
 
 ### Storage
 
@@ -221,9 +232,9 @@ The generic `usif.utils` package is not part of the 6.0 API.
 ### Import and save a single structure
 
 ```text
-pymatgen Structure/Molecule or ASE Atoms
+matsimpy / pymatgen / ASE object, or a CIF/POSCAR/... file
   -> usif.services.import_structure()
-  -> interop adapter
+  -> backend adapter -> AtomsData -> import_atoms() -> SymmetryPolicy
   -> USIFStructure
   -> usif.services.save_structure()
   -> USIF.encode()
@@ -250,7 +261,7 @@ USIFStructure
   -> record_hash + geometry_hash
   -> RecordStore.allocate()/write_record()
   -> ContainerIndexes update
-  -> close(): serialize index payload
+  -> flush()/autocommit/close(): serialize index payload
   -> ContainerIndexStore.write_index_block()
   -> header index_offset update
 ```
@@ -270,7 +281,7 @@ StructureContainer(mode="r")
 
 If the header points to an invalid index generation, `ContainerIndexStore.find_latest_valid_index_offset()` scans in bounded chunks for the newest valid committed index block.
 
-USIF 7.1.0 persists secondary indexes (`geometry_index`, `formula_index`, and `property_index`) in the checksummed container index generation. This keeps read-only open cost bounded to header + index payload reads, instead of decoding every stored record before the first query. Older index payloads without the secondary section can still be rebuilt from records by `IndexPersistenceMixin._build_secondary_indexes()`.
+USIF 0.8.0 persists secondary indexes (`geometry_index`, `formula_index`, and `property_index`) in the checksummed container index generation. This keeps read-only open cost bounded to header + index payload reads, instead of decoding every stored record before the first query. Older index payloads without the secondary section can still be rebuilt from records by `IndexPersistenceMixin._build_secondary_indexes()`.
 
 `StructureContainer.validate()` is explicit about validation cost: `level="index"` checks metadata/index references, `level="records"` also reads record byte ranges and USIF headers, and `level="full"` decodes every structure and verifies record hashes.
 
@@ -284,6 +295,8 @@ USIF deliberately separates three identities:
 | record hash | `calculate_record_hash()` / `USIF.get_record_hash()` | logical record identity including formula and properties, used for container deduplication |
 | payload digest | `calculate_payload_digest()` | raw byte digest for payload-oriented checks |
 
+The record hash is computed on the canonical (encode -> decode) form of a structure, so it is stable across save/load. The geometry hash includes the symmetry setting only when it is not the default one, so format-5 geometry hashes are unchanged.
+
 `.usif` headers store the geometry hash. `.usifc` primary records are keyed by record hash, while `geometry_index` maps one geometry hash to one or more record hashes.
 
 ## 7. Release/version metadata
@@ -292,18 +305,18 @@ Packaging version and the date-based unique release record are declared in `pypr
 
 ```toml
 [project]
-version = "7.1.0"
+version = "0.8.0"
 
 [tool.usif.release]
-date = "2026-06-05"
-sequence = 16
-record = "20260605.016"
-id = "usif-20260605-016"
+date = "2026-11-15"
+sequence = 17
+record = "20261115.017"
+id = "usif-20261115-017"
 ```
 
-`usif.version` reads these values from `pyproject.toml` in a source checkout and falls back to baked constants or installed package metadata in wheel installs. `FORMAT_VERSION = 5` is the `.usif` binary record format version and changes only when the binary record layout changes.
+`usif.version` reads these values from `pyproject.toml` in a source checkout and falls back to baked constants or installed package metadata in wheel installs. `FORMAT_VERSION = 6` is the `.usif` binary record format version and changes only when the binary record layout changes.
 
-USIF 7.1.0 adds `scripts/check_release_metadata.py` as the release governance gate. The checker validates `pyproject.toml`, baked `usif.version` fallback constants, CI wheel-smoke expectations, and the latest changelog entry before packaging. `docs/FORMAT_VERSIONING.md` defines package, release-record, `.usif`, and `.usifc` version boundaries; `docs/API_STABILITY.md` defines the stable 7.x public API surface.
+USIF uses `scripts/check_release_metadata.py` as the release governance gate. The checker validates `pyproject.toml`, baked `usif.version` fallback constants, CI wheel-smoke expectations, and the latest changelog entry before packaging. `docs/FORMAT_VERSIONING.md` defines package, release-record, `.usif`, and `.usifc` version boundaries; `docs/API_STABILITY.md` defines the stable 0.8.x public API surface.
 
 ## 8. Testing and release boundaries
 
@@ -327,12 +340,12 @@ The property layer provides shape-aware property management for structure and at
 
 ## Documentation site
 
-USIF 7.1.0 adds a plain-Markdown documentation site under `docs/site/`. The site is organized around concepts, tutorials, cookbook recipes, and the public API map. It complements the normative engineering documents (`ARCHITECTURE.md`, `BINARY_FORMAT.md`, `CONTAINER_FORMAT.md`, and `PROPERTY_SYSTEM.md`) without replacing them.
+USIF ships a plain-Markdown documentation site under `docs/site/`. The site is organized around concepts, tutorials, cookbook recipes, and the public API map. It complements the normative engineering documents (`ARCHITECTURE.md`, `BINARY_FORMAT.md`, `CONTAINER_FORMAT.md`, and `PROPERTY_SYSTEM.md`) without replacing them.
 
 
 ## 13. Command-line interface
 
-USIF 7.1.0 exposes an official `usif` console script through `[project.scripts]` in `pyproject.toml`:
+USIF 0.8.0 exposes an official `usif` console script through `[project.scripts]` in `pyproject.toml`:
 
 ```toml
 [project.scripts]

@@ -1,6 +1,6 @@
 # USIF Documentation Site
 
-USIF 7.1.0 is a Python 3.10+ toolkit for atomistic structure interchange. It provides a pure structure model, binary `.usif` records, multi-structure `.usifc` containers, official JSON documents, property and unit metadata, pymatgen/ASE adapters, Materials Project integration, an official CLI, and release-governed documentation.
+USIF 0.8.0 is a Python 3.10+ toolkit for atomistic structure interchange. It provides a pure structure model, binary `.usif` records, multi-structure `.usifc` containers, official JSON documents, property and unit metadata, pymatgen/ASE adapters, Materials Project integration, an official CLI, and release-governed documentation.
 
 This `docs/site/` tree is the user-facing documentation source. It is intentionally plain Markdown so it can be rendered by MkDocs, Sphinx, GitHub Pages, or any static site generator without changing the package.
 
@@ -21,18 +21,21 @@ This `docs/site/` tree is the user-facing documentation source. It is intentiona
 from usif import USIF, USIFStructure, StructureProperties, AtomicProperties
 from usif.services import import_structure, save_structure, load_structure
 from usif.storage import StructureContainer
-from usif.interop.pymatgen import PymatgenImporter, PymatgenExporter
-from usif.interop.ase import ASEImporter, ASEExporter
+from usif.interop.common import build_structure, structure_to_arrays  # no backend needed
+from usif.interop.matsimpy import MatsimpyImporter, MatsimpyExporter    # usif[matsimpy]
+from usif.interop.pymatgen import PymatgenImporter, PymatgenExporter    # usif[pymatgen]
+from usif.interop.ase import ASEImporter, ASEExporter                   # usif[ase]
+from usif.symmetry import SymmetryPolicy, apply_symmetry_policy
 ```
 
 USIFStructure is a pure model. `USIFStructure` is the pure model boundary. Import/export, file I/O, and external-library conversion live at service or adapter boundaries.
 
 ## Current release
 
-- Package version: `7.1.0`
-- Release record: `20260605.016`
-- Release ID: `usif-20260605-016`
-- `.usif` binary record `FORMAT_VERSION`: `5`
+- Package version: `0.8.0`
+- Release record: `20261115.017`
+- Release ID: `usif-20261115-017`
+- `.usif` binary record `FORMAT_VERSION`: `6` (format `5` records remain readable)
 
 ## Documentation map
 

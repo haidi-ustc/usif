@@ -1,6 +1,49 @@
 # Changelog
 
-## 7.1.0
+## 0.8.0
+
+Updated release metadata to the date record `20261115.017` and release ID `usif-20261115-017`.
+
+### Dependencies and backends
+
+- The core no longer depends on pymatgen or monty. Runtime dependencies are `numpy`, `spglib`, `typer` (and `tomli` on Python 3.10); `import usif` loads no structure library.
+- matsimpy, pymatgen and ASE are independent optional backends (`usif[matsimpy]`, `usif[pymatgen]`, `usif[ase]`). matsimpy is not on PyPI and must be installed from its source checkout. `monty` moved to the `mp` extra.
+- Added the backend-neutral array layer `usif.interop.common` (`AtomsData`, `build_structure()`, `structure_to_arrays()`, `import_atoms()`); every adapter converts through it, so per-atom mapping and `SymmetryPolicy` handling exist once. The same structure imported through matsimpy or pymatgen gives the same record hash.
+- Added the matsimpy adapter (`MatsimpyImporter`, `MatsimpyExporter`), `import_matsimpy()`, `read_foreign_file()`, and `export_structure(..., fmt="arrays")`. Non-USIF files are read and written with matsimpy, ASE or pymatgen, in that order.
+- The ASE adapter no longer goes through pymatgen.
+- The Materials Project mapper parses structure documents natively, without pymatgen.
+- The reduced formula, element table and type guards are core-owned and import no optional library.
+
+### Format 6 and symmetry
+
+- `.usif` `FORMAT_VERSION` is now `6`. Symmetric crystals store the spglib Hall number and the setting transformation `(P, p)`, so expansion reproduces the stored cell, origin and supercell exactly. Symmetric site counts and multiplicities are `uint32`, so symmetric records are no longer limited to 255 sites.
+- Format-5 records and containers remain readable. Their symmetric crystals are expanded through a frozen space-group -> Hall table, which matches the settings they were written with for all 230 space groups. Golden format-5 fixtures are covered by tests.
+- Symmetry reduction uses spglib and is kept only when it is lossless: re-expansion must reproduce every atom within 1e-5 Å after float32 rounding. Previously `force_symmetric` could store a primitive cell, a shifted origin, or a wrong point group (Td/C3v molecules). Molecules are now always stored full-atomic.
+- `USIFOptimizer` keeps a symmetric reduction only when its encoding is smaller.
+- `USIFStructure` gained `hall_number`, `setting_transformation`, `origin_shift`, `symmetry_setting()`, `has_default_setting()` and `copy()`.
+
+### Fixes
+
+- Site-property magnetic moments (pymatgen, matsimpy, MP documents) are imported, so antiferromagnetic order is no longer erased by symmetry reduction.
+- pymatgen oxidation states, molecule charge and spin multiplicity are preserved; disordered structures raise `ValidationError` instead of crashing.
+- ASE stress is converted from eV/Å³ to GPa (it was stored 160x too small) and velocities to Å/fs; partial periodic boundary conditions are kept.
+- `USIF.save()` and JSON saves encode before writing and replace files atomically, so a failed save no longer truncates an existing file.
+- Record hashes are computed on the canonical (encode -> decode) structure and are stable across save/load.
+- Custom values that are not JSON-compatible raise an error instead of being stored as `str()`.
+
+### Containers
+
+- Writers take an exclusive lock; a second writer gets `ContainerError`.
+- Mode `"w"` writes to a temporary file that replaces the target on close, so an aborted rewrite leaves the original file intact.
+- Added `flush()` and `autocommit_every` so the index can be committed without closing; uncommitted data is reported on open.
+- Recovery scans to the end of the file instead of stopping at the index offset, and deduplicates by record hash.
+- `get()` returns copies, so mutating a result no longer corrupts the decoded-structure cache.
+- Index buckets are ordered sets, so adding many records with the same formula or geometry is no longer quadratic.
+- Group and attribute validation is stricter; rebinding a name drops its stale attributes.
+
+## 0.7.1
+
+- Renumbered the package version from `7.1.0` to `0.7.1` (pre-1.0 versioning). The code is identical to the 7.1.0 release; earlier changelog headings keep their historical numbers. Future releases bump the minor version (`0.8.0`, `0.9.0`, ...) before any major version.
 
 - Completed the 7.1 cleanup line for runtime code and current documentation.
 - Moved the real `PropertyCodec` implementation into `usif.format.binary.property_codec` and removed the forwarding `usif.format.properties` module.

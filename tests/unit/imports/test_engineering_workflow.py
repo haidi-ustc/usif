@@ -89,7 +89,7 @@ def test_release_governance_docs_and_script_exist():
     fmt = Path("docs/FORMAT_VERSIONING.md").read_text()
     assert "Public API" in api
     assert "Internal API" in api
-    assert "FORMAT_VERSION = 5" in fmt
+    assert "FORMAT_VERSION = 6" in fmt
     release_record = tomllib.loads(Path("pyproject.toml").read_text())["tool"]["usif"]["release"]["record"]
     assert release_record in fmt
     assert "python scripts/check_release_metadata.py" in fmt
@@ -119,8 +119,9 @@ def test_core_docs_match_current_code_boundaries():
         "usif.integrations.materials_project",
         release_record,
         "official USIF JSON",
-        "interop common protocols",
-        "ASE adapter depends on pymatgen",
+        "backend-neutral array layer",
+        "ASE adapter does not depend on pymatgen",
+        "spglib",
         "scripts/check_release_metadata.py",
         "docs/site",
         "usif.cli",
@@ -129,7 +130,8 @@ def test_core_docs_match_current_code_boundaries():
 
     binary = docs["BINARY_FORMAT.md"]
     for expected in (
-        "Binary record format version | `5`",
+        "Binary record format version | `6`",
+        "hall_number",
         "`b\"USIF\\x00\\x00\\x00\"`",
         "geometry_hash",
         "0 = NONE",
@@ -201,13 +203,14 @@ def test_mypy_no_longer_ignores_interop_adapters():
 
 def test_interop_common_contract_modules_exist():
     for path in (
-        Path("usif/interop/common/protocols.py"),
+        Path("usif/interop/common/arrays.py"),
+        Path("usif/interop/common/importing.py"),
         Path("usif/interop/common/type_guards.py"),
     ):
         assert path.exists()
     architecture = Path("docs/ARCHITECTURE.md").read_text()
-    assert "interop common protocols" in architecture
-    assert "ASE adapter depends on pymatgen" in architecture
+    assert "backend-neutral array layer" in architecture
+    assert "ASE adapter does not depend on pymatgen" in architecture
 
 
 def test_examples_use_clear_descriptive_filenames():
@@ -225,6 +228,7 @@ def test_examples_use_clear_descriptive_filenames():
         "08_property_units.py",
         "09_large_container_workflow.py",
         "10_materials_project_dataset.py",
+        "12_matsimpy_conversion_roundtrip.py",
         "download_mp_data.py",
         "quickstart.py",
     ):

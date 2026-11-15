@@ -148,9 +148,9 @@ Per-atom properties cannot be represented losslessly in symmetric storage becaus
 - `mode="none"`: keep full-atomic storage;
 - `mode="analyze"`: use symmetry only when no atom properties would be lost;
 - `mode="reduce"`: prefer symmetry but require explicit drop or fallback behavior if atom properties exist;
-- `mode="preserve"`: preserve source intent; pymatgen currently behaves like analyze.
+- `mode="preserve"`: currently behaves like analyze.
 
-This policy is shared by services, pymatgen importers, ASE importers, and `SymmetryReducer`.
+This policy is shared by services, all importers (through `usif.interop.common.import_atoms()`), `apply_symmetry_policy()`, and `SymmetryReducer`. Reduction is attempted with spglib and is kept only when it is lossless: re-expanding the representatives must reproduce every atom within 1e-5 Å. Molecules are always stored full-atomic.
 
 
 ## Official JSON structure documents

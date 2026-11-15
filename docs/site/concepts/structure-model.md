@@ -7,8 +7,9 @@
 The model does not perform file I/O or external library conversion. These operations live in:
 
 - `usif.services` for application-level import/export/save/load;
-- `usif.interop.pymatgen` for pymatgen conversion;
-- `usif.interop.ase` for ASE conversion;
+- `usif.interop.common` for backend-free construction from and export to numpy arrays;
+- `usif.interop.matsimpy`, `usif.interop.pymatgen` and `usif.interop.ase` for optional library conversion;
+- `usif.symmetry` for spglib-based symmetry reduction and expansion;
 - `usif.encoder.USIF` for binary `.usif` records.
 
 ## Storage modes

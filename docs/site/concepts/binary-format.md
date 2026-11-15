@@ -3,9 +3,9 @@
 The `.usif` file stores one complete USIF structure record.
 
 - Magic: `b"USIF\x00\x00\x00"`
-- Binary record format version: `5`
+- Binary record format version: `6` (format `5` records remain readable)
 - Hash in record header: `geometry_hash`
-- Record hash: computed over complete record bytes and used by `.usifc` deduplication
+- Record hash: computed over the canonical (encoded and decoded) logical record, including properties, and used by `.usifc` deduplication
 - Compression types: `0 = NONE`, `1 = GZIP`
 
 The binary format is implemented by `usif.encoder.USIF` and focused modules under `usif.format.binary`.

@@ -10,7 +10,7 @@ The public Python package version lives in `pyproject.toml`:
 
 ```toml
 [project]
-version = "7.1.0"
+version = "0.7.1"
 ```
 
 This value changes for every published package release.  Source-tree imports read
@@ -39,11 +39,17 @@ Rules:
 ## `.usif` binary record format version
 
 The single-structure `.usif` binary record format is versioned independently by
-`usif.version.FORMAT_VERSION`.  In 7.1.0 it remains:
+`usif.version.FORMAT_VERSION`.  In 0.8.0 it is:
 
 ```python
-FORMAT_VERSION = 5
+FORMAT_VERSION = 6
 ```
+
+Encoders always write the current `FORMAT_VERSION`.  Decoders accept every
+version listed in `SUPPORTED_FORMAT_VERSIONS` (currently 5 and 6) and select the
+body layout from the record header, so files and containers written by earlier
+releases stay readable.  `tests/fixtures/format5` holds golden format-5 records
+that must keep decoding to the same structures.
 
 Bump `FORMAT_VERSION` only when existing binary `.usif` records need new reader
 logic or migration behavior.  Examples include changing header layout, changing
@@ -71,6 +77,16 @@ The generated `release-checks.txt` can be distributed next to the package archiv
 and `sha256sums.txt` for auditability.
 
 
-## 7.1 release note
+## 0.8.0 release note
 
-`7.1.0` is a legacy-cleanup package release recorded as `20260605.016`. It keeps the `.usif` binary record `FORMAT_VERSION = 5` and tightens the `.usifc` container manifest line to container version 2 with `USIFIDX2` / `SIDX0002` index markers.
+`0.8.0` is recorded as `20261115.017`. It bumps the `.usif` binary record format to
+`FORMAT_VERSION = 6`: symmetric crystals now store the spglib Hall number and the
+setting transformation `(P, p)` so expansion reproduces the stored cell exactly,
+symmetric site counts and multiplicities widen to `uint32`, and symmetric records
+no longer depend on an external library's setting tables. Format-5 records are
+still decoded, with a frozen space-group -> Hall table. The `.usifc` container
+layout is unchanged.
+
+## 0.7.1 release note
+
+`0.7.1` is a legacy-cleanup package release recorded as `20260605.016`. It keeps the `.usif` binary record `FORMAT_VERSION = 5` and tightens the `.usifc` container manifest line to container version 2 with `USIFIDX2` / `SIDX0002` index markers.

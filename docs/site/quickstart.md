@@ -1,22 +1,24 @@
 # Quickstart
 
-This quickstart creates a pymatgen NaCl structure, imports it into USIF, saves a binary `.usif` file, then loads it back.
+This quickstart builds a NaCl structure from arrays (no optional backend needed), saves a binary `.usif` file, then loads it back. With matsimpy, pymatgen or ASE installed, `import_structure()` also accepts their objects or a CIF/POSCAR/XYZ path.
 
 ```python
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from pymatgen.core import Lattice, Structure
+import numpy as np
 
-from usif.services import import_structure, save_structure, load_structure
+from usif.interop.common import build_structure
+from usif.services import save_structure, load_structure
 
-pmg = Structure(
-    Lattice.cubic(5.64),
-    ["Na", "Cl"],
+structure = build_structure(
+    [11, 17],
     [[0, 0, 0], [0.5, 0.5, 0.5]],
+    lattice=np.eye(3) * 5.64,
+    cartesian=False,
+    energy=-10.5,
+    custom={"calculator": "VASP"},
 )
-
-structure = import_structure(pmg, energy=-10.5, calculator="VASP")
 
 with TemporaryDirectory() as tmp:
     path = Path(tmp) / "nacl.usif"

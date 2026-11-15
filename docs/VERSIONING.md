@@ -1,19 +1,26 @@
 # Versioning
 
-USIF 7.x uses `pyproject.toml` as the single editable release metadata source.
+USIF 0.8.x uses `pyproject.toml` as the single editable release metadata source.
 The public package version is stored in `[project].version`, and the dated release
 record is stored in `[tool.usif.release]`:
 
 ```toml
 [project]
-version = "7.1.0"
+version = "0.8.0"
 
 [tool.usif.release]
-date = "2026-06-05"
-sequence = 16
-record = "20260605.016"
-id = "usif-20260605-016"
+date = "2026-11-15"
+sequence = 17
+record = "20261115.017"
+id = "usif-20261115-017"
 ```
+
+## Version bump policy
+
+USIF is pre-1.0. The package version was renumbered from `7.1.0` to `0.7.1`; the
+code is identical. Releases bump the **minor** version first (`0.7.1` -> `0.8.0` ->
+`0.9.0` ...); patch releases (`0.8.1`) are for fixes only. Moving to a new **major**
+version (`1.0.0`) is a deliberate decision, never an automatic bump.
 
 The release record is intentionally date-based and unique per release day:
 
