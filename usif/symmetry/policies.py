@@ -21,8 +21,11 @@ class SymmetryPolicy:
             per-atom properties would be lost.
         reduce: Prefer a symmetric representation. Per-atom properties must be
             explicitly dropped or preserved by falling back to full atomic.
-        preserve: Keep the source object's natural representation. For pymatgen
-            imports this currently behaves like analyze.
+            A structure without an exact symmetric form is still stored
+            full-atomic: reduction is never lossy.
+        preserve: Same as analyze.
+
+    Only crystals are reduced; molecules are always stored full-atomic.
     """
 
     mode: SymmetryMode = "analyze"
@@ -80,3 +83,48 @@ class SymmetryPolicy:
             return False, False
 
         return True, False
+
+
+def apply_symmetry_policy(structure, policy: "SymmetryPolicy | None" = None):
+    """Return ``structure`` in the storage mode ``policy`` asks for.
+
+    Only full-atomic crystals are candidates. Reduction is applied only when it
+    is exact (see :class:`usif.symmetry.reduce.SymmetryReducer`); otherwise the
+    input is returned unchanged, including any per-atom properties the policy
+    allowed to drop, so a failed reduction never loses data.
+    """
+    import copy
+    import logging
+
+    from usif.constants import StorageMode
+    from usif.symmetry.reduce import SymmetryReducer, structure_has_atomic_data
+
+    policy = policy or SymmetryPolicy()
+    if structure.storage_mode != StorageMode.FULL_ATOMIC or not structure.is_crystal():
+        return structure
+
+    try_symmetric, drop = policy.resolve_atomic_properties(
+        structure_has_atomic_data(structure), "per-atom properties"
+    )
+    if not try_symmetric:
+        return structure
+
+    candidate = structure
+    if drop:
+        candidate = copy.deepcopy(structure)
+        from usif.properties.atomic import AtomicProperties
+
+        for site in candidate.atom_sites:
+            site.properties = AtomicProperties()
+
+    reduced = SymmetryReducer.reduce_crystal(
+        candidate, policy.tolerance, require_gain=policy.mode != "reduce"
+    )
+    if reduced is candidate:
+        if policy.mode == "reduce":
+            logging.getLogger(__name__).warning(
+                "Structure %s has no exact symmetric representation; stored full-atomic",
+                structure.formula,
+            )
+        return structure
+    return reduced

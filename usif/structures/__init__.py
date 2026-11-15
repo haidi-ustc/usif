@@ -42,7 +42,7 @@ Usage:
     >>> structure.num_atoms()  # 8
 
 See Also:
-    - PymatgenImporter/PymatgenExporter: Convert from pymatgen
+    - usif.interop: optional matsimpy, pymatgen and ASE adapters
     - PropertySystem: Attach properties to structures
 """
 

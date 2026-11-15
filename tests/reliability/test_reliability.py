@@ -64,9 +64,10 @@ def test_decode_rejects_property_section_length_mismatch():
     encoder = USIF(compression=CompressionType.NONE)
     encoded = bytearray(encoder.encode(make_structure()))
 
-    # For a symmetric crystal with one Wyckoff site, props_len begins after:
-    # type(1), mode(1), lattice(36), spacegroup(2), site_count(1), site(19).
-    props_len_offset = USIF.HEADER_SIZE + 1 + 1 + 36 + 2 + 1 + 19
+    # Format 6, symmetric crystal in its default setting with one Wyckoff site:
+    # props_len begins after type(1), mode(1), lattice(36), spacegroup(2),
+    # hall(2), setting flags(1), site_count(4), site(Z 1 + mult 4 + xyz 12 + occ 4).
+    props_len_offset = USIF.HEADER_SIZE + 1 + 1 + 36 + 2 + 2 + 1 + 4 + 21
     original_props_len = struct.unpack(
         BinaryFormat.UINT32, encoded[props_len_offset : props_len_offset + 4]
     )[0]

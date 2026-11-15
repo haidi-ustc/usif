@@ -20,10 +20,25 @@ from usif.constants import BinaryFormat, StorageMode
 from usif.structures.structure import USIFStructure
 
 
+def _pack_count(data: bytearray, value: int, small_fmt: str, small_max: int) -> None:
+    """Pack a count compactly, escaping values that do not fit ``small_fmt``.
+
+    Counts that fit keep the original encoding, so hashes of existing records
+    do not change; larger counts are written as ``small_max`` + uint32.
+    """
+    if value < small_max:
+        data.extend(struct.pack(small_fmt, value))
+    else:
+        data.extend(struct.pack(small_fmt, small_max))
+        data.extend(struct.pack(BinaryFormat.UINT32, value))
+
+
 def calculate_geometry_hash(structure: USIFStructure) -> bytes:
     """Calculate the SHA-256 hash of structure geometry only.
 
     This hash is suitable for geometry lookup, not record-level deduplication.
+    A symmetric crystal's symmetry setting is included only when it differs
+    from the format-5 default setting, so format-5 records keep their hashes.
     """
     data = bytearray()
     data.extend(struct.pack(BinaryFormat.UINT8, structure.structure_type.value))
@@ -44,10 +59,16 @@ def calculate_geometry_hash(structure: USIFStructure) -> bytes:
             if structure.is_crystal()
             else structure.point_group_sites
         )
-        data.extend(struct.pack(BinaryFormat.UINT8, len(sites)))
+        if structure.is_crystal() and not structure.has_default_setting():
+            hall, P, p = structure.symmetry_setting()
+            data.extend(b"SETTING")
+            data.extend(struct.pack(BinaryFormat.UINT16, hall))
+            data.extend(struct.pack("<9d", *(float(x) for x in np.ravel(P))))
+            data.extend(struct.pack("<3d", *(float(x) for x in np.ravel(p))))
+        _pack_count(data, len(sites), BinaryFormat.UINT8, 0xFF)
         for site in sites:
             data.extend(struct.pack(BinaryFormat.UINT8, site.atomic_number))
-            data.extend(struct.pack(BinaryFormat.UINT16, site.multiplicity))
+            _pack_count(data, site.multiplicity, BinaryFormat.UINT16, 0xFFFF)
             data.extend(
                 struct.pack(BinaryFormat.array(BinaryFormat.FLOAT32, 3), *site.coords)
             )

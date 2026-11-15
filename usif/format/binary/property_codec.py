@@ -37,7 +37,11 @@ class PropertyCodec:
             return value.tolist()
         if isinstance(value, np.generic):
             return value.item()
-        return str(value)
+        # Never coerce silently (e.g. complex -> "(1+2j)"): the value would not
+        # round-trip and the stored record would no longer match its hash.
+        raise TypeError(
+            f"custom property value of type {type(value).__name__} is not JSON-serializable"
+        )
 
     @classmethod
     def encode_custom_value(cls, value) -> bytes:

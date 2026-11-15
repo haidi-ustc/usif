@@ -109,6 +109,11 @@ class SymmetryConstants:
     # Tolerance for coordinate comparison (for equality checks, in Angstroms)
     COORDINATE_TOLERANCE: float = 1e-6
 
+    # Maximum Cartesian deviation (Angstrom) between an input atom and its
+    # symmetry-expanded image for a symmetric representation to count as
+    # lossless. Of the order of float32 coordinate precision.
+    LOSSLESS_TOLERANCE: float = 1e-5
+
 
 class QueryConstants:
     """Constants for container queries over scalar/numeric properties.

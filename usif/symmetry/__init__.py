@@ -1,23 +1,23 @@
-"""Symmetry analysis, equivalence, policies, and reduction helpers."""
+"""Symmetry: spglib-based reduction, setting-aware expansion, and policies."""
 
-from usif.symmetry.analysis import extract_point_group_sites, extract_wyckoff_sites
-from usif.symmetry.equivalence import POINT_GROUP_ALIASES, SymmetryOperations
-from usif.symmetry.policies import SymmetryPolicy
+from usif.symmetry.policies import SymmetryPolicy, apply_symmetry_policy
 
 __all__ = [
-    "POINT_GROUP_ALIASES",
-    "SymmetryOperations",
     "SymmetryPolicy",
     "SymmetryReducer",
-    "extract_point_group_sites",
-    "extract_wyckoff_sites",
+    "apply_symmetry_policy",
+    "expand_structure",
 ]
 
 
 def __getattr__(name: str):
-    """Lazily import heavy symmetry services."""
+    """Lazily import modules that pull in spglib."""
     if name == "SymmetryReducer":
         from usif.symmetry.reduce import SymmetryReducer
 
         return SymmetryReducer
+    if name == "expand_structure":
+        from usif.symmetry.expand import expand_structure
+
+        return expand_structure
     raise AttributeError(f"module 'usif.symmetry' has no attribute {name!r}")

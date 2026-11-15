@@ -26,6 +26,18 @@ from usif.properties.registry import DEFAULT_REGISTRY
 from usif.properties.structure import StructureProperties
 from usif.structures.sites import AtomSite, PointGroupSite, WyckoffSite
 from usif.structures.structure import USIFStructure
+from usif.version import FORMAT_VERSION
+
+#: Record format versions this codec can decode. Format 5 stored symmetric
+#: crystals without a setting (default setting of the space-group number) and used uint8 site
+#: counts; format 6 stores the spglib setting and uint32 counts.
+FORMAT5_VERSION = 5
+SUPPORTED_FORMAT_VERSIONS = frozenset({FORMAT5_VERSION, FORMAT_VERSION})
+
+#: Format-6 symmetry setting flags: the common standard-setting case stores no
+#: transformation matrix or origin shift.
+SETTING_IDENTITY_TRANSFORM = 0x01
+SETTING_ZERO_ORIGIN_SHIFT = 0x02
 
 
 class StructureBinaryCodec:
@@ -106,10 +118,10 @@ class StructureBinaryCodec:
         if structure.storage_mode == StorageMode.SYMMETRIC:
             point_group = structure.point_group or "C1"
             writer.write_string_u8(point_group, "point group")
-            writer.write_u8(len(structure.point_group_sites), "point-group site count")
+            writer.write_u32(len(structure.point_group_sites), "point-group site count")
             for site in structure.point_group_sites:
                 writer.write_u8(site.atomic_number, "point-group atomic number")
-                writer.write_u16(site.multiplicity, "point-group multiplicity")
+                writer.write_u32(site.multiplicity, "point-group multiplicity")
                 writer.write_f32_tuple3(site.coords, "point-group coords")
                 writer.write_f32(site.occupancy, "point-group occupancy")
         else:
@@ -129,10 +141,25 @@ class StructureBinaryCodec:
         writer.write_u16(structure.spacegroup, "space group")
 
         if structure.storage_mode == StorageMode.SYMMETRIC:
-            writer.write_u8(len(structure.wyckoff_sites), "wyckoff site count")
+            hall, P, p = structure.symmetry_setting()
+            identity_P = bool(np.array_equal(P, np.eye(3)))
+            zero_p = bool(np.array_equal(p, np.zeros(3)))
+            writer.write_u16(hall, "hall number")
+            writer.write_u8(
+                (SETTING_IDENTITY_TRANSFORM if identity_P else 0)
+                | (SETTING_ZERO_ORIGIN_SHIFT if zero_p else 0),
+                "setting flags",
+            )
+            if not identity_P:
+                writer.write_struct(
+                    "<9d", *(float(x) for x in np.ravel(P)), label="setting transformation"
+                )
+            if not zero_p:
+                writer.write_struct("<3d", *(float(x) for x in np.ravel(p)), label="origin shift")
+            writer.write_u32(len(structure.wyckoff_sites), "wyckoff site count")
             for site in structure.wyckoff_sites:
                 writer.write_u8(site.atomic_number, "wyckoff atomic number")
-                writer.write_u16(site.multiplicity, "wyckoff multiplicity")
+                writer.write_u32(site.multiplicity, "wyckoff multiplicity")
                 writer.write_f32_tuple3(site.coords, "wyckoff coords")
                 writer.write_f32(site.occupancy, "wyckoff occupancy")
         else:
@@ -142,8 +169,13 @@ class StructureBinaryCodec:
                 writer.write_f32_tuple3(site.coords, "atom coords")
                 writer.extend(self.encode_atomic_properties(site.properties, num_atoms=1))
 
-    def decode_body(self, payload: bytes) -> USIFStructure:
-        """Decode an uncompressed USIF payload into a structure."""
+    def decode_body(self, payload: bytes, version: int = FORMAT_VERSION) -> USIFStructure:
+        """Decode an uncompressed USIF payload written with record format ``version``."""
+        if version not in SUPPORTED_FORMAT_VERSIONS:
+            raise CorruptedDataError(
+                f"Unsupported USIF record version {version}; "
+                f"supported: {sorted(SUPPORTED_FORMAT_VERSIONS)}"
+            )
         try:
             reader = BinaryReader(payload, context="USIF payload")
             try:
@@ -155,9 +187,9 @@ class StructureBinaryCodec:
                 ) from exc
 
             if structure_type == StructureType.MOLECULE:
-                kwargs = self._decode_molecule_body(reader, payload, storage_mode)
+                kwargs = self._decode_molecule_body(reader, payload, storage_mode, version)
             else:
-                kwargs = self._decode_crystal_body(reader, payload, storage_mode)
+                kwargs = self._decode_crystal_body(reader, payload, storage_mode, version)
 
             struct_props = self._decode_structure_property_section(reader)
             formula = self._decode_formula(reader)
@@ -183,18 +215,35 @@ class StructureBinaryCodec:
         except (ValueError, TypeError, KeyError) as exc:
             raise DecodingError(f"Failed to decode structure body: {exc}") from exc
 
-    def _decode_molecule_body(self, reader, payload, storage_mode):
+    @staticmethod
+    def _read_site_count(reader: BinaryReader, version: int, label: str) -> int:
+        if version == FORMAT5_VERSION:
+            count = reader.read_u8(label)
+            limit = MAX_SYMMETRIC_SITE_COUNT
+        else:
+            count = reader.read_u32(label)
+            limit = MAX_ATOM_COUNT
+        if count > limit:
+            raise CorruptedDataError(f"{label} {count} exceeds maximum {limit}")
+        return count
+
+    @staticmethod
+    def _read_multiplicity(reader: BinaryReader, version: int, label: str) -> int:
+        if version == FORMAT5_VERSION:
+            return reader.read_u16(label)
+        multiplicity = reader.read_u32(label)
+        if multiplicity > MAX_ATOM_COUNT:
+            raise CorruptedDataError(f"{label} {multiplicity} exceeds maximum {MAX_ATOM_COUNT}")
+        return multiplicity
+
+    def _decode_molecule_body(self, reader, payload, storage_mode, version):
         if storage_mode == StorageMode.SYMMETRIC:
             point_group = reader.read_string_u8("point group")
-            num_sites = reader.read_u8("point-group site count")
-            if num_sites > MAX_SYMMETRIC_SITE_COUNT:
-                raise CorruptedDataError(
-                    f"Point-group site count {num_sites} exceeds maximum {MAX_SYMMETRIC_SITE_COUNT}"
-                )
+            num_sites = self._read_site_count(reader, version, "point-group site count")
             point_group_sites = []
             for _ in range(num_sites):
                 atomic_num = reader.read_u8("point-group atomic number")
-                mult = reader.read_u16("point-group multiplicity")
+                mult = self._read_multiplicity(reader, version, "point-group multiplicity")
                 coords = reader.read_f32_tuple3("point-group coords")
                 occupancy = reader.read_f32("point-group occupancy")
                 point_group_sites.append(PointGroupSite(atomic_num, mult, coords, occupancy))
@@ -216,21 +265,46 @@ class StructureBinaryCodec:
             atom_sites.append(AtomSite(atomic_num, coords, atom_props))
         return {"point_group": None, "point_group_sites": None, "atom_sites": atom_sites}
 
-    def _decode_crystal_body(self, reader, payload, storage_mode):
+    def _decode_crystal_body(self, reader, payload, storage_mode, version):
         lattice_data = reader.read_bytes(36, "lattice matrix")
-        lattice_matrix = np.frombuffer(lattice_data, dtype=np.float32).reshape(3, 3)
+        lattice_matrix = np.frombuffer(lattice_data, dtype=np.float32).reshape(3, 3).copy()
         spacegroup = reader.read_u16("space group")
+        if not 1 <= spacegroup <= 230:
+            raise CorruptedDataError(f"Invalid space group number {spacegroup}")
 
         if storage_mode == StorageMode.SYMMETRIC:
-            num_sites = reader.read_u8("wyckoff site count")
-            if num_sites > MAX_SYMMETRIC_SITE_COUNT:
-                raise CorruptedDataError(
-                    f"Wyckoff site count {num_sites} exceeds maximum {MAX_SYMMETRIC_SITE_COUNT}"
-                )
+            setting = {}
+            if version != FORMAT5_VERSION:
+                hall_number = reader.read_u16("hall number")
+                if not 1 <= hall_number <= 530:
+                    raise CorruptedDataError(f"Invalid Hall number {hall_number}")
+                flags = reader.read_u8("setting flags")
+                if flags & ~(SETTING_IDENTITY_TRANSFORM | SETTING_ZERO_ORIGIN_SHIFT):
+                    raise CorruptedDataError(f"Unknown symmetry setting flags {flags:#x}")
+                if flags & SETTING_IDENTITY_TRANSFORM:
+                    transformation = np.eye(3)
+                else:
+                    transformation = np.array(
+                        reader.read_struct("<9d", "setting transformation"), dtype=float
+                    ).reshape(3, 3)
+                if flags & SETTING_ZERO_ORIGIN_SHIFT:
+                    origin_shift = np.zeros(3)
+                else:
+                    origin_shift = np.array(
+                        reader.read_struct("<3d", "origin shift"), dtype=float
+                    )
+                if not (np.all(np.isfinite(transformation)) and np.all(np.isfinite(origin_shift))):
+                    raise CorruptedDataError("Symmetry setting contains non-finite values")
+                setting = {
+                    "hall_number": hall_number,
+                    "setting_transformation": transformation,
+                    "origin_shift": origin_shift,
+                }
+            num_sites = self._read_site_count(reader, version, "wyckoff site count")
             wyckoff_sites = []
             for _ in range(num_sites):
                 atomic_num = reader.read_u8("wyckoff atomic number")
-                mult = reader.read_u16("wyckoff multiplicity")
+                mult = self._read_multiplicity(reader, version, "wyckoff multiplicity")
                 coords = reader.read_f32_tuple3("wyckoff coords")
                 occupancy = reader.read_f32("wyckoff occupancy")
                 wyckoff_sites.append(WyckoffSite(atomic_num, mult, coords, occupancy))
@@ -239,6 +313,7 @@ class StructureBinaryCodec:
                 "spacegroup": spacegroup,
                 "wyckoff_sites": wyckoff_sites,
                 "atom_sites": None,
+                **setting,
             }
 
         num_atoms = reader.read_u32("atom count")

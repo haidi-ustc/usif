@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Pure USIF structure domain model."""
 
-from typing import Any, Iterable, List, Optional
+import copy as _copy
+from typing import Any, Dict, Iterable, List, Optional
 
 import numpy as np
 from usif.constants import StorageMode, StructureType, SymmetryConstants
@@ -20,6 +21,9 @@ class USIFStructure:
         "storage_mode",
         "lattice_matrix",
         "spacegroup",
+        "hall_number",
+        "setting_transformation",
+        "origin_shift",
         "point_group",
         "wyckoff_sites",
         "point_group_sites",
@@ -40,11 +44,31 @@ class USIFStructure:
         atom_sites: Optional[List[AtomSite]] = None,
         structure_properties: Optional[StructureProperties] = None,
         formula: str = "",
+        hall_number: Optional[int] = None,
+        setting_transformation: Optional[np.ndarray] = None,
+        origin_shift: Optional[np.ndarray] = None,
     ):
+        """Create a structure.
+
+        For SYMMETRIC crystals, ``hall_number`` (spglib Hall number) together
+        with ``setting_transformation`` ``P`` and ``origin_shift`` ``p``
+        (``x_std = P x + p``) define the symmetry operations used to expand
+        ``wyckoff_sites`` in this cell. When they are omitted the
+        format-5 default setting of ``spacegroup`` is used.
+        """
         self.structure_type = structure_type
         self.storage_mode = storage_mode
         self.lattice_matrix = lattice_matrix
         self.spacegroup = spacegroup
+        self.hall_number = hall_number
+        self.setting_transformation = (
+            None
+            if setting_transformation is None
+            else np.asarray(setting_transformation, dtype=float).reshape(3, 3)
+        )
+        self.origin_shift = (
+            None if origin_shift is None else np.asarray(origin_shift, dtype=float).reshape(3)
+        )
         self.point_group = point_group
         self.wyckoff_sites = wyckoff_sites
         self.point_group_sites = point_group_sites
@@ -70,6 +94,10 @@ class USIFStructure:
 
         if self.lattice_matrix is None:
             raise ValidationError("Crystal structures require lattice")
+        if not 1 <= int(self.spacegroup) <= 230:
+            raise ValidationError(f"spacegroup must be in 1..230, got {self.spacegroup}")
+        if self.hall_number is not None and not 1 <= int(self.hall_number) <= 530:
+            raise ValidationError(f"hall_number must be in 1..530, got {self.hall_number}")
         if self.storage_mode == StorageMode.SYMMETRIC and not self.wyckoff_sites:
             raise ValidationError("Crystal SYMMETRIC mode requires non-empty wyckoff_sites")
         if self.storage_mode == StorageMode.FULL_ATOMIC and not self.atom_sites:
@@ -141,6 +169,38 @@ class USIFStructure:
             return SymmetryMetadata.from_dict(data)
         return None
 
+    def copy(self) -> "USIFStructure":
+        """Return an independent deep copy of this structure."""
+        return _copy.deepcopy(self)
+
+    def symmetry_setting(self) -> tuple[int, np.ndarray, np.ndarray]:
+        """Return ``(hall_number, P, p)`` used to expand a SYMMETRIC crystal.
+
+        Structures without an explicit setting (format-5 records) use the
+        frozen format-5 default setting of their space-group number.
+        """
+        from usif.symmetry.tables import FORMAT5_SPACEGROUP_HALL
+
+        hall = (
+            int(self.hall_number)
+            if self.hall_number is not None
+            else FORMAT5_SPACEGROUP_HALL[int(self.spacegroup)]
+        )
+        P = np.eye(3) if self.setting_transformation is None else self.setting_transformation
+        p = np.zeros(3) if self.origin_shift is None else self.origin_shift
+        return hall, P, p
+
+    def has_default_setting(self) -> bool:
+        """True when the symmetry setting equals the format-5 default."""
+        from usif.symmetry.tables import FORMAT5_SPACEGROUP_HALL
+
+        hall, P, p = self.symmetry_setting()
+        return (
+            hall == FORMAT5_SPACEGROUP_HALL.get(int(self.spacegroup))
+            and np.array_equal(P, np.eye(3))
+            and np.array_equal(p, np.zeros(3))
+        )
+
     def num_atoms(self) -> int:
         if self.storage_mode == StorageMode.FULL_ATOMIC:
             return len(self.atom_sites or [])
@@ -149,7 +209,7 @@ class USIFStructure:
         return sum(site.multiplicity for site in self.point_group_sites or [])
 
     def as_dict(self) -> dict:
-        data = {
+        data: Dict[str, Any] = {
             "@module": self.__class__.__module__,
             "@class": self.__class__.__name__,
             "structure_type": self.structure_type.value,
@@ -161,6 +221,12 @@ class USIFStructure:
             if self.lattice_matrix is not None:
                 data["lattice_matrix"] = self.lattice_matrix.tolist()
             data["spacegroup"] = self.spacegroup
+            if self.hall_number is not None:
+                data["hall_number"] = int(self.hall_number)
+            if self.setting_transformation is not None:
+                data["setting_transformation"] = self.setting_transformation.tolist()
+            if self.origin_shift is not None:
+                data["origin_shift"] = self.origin_shift.tolist()
             if self.wyckoff_sites is not None:
                 data["wyckoff_sites"] = [
                     _symmetric_site_to_dict(site) for site in self.wyckoff_sites
@@ -218,6 +284,9 @@ class USIFStructure:
             atom_sites=atom_sites,
             structure_properties=structure_properties,
             formula=data["formula"],
+            hall_number=data.get("hall_number"),
+            setting_transformation=data.get("setting_transformation"),
+            origin_shift=data.get("origin_shift"),
         )
 
     def __eq__(self, other: object) -> bool:
@@ -236,6 +305,7 @@ class USIFStructure:
             and self.storage_mode == other.storage_mode
             and lattice_equal
             and self.spacegroup == other.spacegroup
+            and _setting_equal(self, other)
             and self.point_group == other.point_group
             and self.wyckoff_sites == other.wyckoff_sites
             and self.point_group_sites == other.point_group_sites
@@ -292,6 +362,14 @@ class USIFStructure:
         if props:
             lines.append(f"  Properties: {props}")
         return "\n".join(lines)
+
+
+def _setting_equal(left: "USIFStructure", right: "USIFStructure") -> bool:
+    if not (left.is_crystal() and left.is_symmetric()):
+        return True
+    l_hall, l_P, l_p = left.symmetry_setting()
+    r_hall, r_P, r_p = right.symmetry_setting()
+    return l_hall == r_hall and np.allclose(l_P, r_P) and np.allclose(l_p, r_p)
 
 
 def _structure_properties_to_dict(properties: StructureProperties) -> dict:

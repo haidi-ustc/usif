@@ -129,6 +129,9 @@ tests/data/mp_structures/
 tests/data/mp_test_extracted/
 *.usif
 *.usifc
+# Golden format-5 records used by tests/reliability/test_format5_compat.py
+!tests/fixtures/format5/*.usif
+!tests/fixtures/format5/*.usifc
 
 # Test data
 test_data/

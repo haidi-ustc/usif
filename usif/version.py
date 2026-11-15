@@ -20,7 +20,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback when toml
     import tomli as tomllib  # type: ignore[no-redef]
 
 # Binary format version (integer, incremented only for .usif record format changes).
-FORMAT_VERSION = 5
+FORMAT_VERSION = 6
 
 _FALLBACK_VERSION = "7.1.0"
 _FALLBACK_RELEASE_DATE = "2026-06-05"
