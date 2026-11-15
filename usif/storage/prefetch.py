@@ -22,16 +22,18 @@ class PrefetchMixin:
             while True:
                 try:
                     hashes = self._prefetch_queue.get(timeout=1.0)
+                except queue.Empty:
+                    continue
+                try:
                     if hashes is None:
                         break
                     for h in hashes:
                         if not self._cache.contains(h):
                             self.get(h)
-                    self._prefetch_queue.task_done()
-                except queue.Empty:
-                    continue
                 except Exception as e:
                     logger.error(f"Prefetch error: {e}")
+                finally:
+                    self._prefetch_queue.task_done()
 
         self._prefetch_thread = threading.Thread(target=prefetch_worker, daemon=True)
         self._prefetch_thread.start()

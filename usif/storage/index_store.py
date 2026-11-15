@@ -131,6 +131,14 @@ class ContainerIndexStore:
         finally:
             file_obj.seek(current)
 
+    def block_size(self, block: "IndexBlock") -> int:
+        """Total on-disk size of an index block (manifest + payload + commit)."""
+        return (
+            struct.calcsize(self.index_header_format)
+            + len(block.payload)
+            + len(self.index_commit)
+        )
+
     def find_latest_valid_index_offset(self) -> Optional[int]:
         """Scan the file in bounded chunks for the newest valid index block."""
         file_obj = self.file_obj

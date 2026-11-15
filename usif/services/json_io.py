@@ -15,6 +15,7 @@ from typing import Any, Union
 import numpy as np
 
 from usif.exceptions import StorageError
+from usif.fileio import atomic_write_text
 from usif.structures import USIFStructure
 
 JSON_SCHEMA = "usif.structure.json.v1"
@@ -80,16 +81,17 @@ def save_structure_json(
     """Save a ``USIFStructure`` as human-readable JSON."""
     filename = Path(filename)
     try:
-        with filename.open("w", encoding="utf-8") as handle:
-            json.dump(
-                structure_to_json_dict(structure),
-                handle,
-                indent=indent,
-                sort_keys=sort_keys,
-                ensure_ascii=False,
-                allow_nan=False,
-            )
-            handle.write("\n")
+        text = json.dumps(
+            structure_to_json_dict(structure),
+            indent=indent,
+            sort_keys=sort_keys,
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+    except (TypeError, ValueError) as e:
+        raise StorageError(f"Structure is not JSON-serializable: {e}") from e
+    try:
+        atomic_write_text(filename, text + "\n")
     except OSError as e:
         raise StorageError(f"Failed to save JSON structure to {filename}: {e}") from e
 

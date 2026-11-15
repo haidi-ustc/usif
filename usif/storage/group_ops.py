@@ -18,15 +18,43 @@ class GroupOperationsMixin:
         group: str,
         attributes: Optional[Dict[str, Any]],
     ) -> None:
-        """Record aliases, group membership, and attributes for a stored record."""
+        """Record aliases, group membership, and attributes for a stored record.
+
+        Callers validate ``name``/``group``/``attributes`` with
+        :meth:`_validate_structure_metadata` before any state is changed.
+        """
         if name:
+            previous = self._name_index.get(name)
             self._name_index[name] = struct_hash
             if attributes is not None:
-                self._structure_attributes[name] = self._normalise_attributes(attributes)
+                self._structure_attributes[name] = attributes
+            elif previous is not None and previous != struct_hash:
+                # The alias now names a different record; its old attributes
+                # described the old record and must not carry over.
+                self._structure_attributes.pop(name, None)
 
         target_group = self._get_or_create_group(group)
         display_name = name or struct_hash[:16]
         target_group.add_structure(display_name, struct_hash)
+
+    def _validate_structure_metadata(
+        self,
+        name: Optional[str],
+        group: str,
+        attributes: Optional[Dict[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
+        """Validate add() metadata up front; return normalized attributes."""
+        if name is not None:
+            self._validate_index_text(name, "Structure name")
+        self._validate_group_path(group)
+        if attributes is None:
+            return None
+        return self._normalise_attributes(attributes)
+
+    def _validate_group_path(self, path: str) -> None:
+        self._validate_index_text(path, "Group path")
+        for part in (p for p in path.split("/") if p):
+            self._validate_index_text(part, "Group name")
 
     def _get_or_create_group(self, path: str) -> USIFGroup:
         """Get or create group by path"""
@@ -88,7 +116,9 @@ class GroupOperationsMixin:
         """
         if self.mode == "r":
             raise ValueError("Cannot create groups in read-only container")
-        return self._get_or_create_group(path)
+        self._validate_group_path(path)
+        with self._index_lock:
+            return self._get_or_create_group(path)
 
     def set_structure_attributes(self, name: str, attributes: Dict[str, Any]) -> None:
         """
@@ -114,9 +144,11 @@ class GroupOperationsMixin:
         """
         if self.mode == "r":
             raise ValueError("Cannot set attributes in read-only container")
-        if name not in self._name_index:
-            raise ValueError(f"Structure '{name}' not found")
-        self._structure_attributes[name] = self._normalise_attributes(attributes)
+        normalised = self._normalise_attributes(attributes)
+        with self._index_lock:
+            if name not in self._name_index:
+                raise ValueError(f"Structure '{name}' not found")
+            self._structure_attributes[name] = normalised
 
     def get_structure_attributes(self, name: str) -> Optional[Dict[str, Any]]:
         """
@@ -135,7 +167,8 @@ class GroupOperationsMixin:
             >>> if attrs:
             ...     print(f"Temperature: {attrs.get('temperature')}")
         """
-        return self._structure_attributes.get(name)
+        with self._index_lock:
+            return self._structure_attributes.get(name)
 
     def set_group_attribute(self, group_path: str, name: str, value: Any) -> None:
         """
@@ -156,8 +189,12 @@ class GroupOperationsMixin:
         """
         if self.mode == "r":
             raise ValueError("Cannot set attributes in read-only container")
-        group = self._get_or_create_group(group_path)
-        group.set_attribute(name, value)
+        self._validate_group_path(group_path)
+        self._validate_index_text(name, "Group attribute name")
+        normalised = self._normalise_attribute_value(value)
+        with self._index_lock:
+            group = self._get_or_create_group(group_path)
+            group.set_attribute(name, normalised)
 
     def get_group_attribute(
         self, group_path: str, name: str, default: Any = None

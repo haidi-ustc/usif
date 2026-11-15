@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Hashable, List, Tuple
+from typing import Any, Dict, Hashable, Tuple
 
 from usif.format.hashing import calculate_geometry_hash
 from usif.properties.values import is_property_value_dict, normalize_json_value
 from usif.structures.structure import USIFStructure
+
+
+HashBucket = Dict[str, None]
 
 
 def make_index_key(value: Any) -> Hashable:
@@ -70,12 +73,14 @@ class ContainerIndexes:
     to decode every record just to answer common queries.
     """
 
+    # Buckets are insertion-ordered dicts used as sets (record_hash -> None):
+    # O(1) membership on add, stable iteration order for persistence.
     record_index: Dict[str, Tuple[int, int, int]] = field(default_factory=dict)
-    geometry_index: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
+    geometry_index: Dict[str, HashBucket] = field(default_factory=lambda: defaultdict(dict))
     name_index: Dict[str, str] = field(default_factory=dict)
-    formula_index: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list))
-    property_index: Dict[str, Dict[Hashable, List[str]]] = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(list))
+    formula_index: Dict[str, HashBucket] = field(default_factory=lambda: defaultdict(dict))
+    property_index: Dict[str, Dict[Hashable, HashBucket]] = field(
+        default_factory=lambda: defaultdict(lambda: defaultdict(dict))
     )
     group_index: Dict[str, Any] = field(default_factory=dict)
     structure_attributes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -91,15 +96,11 @@ class ContainerIndexes:
     def update_secondary(self, structure: USIFStructure, record_hash: str) -> None:
         """Update persisted query indexes for one structure."""
         geometry_hash = calculate_geometry_hash(structure).hex()
-        if record_hash not in self.geometry_index[geometry_hash]:
-            self.geometry_index[geometry_hash].append(record_hash)
-
-        if record_hash not in self.formula_index[structure.formula]:
-            self.formula_index[structure.formula].append(record_hash)
+        self.geometry_index[geometry_hash][record_hash] = None
+        self.formula_index[structure.formula][record_hash] = None
 
         for prop_name, value in structure.structure_properties.get_all_properties().items():
             for index_name, key in iter_indexable_properties(prop_name, value):
-                if record_hash not in self.property_index[index_name][key]:
-                    self.property_index[index_name][key].append(record_hash)
+                self.property_index[index_name][key][record_hash] = None
 
         self.secondary_indexes_complete = True

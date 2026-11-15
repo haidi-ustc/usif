@@ -7,7 +7,7 @@ import logging
 import struct
 import time
 from collections import defaultdict
-from typing import Any, Optional
+from typing import Any, DefaultDict, Optional
 
 from usif.constants import BinaryFormat
 from usif.exceptions import (
@@ -17,7 +17,7 @@ from usif.exceptions import (
 )
 from usif.format.binary import BinaryReader
 from usif.storage.groups import USIFGroup
-from usif.storage.indexes import make_index_key
+from usif.storage.indexes import HashBucket, make_index_key
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,28 @@ class IndexPersistenceMixin:
             logger.error(f"Failed to read index: {e}")
             raise StorageError(f"Failed to read container index: {e}") from e
 
+    def _detect_uncommitted_data(self) -> None:
+        """Warn when bytes exist after the last committed index generation.
+
+        That happens when a writer crashed or never called ``close()``/``flush()``.
+        The records are still on disk and :meth:`rebuild_index` can recover them.
+        """
+        file_size = self._index_store.file_size()
+        if self._index_offset > 0:
+            block = self._index_store.read_index_block_at(self._index_offset)
+            committed_end = self._index_offset + self._index_store.block_size(block)
+        else:
+            committed_end = self.HEADER_SIZE
+        self.uncommitted_bytes = max(0, file_size - committed_end)
+        if self.uncommitted_bytes:
+            logger.warning(
+                "%s has %d bytes after its last committed index; records written "
+                "after the last flush()/close() are not indexed. Open with mode='a' "
+                "and call rebuild_index(persist=True) to recover them.",
+                self.filename,
+                self.uncommitted_bytes,
+            )
+
     def _clear_loaded_indexes(self) -> None:
         """Clear index state before loading a persisted generation."""
         self._record_index.clear()
@@ -98,7 +120,9 @@ class IndexPersistenceMixin:
         if self.mode == "r" or not self._file:
             return
 
-        with self._file_lock:
+        # The index lock keeps add()/metadata mutators from changing the
+        # dictionaries while they are serialized (lock order: index, then file).
+        with self._index_lock, self._file_lock:
             payload = self._serialize_indexes()
             generation = max(self._index_generation + 1, int(time.time_ns()))
             try:
@@ -108,6 +132,7 @@ class IndexPersistenceMixin:
                 )
                 self._index_offset = index_offset
                 self._index_generation = generation
+                self._adds_since_commit = 0
             except Exception as e:
                 raise ContainerIndexError(f"Failed to write enhanced index: {e}") from e
 
@@ -294,19 +319,21 @@ class IndexPersistenceMixin:
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise ContainerIndexError(f"Invalid secondary index payload: {exc}") from exc
 
-        geometry_index = defaultdict(list)
+        geometry_index: DefaultDict[str, HashBucket] = defaultdict(dict)
         for key, values in raw.get("geometry_index", {}).items():
-            geometry_index[str(key)] = list(values)
+            geometry_index[str(key)] = dict.fromkeys(values)
 
-        formula_index = defaultdict(list)
+        formula_index: DefaultDict[str, HashBucket] = defaultdict(dict)
         for key, values in raw.get("formula_index", {}).items():
-            formula_index[str(key)] = list(values)
+            formula_index[str(key)] = dict.fromkeys(values)
 
-        property_index = defaultdict(lambda: defaultdict(list))
+        property_index: DefaultDict[str, DefaultDict[Any, HashBucket]] = defaultdict(
+            lambda: defaultdict(dict)
+        )
         for prop_name, entries in raw.get("property_index", {}).items():
             for entry in entries:
                 key = self._decode_secondary_key(entry["value"])
-                property_index[str(prop_name)][key] = list(entry.get("hashes", []))
+                property_index[str(prop_name)][key] = dict.fromkeys(entry.get("hashes", []))
 
         with self._index_lock:
             self._geometry_index.clear()

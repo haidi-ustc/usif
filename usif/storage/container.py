@@ -83,6 +83,7 @@ class StructureContainer(
         use_mmap: bool = True,
         cache_size: int = 1000,
         num_workers: int = 4,
+        autocommit_every: Optional[int] = None,
     ):
         """
         Initialize container
@@ -94,9 +95,20 @@ class StructureContainer(
             use_mmap: Use memory mapping
             cache_size: Cache size
             num_workers: Number of worker threads
+            autocommit_every: Commit an index generation after this many new
+                records (``None`` commits only on :meth:`flush` and
+                :meth:`close`). Records added after the last commit are
+                recoverable only through :meth:`rebuild_index`.
         """
         if mode not in ("r", "w", "a"):
             raise ValueError(f"Invalid mode: {mode}. Must be 'r', 'w', or 'a'")
+        if autocommit_every is not None and autocommit_every < 1:
+            raise ValueError("autocommit_every must be a positive integer or None")
+        self.autocommit_every = autocommit_every
+        self._adds_since_commit = 0
+        #: Bytes found after the last committed index when the file was opened.
+        #: Non-zero means a writer stopped without committing; see rebuild_index().
+        self.uncommitted_bytes = 0
 
         self.filename = Path(filename).resolve()
         self.mode = mode
@@ -161,6 +173,7 @@ class StructureContainer(
 
         if mode in ("r", "a") and self.filename.exists() and self.filename.stat().st_size > 0:
             self._read_enhanced_index()
+            self._detect_uncommitted_data()
         elif mode in ("w", "a"):
             self._write_header()
 
@@ -222,9 +235,10 @@ class StructureContainer(
                 f"Expected USIFStructure, got {type(structure).__name__}"
             )
 
+        attributes = self._validate_structure_metadata(name, group, attributes)
+
         try:
-            usif_data = self.encoder.encode(structure)
-            struct_hash = self.encoder.get_record_hash(structure)
+            usif_data, struct_hash = self.encoder.encode_with_record_hash(structure)
 
             # Close the check/write/update TOCTOU window.  The index lock
             # guards the record reservation; the file lock is acquired inside it so
@@ -245,6 +259,13 @@ class StructureContainer(
                 self._record_index[struct_hash] = (chunk_id, chunk_offset, len(usif_data))
                 self._record_structure_metadata(struct_hash, name, group, attributes)
                 self._indexes.update_secondary(structure, struct_hash)
+                self._adds_since_commit += 1
+                autocommit_due = (
+                    self.autocommit_every is not None
+                    and self._adds_since_commit >= self.autocommit_every
+                )
+            if autocommit_due:
+                self.flush()
 
             logger.debug(f"Added structure {struct_hash[:16]} (name: {name or 'N/A'})")
 
@@ -277,10 +298,8 @@ class StructureContainer(
             >>> # Get by hash
             >>> structure = container.get("a1b2c3d4e5f6...")
         """
-        cached = self._cache.get(identifier)
-        if cached is not None:
-            return cached
-
+        # Resolve aliases first and cache by record hash: a name can be rebound
+        # to another record, a record hash never changes meaning.
         with self._index_lock:
             struct_hash = self._name_index.get(identifier, identifier)
 
@@ -288,14 +307,20 @@ class StructureContainer(
                 return None
 
             chunk_id, chunk_offset, size = self._record_index[struct_hash]
+
+        cached = self._cache.get(struct_hash)
+        if cached is not None:
+            return cached.copy()
+
         usif_data = self._read_from_chunk(chunk_id, chunk_offset, size)
 
         try:
             structure, _ = self.encoder.decode(usif_data)
 
-            self._cache.put(identifier, structure)
+            self._cache.put(struct_hash, structure)
 
-            return structure
+            # Callers get their own copy so mutations never reach the cache.
+            return structure.copy()
 
         except (DecodingError, CorruptedDataError) as e:
             logger.error(f"Error decoding structure {identifier}: {e}")
@@ -422,7 +447,10 @@ class StructureContainer(
                 {_display_group_path(path) for path in self._group_index} | {"/"}
             )
 
-        file_size = self.filename.stat().st_size if self.filename.exists() else 0
+        if self._file:
+            file_size = self._index_store.file_size()
+        else:
+            file_size = self.filename.stat().st_size if self.filename.exists() else 0
         compression_ratio = (record_bytes / file_size) if file_size else 0.0
 
         return {
@@ -443,6 +471,20 @@ class StructureContainer(
                 "chunk_size_bytes": self.CHUNK_SIZE,
             },
         }
+
+    def flush(self) -> None:
+        """Commit the current index as a new checksummed generation.
+
+        Records are written to disk as they are added, but they become visible
+        to readers (and survive a crash with names, groups and attributes) only
+        once an index generation is committed. Index generations are
+        append-only, so flushing never rewrites existing data.
+        """
+        if self.mode == "r":
+            raise ValueError("Cannot flush a read-only container")
+        if not self._file:
+            raise StorageError("Cannot flush a closed container")
+        self._write_enhanced_index()
 
     def close(self) -> None:
         """
@@ -483,7 +525,7 @@ class StructureContainer(
             self._prefetch_queue.put(None)
             self._prefetch_thread.join(timeout=5.0)
 
-        self._record_store.close()
+        self._record_store.close(commit=write_error is None)
         self._file = None
         self._mmap = None
 
@@ -507,13 +549,17 @@ class StructureContainer(
         return False
 
     def __len__(self):
-        return len(self._record_index)
+        with self._index_lock:
+            return len(self._record_index)
 
     def __contains__(self, identifier: str):
-        return identifier in self._record_index or identifier in self._name_index
+        with self._index_lock:
+            return identifier in self._record_index or identifier in self._name_index
 
     def __iter__(self):
-        for struct_hash in self._record_index:
+        with self._index_lock:
+            hashes = list(self._record_index)
+        for struct_hash in hashes:
             structure = self.get(struct_hash)
             if structure:
                 yield struct_hash, structure

@@ -4,15 +4,37 @@ from __future__ import annotations
 
 import logging
 import mmap
+import os
 import struct
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Optional, Union
 
 from usif.constants import BinaryFormat
-from usif.exceptions import StorageError
+from usif.exceptions import ContainerError, StorageError
+from usif.fileio import fsync_directory
+
+try:  # POSIX advisory locks; other platforms run without inter-process locking.
+    import fcntl
+except ImportError:  # pragma: no cover - non-POSIX platforms
+    fcntl = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
+
+
+def _try_lock_exclusive(file_obj: BinaryIO, path: Path) -> None:
+    """Take a non-blocking exclusive advisory lock or raise ContainerError."""
+    if fcntl is None:
+        return
+    try:
+        fcntl.flock(file_obj.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as exc:
+        raise ContainerError(
+            f"{path} is already open for writing by another container instance"
+        ) from exc
+
 
 class ChunkedRecordAccess:
     """Chunk-offset file reads and writes owned by RecordStore."""
@@ -119,9 +141,20 @@ class RecordStore:
         self.container_version = container_version
         self.file_obj: Optional[BinaryIO] = None
         self.mmap_obj: Optional[mmap.mmap] = None
+        # Mode "w" writes a temporary sibling file and replaces the target only
+        # on a successful close, so an existing container is never truncated.
+        self._temp_path: Optional[Path] = None
+        # Handle on the target that carries the writer lock in mode "w".
+        self._lock_obj: Optional[BinaryIO] = None
 
     def open(self) -> None:
-        """Open the underlying file and mmap when requested and possible."""
+        """Open the underlying file and mmap when requested and possible.
+
+        Writers (modes ``"a"`` and ``"w"``) hold an exclusive advisory lock on
+        the container so two writers cannot interleave records. Readers take no
+        lock: appends never move committed bytes, and ``"w"`` replaces the file
+        atomically, so an open reader keeps a consistent snapshot.
+        """
         if self.mode == "r":
             if not self.filename.exists():
                 raise FileNotFoundError(f"File not found: {self.filename}")
@@ -131,10 +164,29 @@ class RecordStore:
 
         if self.mode == "a" and self.filename.exists():
             self.file_obj = open(self.filename, "r+b")
+            try:
+                _try_lock_exclusive(self.file_obj, self.filename)
+            except BaseException:
+                self.file_obj.close()
+                self.file_obj = None
+                raise
             self._open_mmap(None)
             return
 
-        self.file_obj = open(self.filename, "w+b")
+        # Lock the target itself (created empty if missing) so "w" and "a"
+        # writers exclude each other, then write into a temporary sibling.
+        self._lock_obj = open(self.filename, "ab")
+        try:
+            _try_lock_exclusive(self._lock_obj, self.filename)
+            fd, tmp_name = tempfile.mkstemp(
+                prefix=f".{self.filename.name}.", suffix=".tmp", dir=self.filename.parent
+            )
+        except BaseException:
+            self._lock_obj.close()
+            self._lock_obj = None
+            raise
+        self._temp_path = Path(tmp_name)
+        self.file_obj = os.fdopen(fd, "w+b")
         self.use_mmap = False
 
     def _open_mmap(self, access) -> None:
@@ -185,12 +237,38 @@ class RecordStore:
     def read_record(self, chunk_id: int, offset: int, size: int) -> bytes:
         return self.chunked().read(chunk_id, offset, size)
 
-    def close(self) -> None:
+    def close(self, *, commit: bool = True) -> None:
+        """Release handles; in mode ``"w"`` publish the new file if ``commit``.
+
+        When ``commit`` is false (the final index could not be written) the
+        original container is left untouched and the new data is kept in the
+        temporary file, whose path is logged so it can be recovered.
+        """
         mmap_obj = self.mmap_obj
         self.mmap_obj = None
         if mmap_obj is not None:
             mmap_obj.close()
         file_obj = self.file_obj
         self.file_obj = None
-        if file_obj is not None:
-            file_obj.close()
+        try:
+            if file_obj is not None:
+                if self._temp_path is not None and commit:
+                    file_obj.flush()
+                    os.fsync(file_obj.fileno())
+                file_obj.close()
+            if self._temp_path is not None:
+                if commit:
+                    os.replace(self._temp_path, self.filename)
+                    fsync_directory(self.filename.parent)
+                else:
+                    logger.error(
+                        "Container %s was not replaced; uncommitted data kept in %s",
+                        self.filename,
+                        self._temp_path,
+                    )
+                self._temp_path = None
+        finally:
+            lock_obj = self._lock_obj
+            self._lock_obj = None
+            if lock_obj is not None:
+                lock_obj.close()
