@@ -1,0 +1,1582 @@
+{
+ "__container__": {
+  "attributes": {
+   "nacl_full": {
+    "id": 1,
+    "split": "train"
+   },
+   "nacl_super": null,
+   "nacl_sym": {
+    "ok": true,
+    "split": "test"
+   },
+   "nacl_sym_again": null,
+   "water": {
+    "split": "train"
+   }
+  },
+  "group_attributes": {
+   "/train": "training set"
+  },
+  "groups": [
+   "/",
+   "/test/",
+   "/train/",
+   "/train/molecules/"
+  ],
+  "names": [
+   "nacl_full",
+   "nacl_super",
+   "nacl_sym",
+   "nacl_sym_again",
+   "water"
+  ],
+  "stats": {
+   "compression_ratio": 0.3329817158931083,
+   "file_size_bytes": 5688,
+   "groups": 5,
+   "index_size_bytes": 460,
+   "record_bytes": 1894,
+   "records": 5,
+   "unique_formulas": 1
+  }
+ },
+ "nacl_full_props": {
+  "decoded": {
+   "@class": "USIFStructure",
+   "@module": "usif.structures.structure",
+   "atom_sites": [
+    {
+     "atomic_number": 11,
+     "coords": [
+      0.014487313106656075,
+      0.0056821308098733425,
+      0.02431732416152954
+     ],
+     "properties": {
+      "charge": 0.4204452380655215,
+      "custom": {
+       "flags": [
+        0,
+        1
+       ],
+       "tag": "atom0"
+      },
+      "force": [
+       -0.8019314252534474,
+       -1.324358995628145,
+       -0.24836162209524854
+      ],
+      "magmom": 0.0,
+      "units": {
+       "charge": "e",
+       "force": "eV/\u00c5",
+       "magmom": "\u03bcB",
+       "velocity": "\u00c5/fs"
+      },
+      "velocity": [
+       1.1360465324896427,
+       0.10970639932180819,
+       -0.5526473205362324
+      ]
+     }
+    },
+    {
+     "atomic_number": 11,
+     "coords": [
+      0.006419163662940264,
+      0.508449912071228,
+      0.5084068179130554
+     ],
+     "properties": {
+      "charge": 0.27276877584472176,
+      "custom": {
+       "flags": [
+        1,
+        2
+       ],
+       "tag": "atom1"
+      },
+      "force": [
+       -0.7847803553442784,
+       0.7487457707345911,
+       1.6347830429585775
+      ],
+      "magmom": 1.0,
+      "units": {
+       "charge": "e",
+       "force": "eV/\u00c5",
+       "magmom": "\u03bcB",
+       "velocity": "\u00c5/fs"
+      },
+      "velocity": [
+       -1.2333286640307717,
+       -0.9582652054360887,
+       1.6000190889991115
+      ]
+     }
+    },
+    {
+     "atomic_number": 11,
+     "coords": [
+      0.49393388628959656,
+      -0.0007002844940871,
+      0.513503909111023
+     ],
+     "properties": {
+      "charge": -1.1632259734447485,
+      "custom": {
+       "flags": [
+        2,
+        3
+       ],
+       "tag": "atom2"
+      },
+      "force": [
+       0.2028824405086084,
+       -1.7321348424395848,
+       -0.08369619281702581
+      ],
+      "magmom": 0.0,
+      "units": {
+       "charge": "e",
+       "force": "eV/\u00c5",
+       "magmom": "\u03bcB",
+       "velocity": "\u00c5/fs"
+      },
+      "velocity": [
+       -0.6292880940615545,
+       -0.48800582327685743,
+       -0.7133133716322436
+      ]
+     }
+    },
+    {
+     "atomic_number": 11,
+     "coords": [
+      0.49603450298309326,
+      0.5018879771232605,
+      -0.00021223460498731583
+     ],
+     "properties": {
+      "charge": 0.40963782655711695,
+      "custom": {
+       "flags": [
+        3,
+        4
+       ],
+       "tag": "atom3"
+      },
+      "force": [
+       0.5533784703532895,
+       -0.06308597192528916,
+       -0.5894312580326048
+      ],
+      "magmom": 1.0,
+      "units": {
+       "charge": "e",
+       "force": "eV/\u00c5",
+       "magmom": "\u03bcB",
+       "velocity": "\u00c5/fs"
+      },
+      "velocity": [
+       0.8298553070613239,
+       -1.643023371405677,
+       -0.256730126365494
+      ]
+     }
+    },
+    {
+     "atomic_number": 17,
+     "coords": [
+      0.5060921907424927,
+      0.4963509142398834,
+      0.49847638607025146
+     ],
+     "properties": {
+      "charge": 0.0206903940375912,
+      "custom": {
+       "flags": [
+        4,
+        5
+       ],
+       "tag": "atom4"
+      },
+      "force": [
+       -0.9807473560440125,
+       -0.17315522486203205,
+       -1.2894187467538587
+      ],
+      "magmom": 0.0,
+      "units": {
+       "charge": "e",
+       "force": "eV/\u00c5",
+       "magmom": "\u03bcB",
+       "velocity": "\u00c5/fs"
+      },
+      "velocity": [
+       -0.03788574104406823,
+       -0.304337750958489,
+       -1.0479265051202462
+      ]
+     }
+    },
+    {
+     "atomic_number": 17,
+     "coords": [
+      0.5024238228797913,
+      0.0010302313603460789,
+      -0.008649727329611778
+     ],
+     "properties": {
+      "charge": 0.22478573245989314,
+      "custom": {
+       "flags": [
+        5,
+        6
+       ],
+       "tag": "atom5"
+      },
+      "force": [
+       -0.3961903304730927,
+       -1.091328901695709,
+       -1.3552087462047395
+      ],
+      "magmom": 1.0,
+      "units": {
+       "charge": "e",
+       "force": "eV/\u00c5",
+       "magmom": "\u03bcB",
+       "velocity": "\u00c5/fs"
+      },
+      "velocity": [
+       -1.109349937891366,
+       1.1702961011782933,
+       0.7165876558738361
+      ]
+     }
+    },
+    {
+     "atomic_number": 17,
+     "coords": [
+      0.008957830257713795,
+      0.4870151877403259,
+      -0.012011155486106873
+     ],
+     "properties": {
+      "charge": 0.033057220158269195,
+      "custom": {
+       "flags": [
+        6,
+        7
+       ],
+       "tag": "atom6"
+      },
+      "force": [
+       -1.9978166924497212,
+       0.272128869412488,
+       -1.1017166275810448
+      ],
+      "magmom": 0.0,
+      "units": {
+       "charge": "e",
+       "force": "eV/\u00c5",
+       "magmom": "\u03bcB",
+       "velocity": "\u00c5/fs"
+      },
+      "velocity": [
+       0.04363199256942161,
+       -1.9884297882311208,
+       -0.23342252376577002
+      ]
+     }
+    },
+    {
+     "atomic_number": 17,
+     "coords": [
+      -0.012824918143451214,
+      0.009669722989201546,
+      0.49639391899108887
+     ],
+     "properties": {
+      "charge": 0.7380418978456841,
+      "custom": {
+       "flags": [
+        7,
+        8
+       ],
+       "tag": "atom7"
+      },
+      "force": [
+       -0.255790031399391,
+       0.9620005318430944,
+       -1.1814468079562157
+      ],
+      "magmom": 1.0,
+      "units": {
+       "charge": "e",
+       "force": "eV/\u00c5",
+       "magmom": "\u03bcB",
+       "velocity": "\u00c5/fs"
+      },
+      "velocity": [
+       -1.0989727630364063,
+       -0.33129089269991674,
+       -0.8404731684222111
+      ]
+     }
+    }
+   ],
+   "formula": "",
+   "lattice_matrix": [
+    [
+     5.639999866485596,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     5.650000095367432,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     5.659999847412109
+    ]
+   ],
+   "spacegroup": 1,
+   "storage_mode": 1,
+   "structure_properties": {
+    "custom": {
+     "code": "VASP",
+     "converged": true,
+     "params": {
+      "encut": 520,
+      "kpts": [
+       4,
+       4,
+       4
+      ]
+     }
+    },
+    "energy": -27.123456789,
+    "pressure": 0.5,
+    "stress": [
+     1.0,
+     2.0,
+     3.0,
+     0.1,
+     0.2,
+     0.3
+    ],
+    "temperature": 300.0,
+    "units": {
+     "energy": "eV",
+     "pressure": "GPa",
+     "stress": "GPa",
+     "temperature": "K"
+    },
+    "volume": null
+   },
+   "structure_type": 0
+  },
+  "expanded_atoms": [
+   [
+    11,
+    [
+     0.014487313106656075,
+     0.0056821308098733425,
+     0.02431732416152954
+    ]
+   ],
+   [
+    11,
+    [
+     0.006419163662940264,
+     0.508449912071228,
+     0.5084068179130554
+    ]
+   ],
+   [
+    11,
+    [
+     0.49393388628959656,
+     -0.0007002844940871,
+     0.513503909111023
+    ]
+   ],
+   [
+    11,
+    [
+     0.49603450298309326,
+     0.5018879771232605,
+     -0.00021223460498731583
+    ]
+   ],
+   [
+    17,
+    [
+     0.5060921907424927,
+     0.4963509142398834,
+     0.49847638607025146
+    ]
+   ],
+   [
+    17,
+    [
+     0.5024238228797913,
+     0.0010302313603460789,
+     -0.008649727329611778
+    ]
+   ],
+   [
+    17,
+    [
+     0.008957830257713795,
+     0.4870151877403259,
+     -0.012011155486106873
+    ]
+   ],
+   [
+    17,
+    [
+     -0.012824918143451214,
+     0.009669722989201546,
+     0.49639391899108887
+    ]
+   ]
+  ],
+  "geometry_hash": "06685adf5f53c60916cbd305792cf6873400189dee2e19d2b5de07a37d2f6481",
+  "record_hash": "e071f084f6b6be83197eb636a2de724adb08414409531d0484b39752602831d2",
+  "storage_mode": "FULL_ATOMIC"
+ },
+ "nacl_sym": {
+  "decoded": {
+   "@class": "USIFStructure",
+   "@module": "usif.structures.structure",
+   "formula": "",
+   "hall_number": 523,
+   "lattice_matrix": [
+    [
+     5.639999866485596,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     5.639999866485596,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     5.639999866485596
+    ]
+   ],
+   "origin_shift": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "setting_transformation": [
+    [
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "spacegroup": 225,
+   "storage_mode": 0,
+   "structure_properties": {
+    "custom": {},
+    "energy": null,
+    "pressure": null,
+    "stress": null,
+    "temperature": null,
+    "units": {},
+    "volume": null
+   },
+   "structure_type": 0,
+   "wyckoff_sites": [
+    {
+     "atomic_number": 11,
+     "coords": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "multiplicity": 4,
+     "occupancy": 1.0
+    },
+    {
+     "atomic_number": 17,
+     "coords": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "multiplicity": 4,
+     "occupancy": 1.0
+    }
+   ]
+  },
+  "expanded_atoms": [
+   [
+    11,
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    11,
+    [
+     0.0,
+     0.5,
+     0.5
+    ]
+   ],
+   [
+    11,
+    [
+     0.5,
+     0.0,
+     0.5
+    ]
+   ],
+   [
+    11,
+    [
+     0.5,
+     0.5,
+     0.0
+    ]
+   ],
+   [
+    17,
+    [
+     0.0,
+     0.0,
+     0.5
+    ]
+   ],
+   [
+    17,
+    [
+     0.0,
+     0.5,
+     0.0
+    ]
+   ],
+   [
+    17,
+    [
+     0.5,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    17,
+    [
+     0.5,
+     0.5,
+     0.5
+    ]
+   ]
+  ],
+  "geometry_hash": "ee831b561d0182e0ae69b7f68f6f555d553299fe3f4410c9309727b24e4b419f",
+  "record_hash": "62e795940ce895219cd8af3a4019942b0a4f997877f8d17a50f215773ae628c1",
+  "storage_mode": "SYMMETRIC"
+ },
+ "nacl_sym_energy": {
+  "decoded": {
+   "@class": "USIFStructure",
+   "@module": "usif.structures.structure",
+   "formula": "",
+   "hall_number": 523,
+   "lattice_matrix": [
+    [
+     5.639999866485596,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     5.639999866485596,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     5.639999866485596
+    ]
+   ],
+   "origin_shift": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "setting_transformation": [
+    [
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "spacegroup": 225,
+   "storage_mode": 0,
+   "structure_properties": {
+    "custom": {},
+    "energy": -3.5,
+    "pressure": null,
+    "stress": null,
+    "temperature": null,
+    "units": {
+     "energy": "eV"
+    },
+    "volume": null
+   },
+   "structure_type": 0,
+   "wyckoff_sites": [
+    {
+     "atomic_number": 11,
+     "coords": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "multiplicity": 4,
+     "occupancy": 1.0
+    },
+    {
+     "atomic_number": 17,
+     "coords": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "multiplicity": 4,
+     "occupancy": 1.0
+    }
+   ]
+  },
+  "expanded_atoms": [
+   [
+    11,
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    11,
+    [
+     0.0,
+     0.5,
+     0.5
+    ]
+   ],
+   [
+    11,
+    [
+     0.5,
+     0.0,
+     0.5
+    ]
+   ],
+   [
+    11,
+    [
+     0.5,
+     0.5,
+     0.0
+    ]
+   ],
+   [
+    17,
+    [
+     0.0,
+     0.0,
+     0.5
+    ]
+   ],
+   [
+    17,
+    [
+     0.0,
+     0.5,
+     0.0
+    ]
+   ],
+   [
+    17,
+    [
+     0.5,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    17,
+    [
+     0.5,
+     0.5,
+     0.5
+    ]
+   ]
+  ],
+  "geometry_hash": "ee831b561d0182e0ae69b7f68f6f555d553299fe3f4410c9309727b24e4b419f",
+  "record_hash": "9b704d4e2652fad1b87a847042a8aff9b53b578e0c6395a09a5db1718ba64d4d",
+  "storage_mode": "SYMMETRIC"
+ },
+ "nacl_sym_shifted": {
+  "decoded": {
+   "@class": "USIFStructure",
+   "@module": "usif.structures.structure",
+   "atom_sites": [
+    {
+     "atomic_number": 11,
+     "coords": [
+      0.10000000149011612,
+      0.20000000298023224,
+      0.30000001192092896
+     ],
+     "properties": {
+      "charge": null,
+      "custom": {},
+      "force": null,
+      "magmom": null,
+      "units": {},
+      "velocity": null
+     }
+    },
+    {
+     "atomic_number": 11,
+     "coords": [
+      0.10000000149011612,
+      0.699999988079071,
+      0.800000011920929
+     ],
+     "properties": {
+      "charge": null,
+      "custom": {},
+      "force": null,
+      "magmom": null,
+      "units": {},
+      "velocity": null
+     }
+    },
+    {
+     "atomic_number": 11,
+     "coords": [
+      0.6000000238418579,
+      0.20000000298023224,
+      0.800000011920929
+     ],
+     "properties": {
+      "charge": null,
+      "custom": {},
+      "force": null,
+      "magmom": null,
+      "units": {},
+      "velocity": null
+     }
+    },
+    {
+     "atomic_number": 11,
+     "coords": [
+      0.6000000238418579,
+      0.699999988079071,
+      0.30000001192092896
+     ],
+     "properties": {
+      "charge": null,
+      "custom": {},
+      "force": null,
+      "magmom": null,
+      "units": {},
+      "velocity": null
+     }
+    },
+    {
+     "atomic_number": 17,
+     "coords": [
+      0.6000000238418579,
+      0.699999988079071,
+      0.800000011920929
+     ],
+     "properties": {
+      "charge": null,
+      "custom": {},
+      "force": null,
+      "magmom": null,
+      "units": {},
+      "velocity": null
+     }
+    },
+    {
+     "atomic_number": 17,
+     "coords": [
+      0.6000000238418579,
+      0.20000000298023224,
+      0.30000001192092896
+     ],
+     "properties": {
+      "charge": null,
+      "custom": {},
+      "force": null,
+      "magmom": null,
+      "units": {},
+      "velocity": null
+     }
+    },
+    {
+     "atomic_number": 17,
+     "coords": [
+      0.10000000149011612,
+      0.699999988079071,
+      0.30000001192092896
+     ],
+     "properties": {
+      "charge": null,
+      "custom": {},
+      "force": null,
+      "magmom": null,
+      "units": {},
+      "velocity": null
+     }
+    },
+    {
+     "atomic_number": 17,
+     "coords": [
+      0.10000000149011612,
+      0.20000000298023224,
+      0.800000011920929
+     ],
+     "properties": {
+      "charge": null,
+      "custom": {},
+      "force": null,
+      "magmom": null,
+      "units": {},
+      "velocity": null
+     }
+    }
+   ],
+   "formula": "",
+   "lattice_matrix": [
+    [
+     5.639999866485596,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     5.639999866485596,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     5.639999866485596
+    ]
+   ],
+   "spacegroup": 1,
+   "storage_mode": 1,
+   "structure_properties": {
+    "custom": {},
+    "energy": null,
+    "pressure": null,
+    "stress": null,
+    "temperature": null,
+    "units": {},
+    "volume": null
+   },
+   "structure_type": 0
+  },
+  "expanded_atoms": [
+   [
+    11,
+    [
+     0.10000000149011612,
+     0.20000000298023224,
+     0.30000001192092896
+    ]
+   ],
+   [
+    11,
+    [
+     0.10000000149011612,
+     0.699999988079071,
+     0.800000011920929
+    ]
+   ],
+   [
+    11,
+    [
+     0.6000000238418579,
+     0.20000000298023224,
+     0.800000011920929
+    ]
+   ],
+   [
+    11,
+    [
+     0.6000000238418579,
+     0.699999988079071,
+     0.30000001192092896
+    ]
+   ],
+   [
+    17,
+    [
+     0.6000000238418579,
+     0.699999988079071,
+     0.800000011920929
+    ]
+   ],
+   [
+    17,
+    [
+     0.6000000238418579,
+     0.20000000298023224,
+     0.30000001192092896
+    ]
+   ],
+   [
+    17,
+    [
+     0.10000000149011612,
+     0.699999988079071,
+     0.30000001192092896
+    ]
+   ],
+   [
+    17,
+    [
+     0.10000000149011612,
+     0.20000000298023224,
+     0.800000011920929
+    ]
+   ]
+  ],
+  "geometry_hash": "560d5a229e625b94d9fa1494ca558a0cc7dcea038963e3a4f7fdadb7f2c83b8f",
+  "record_hash": "f4a38dc2e619400ae84959cd6e0dd9561e9cd405ab652591412dce834631e3ab",
+  "storage_mode": "FULL_ATOMIC"
+ },
+ "nacl_sym_supercell": {
+  "decoded": {
+   "@class": "USIFStructure",
+   "@module": "usif.structures.structure",
+   "formula": "",
+   "hall_number": 523,
+   "lattice_matrix": [
+    [
+     11.279999732971191,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     5.639999866485596,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     5.639999866485596
+    ]
+   ],
+   "origin_shift": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "setting_transformation": [
+    [
+     2.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "spacegroup": 225,
+   "storage_mode": 0,
+   "structure_properties": {
+    "custom": {},
+    "energy": null,
+    "pressure": null,
+    "stress": null,
+    "temperature": null,
+    "units": {},
+    "volume": null
+   },
+   "structure_type": 0,
+   "wyckoff_sites": [
+    {
+     "atomic_number": 11,
+     "coords": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "multiplicity": 8,
+     "occupancy": 1.0
+    },
+    {
+     "atomic_number": 17,
+     "coords": [
+      0.25,
+      0.5,
+      0.5
+     ],
+     "multiplicity": 8,
+     "occupancy": 1.0
+    }
+   ]
+  },
+  "expanded_atoms": [
+   [
+    11,
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    11,
+    [
+     0.0,
+     0.5,
+     0.5
+    ]
+   ],
+   [
+    11,
+    [
+     0.25,
+     0.0,
+     0.5
+    ]
+   ],
+   [
+    11,
+    [
+     0.25,
+     0.5,
+     0.0
+    ]
+   ],
+   [
+    11,
+    [
+     0.5,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    11,
+    [
+     0.5,
+     0.5,
+     0.5
+    ]
+   ],
+   [
+    11,
+    [
+     0.75,
+     0.0,
+     0.5
+    ]
+   ],
+   [
+    11,
+    [
+     0.75,
+     0.5,
+     0.0
+    ]
+   ],
+   [
+    17,
+    [
+     0.0,
+     0.0,
+     0.5
+    ]
+   ],
+   [
+    17,
+    [
+     0.0,
+     0.5,
+     0.0
+    ]
+   ],
+   [
+    17,
+    [
+     0.25,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    17,
+    [
+     0.25,
+     0.5,
+     0.5
+    ]
+   ],
+   [
+    17,
+    [
+     0.5,
+     0.0,
+     0.5
+    ]
+   ],
+   [
+    17,
+    [
+     0.5,
+     0.5,
+     0.0
+    ]
+   ],
+   [
+    17,
+    [
+     0.75,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    17,
+    [
+     0.75,
+     0.5,
+     0.5
+    ]
+   ]
+  ],
+  "geometry_hash": "89d199cd8723f66638f7da88cfc8dbfda51688655197542791998289732b227e",
+  "record_hash": "47356c9ae474af70bdfe59d31d56d265b04359c23538cd4b71bf905d0c6a99de",
+  "storage_mode": "SYMMETRIC"
+ },
+ "partial_props": {
+  "decoded": {
+   "@class": "USIFStructure",
+   "@module": "usif.structures.structure",
+   "atom_sites": [
+    {
+     "atomic_number": 26,
+     "coords": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "properties": {
+      "charge": 0.5,
+      "custom": {
+       "note": "first"
+      },
+      "force": null,
+      "magmom": null,
+      "units": {
+       "charge": "e"
+      },
+      "velocity": null
+     }
+    },
+    {
+     "atomic_number": 8,
+     "coords": [
+      0.25,
+      0.25,
+      0.25
+     ],
+     "properties": {
+      "charge": null,
+      "custom": {},
+      "force": null,
+      "magmom": null,
+      "units": {},
+      "velocity": null
+     }
+    },
+    {
+     "atomic_number": 8,
+     "coords": [
+      0.75,
+      0.75,
+      0.75
+     ],
+     "properties": {
+      "charge": -0.5,
+      "custom": {},
+      "force": null,
+      "magmom": null,
+      "units": {
+       "charge": "e"
+      },
+      "velocity": null
+     }
+    }
+   ],
+   "formula": "",
+   "lattice_matrix": [
+    [
+     4.099999904632568,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     4.099999904632568,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     4.099999904632568
+    ]
+   ],
+   "spacegroup": 1,
+   "storage_mode": 1,
+   "structure_properties": {
+    "custom": {},
+    "energy": null,
+    "pressure": null,
+    "stress": null,
+    "temperature": null,
+    "units": {},
+    "volume": null
+   },
+   "structure_type": 0
+  },
+  "expanded_atoms": [
+   [
+    26,
+    [
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    8,
+    [
+     0.25,
+     0.25,
+     0.25
+    ]
+   ],
+   [
+    8,
+    [
+     0.75,
+     0.75,
+     0.75
+    ]
+   ]
+  ],
+  "geometry_hash": "3aac682715ee67131036386f1c2dfde5c2cf91587e59d31ba4daf146b5f07643",
+  "record_hash": "deec42356d3f414d0d194ccb2ac532a8df37c167959badc24ede1a5076677c1f",
+  "storage_mode": "FULL_ATOMIC"
+ },
+ "rutile_sym_shifted": {
+  "decoded": {
+   "@class": "USIFStructure",
+   "@module": "usif.structures.structure",
+   "formula": "",
+   "hall_number": 419,
+   "lattice_matrix": [
+    [
+     4.590000152587891,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     4.590000152587891,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     2.9600000381469727
+    ]
+   ],
+   "origin_shift": [
+    0.899999987334013,
+    0.899999987334013,
+    0.899999987334013
+   ],
+   "setting_transformation": [
+    [
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.9999999999999999
+    ]
+   ],
+   "spacegroup": 136,
+   "storage_mode": 0,
+   "structure_properties": {
+    "custom": {},
+    "energy": null,
+    "pressure": null,
+    "stress": null,
+    "temperature": null,
+    "units": {},
+    "volume": null
+   },
+   "structure_type": 0,
+   "wyckoff_sites": [
+    {
+     "atomic_number": 22,
+     "coords": [
+      0.10000000149011612,
+      0.10000000149011612,
+      0.10000000149011612
+     ],
+     "multiplicity": 2,
+     "occupancy": 1.0
+    },
+    {
+     "atomic_number": 8,
+     "coords": [
+      0.4000000059604645,
+      0.4000000059604645,
+      0.10000000149011612
+     ],
+     "multiplicity": 4,
+     "occupancy": 1.0
+    }
+   ]
+  },
+  "expanded_atoms": [
+   [
+    8,
+    [
+     0.30000001937150955,
+     0.9000000059604645,
+     0.6000000014901162
+    ]
+   ],
+   [
+    8,
+    [
+     0.4000000059604645,
+     0.4000000059604645,
+     0.10000000149011612
+    ]
+   ],
+   [
+    8,
+    [
+     0.8000000193715096,
+     0.8000000193715096,
+     0.10000002384185747
+    ]
+   ],
+   [
+    8,
+    [
+     0.9000000059604645,
+     0.30000001937150955,
+     0.6000000238418577
+    ]
+   ],
+   [
+    22,
+    [
+     0.10000000149011612,
+     0.10000000149011612,
+     0.10000000149011612
+    ]
+   ],
+   [
+    22,
+    [
+     0.6000000238418579,
+     0.6000000014901161,
+     0.6000000014901162
+    ]
+   ]
+  ],
+  "geometry_hash": "b083b4534c91a6d7ef5099b9a8a236eb54d8793aa9e44d6d6652aed2e5dea4aa",
+  "record_hash": "d49db48eee1570d48a8f25fd2eae64ff6775da0d824610d3697f8aaaf3cfaf3d",
+  "storage_mode": "SYMMETRIC"
+ },
+ "water_props": {
+  "decoded": {
+   "@class": "USIFStructure",
+   "@module": "usif.structures.structure",
+   "atom_sites": [
+    {
+     "atomic_number": 8,
+     "coords": [
+      0.0,
+      0.0,
+      0.11729999631643295
+     ],
+     "properties": {
+      "charge": -0.8,
+      "custom": {},
+      "force": [
+       0.0,
+       0.0,
+       0.01
+      ],
+      "magmom": null,
+      "units": {
+       "charge": "e",
+       "force": "eV/\u00c5"
+      },
+      "velocity": null
+     }
+    },
+    {
+     "atomic_number": 1,
+     "coords": [
+      0.0,
+      0.7572000026702881,
+      -0.4691999852657318
+     ],
+     "properties": {
+      "charge": 0.4,
+      "custom": {},
+      "force": [
+       0.0,
+       0.01,
+       0.0
+      ],
+      "magmom": null,
+      "units": {
+       "charge": "e",
+       "force": "eV/\u00c5"
+      },
+      "velocity": null
+     }
+    },
+    {
+     "atomic_number": 1,
+     "coords": [
+      0.0,
+      -0.7572000026702881,
+      -0.4691999852657318
+     ],
+     "properties": {
+      "charge": 0.4,
+      "custom": {},
+      "force": [
+       0.0,
+       -0.01,
+       0.0
+      ],
+      "magmom": null,
+      "units": {
+       "charge": "e",
+       "force": "eV/\u00c5"
+      },
+      "velocity": null
+     }
+    }
+   ],
+   "formula": "",
+   "storage_mode": 1,
+   "structure_properties": {
+    "custom": {
+     "method": "PBE"
+    },
+    "energy": -14.22,
+    "pressure": null,
+    "stress": null,
+    "temperature": null,
+    "units": {
+     "energy": "eV"
+    },
+    "volume": null
+   },
+   "structure_type": 1
+  },
+  "expanded_atoms": [
+   [
+    8,
+    [
+     0.0,
+     0.0,
+     0.11729999631643295
+    ]
+   ],
+   [
+    1,
+    [
+     0.0,
+     0.7572000026702881,
+     -0.4691999852657318
+    ]
+   ],
+   [
+    1,
+    [
+     0.0,
+     -0.7572000026702881,
+     -0.4691999852657318
+    ]
+   ]
+  ],
+  "geometry_hash": "61011a7e71ed4a362d9bdb3d68cb78eea3084186180fe0b277a69f152959c64c",
+  "record_hash": "82f49c819feb78ea08dcecfa856cb358d99fb76e72a15c9bbcd39cfa47ce3305",
+  "storage_mode": "FULL_ATOMIC"
+ }
+}
