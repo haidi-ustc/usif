@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -36,12 +37,25 @@ app = typer.Typer(
 )
 dataset_app = typer.Typer(help="Work with .usifc datasets.", context_settings=CONTEXT)
 app.add_typer(dataset_app, name="dataset")
+agent_app = typer.Typer(
+    help="Ask the data agent (an LLM) about a dataset; it proposes changes for you to approve.",
+    context_settings=CONTEXT,
+)
+app.add_typer(agent_app, name="agent")
 
 
 @dataset_app.callback(invoke_without_command=True)
 def _dataset_root(ctx: typer.Context) -> None:
     """Work with .usifc datasets."""
     if ctx.invoked_subcommand is None:  # bare "usif dataset" shows help, not an error
+        typer.echo(ctx.get_help())
+        raise typer.Exit(0)
+
+
+@agent_app.callback(invoke_without_command=True)
+def _agent_root(ctx: typer.Context) -> None:
+    """Ask the data agent (an LLM) about a dataset; it proposes changes for you to approve."""
+    if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
         raise typer.Exit(0)
 
@@ -380,6 +394,293 @@ def dataset_compact(dataset_path: Path = typer.Argument(..., metavar="DATASET"))
     with Dataset(dataset_path) as dataset:
         reclaimed = dataset.compact()
     typer.echo(f"reclaimed {reclaimed} bytes")
+
+
+@dataset_app.command("import")
+def dataset_import(
+    source: Path = typer.Argument(
+        ..., metavar="SOURCE", help="Project directory (or one file) with calculation results."
+    ),
+    dataset_path: Path = typer.Argument(..., metavar="DATASET"),
+    group: str = typer.Option("/", help="Group to place the entries below."),
+    all_frames: bool = typer.Option(False, "--all-frames", help="One entry per frame."),
+    update: bool = typer.Option(False, "--update", help="Replace entries whose source changed."),
+    symmetry: str = typer.Option("off", help="'auto' stores asymmetric units when lossless."),
+    plan_out: Optional[Path] = typer.Option(
+        None, "--plan-out", help="Save the change plan (JSON) for review or later apply."
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Apply without asking."),
+) -> None:
+    """Scan a project directory and register its calculations (after confirmation)."""
+    from usif.agent import plan_from_scan, scan
+
+    result = scan(source, group=group, dataset=dataset_path, all_frames=all_frames)
+    for path, reason in result.skipped:
+        typer.echo(f"skipped {path}: {reason}", err=True)
+    states = [c.status for c in result.candidates]
+    typer.echo(
+        f"found {len(states)} structures: {states.count('new')} new, "
+        f"{states.count('registered')} already registered, {states.count('conflict')} conflicts"
+    )
+    options = {"symmetry": symmetry} if symmetry != "off" else {}
+    plan = plan_from_scan(
+        dataset_path,
+        result.candidates,
+        update=update,
+        options=options,
+        origin="usif dataset import",
+    )
+    _review(plan, yes=yes, plan_out=plan_out)
+
+
+# -- agent commands -----------------------------------------------------------------
+
+
+def _review(plan: Any, *, yes: bool, plan_out: Optional[Path], save: bool = True) -> bool:
+    """Show a plan and apply it only on explicit approval; returns whether it was applied."""
+    from usif.agent import apply_plan
+
+    if not len(plan):
+        typer.echo("nothing to change")
+        return False
+    typer.echo(plan.describe())
+    if plan_out is not None:
+        typer.echo(f"plan saved to {plan.save(plan_out)}")
+    approved = yes or (
+        sys.stdin.isatty()
+        and typer.confirm(f"Apply these {len(plan)} changes to {plan.dataset}?", default=False)
+    )
+    if not approved:
+        if not save:
+            typer.echo("not applied")
+            return False
+        if plan_out is None:
+            plan_out = _save_pending(plan)
+            typer.echo(f"plan saved to {plan_out}")
+        typer.echo(f"not applied; review it, then run: usif agent apply {plan_out}")
+        return False
+    try:
+        report = apply_plan(plan)
+    except USIFError:
+        if save and plan_out is None:  # keep the reviewed plan for a retry
+            typer.echo(f"plan kept in {_save_pending(plan)}", err=True)
+        raise
+    done = ", ".join(f"{n} {k}" for k, n in report.counts.items() if n)
+    typer.echo(f"applied plan {report.plan_id} to {report.dataset}: {done}")
+    _journal(plan)
+    return True
+
+
+def _save_pending(plan: Any) -> Path:
+    """Keep an unapproved plan in ~/.usif/plans for review."""
+    from usif.agent.config import plans_dir
+
+    return Path(plan.save(plans_dir() / f"{plan.id}.json"))
+
+
+def _journal(plan: Any) -> None:
+    """Move an applied plan to the journal in ~/.usif/plans/applied."""
+    from usif.agent.config import plans_dir
+
+    try:
+        plan.save(plans_dir(applied=True) / f"{plan.id}.json")
+        (plans_dir() / f"{plan.id}.json").unlink(missing_ok=True)
+    except OSError as exc:  # the dataset is already written; the journal is a convenience
+        typer.echo(f"usif: warning: plan journal not written: {_describe(exc)}", err=True)
+
+
+def _terminal_text(text: str) -> str:
+    """Model output with control characters escaped (line breaks and tabs kept).
+
+    An answer could otherwise carry terminal escape sequences that hide or
+    rewrite the change plan printed after it.
+    """
+    return "".join(
+        (
+            c
+            if c in "\n\t" or unicodedata.category(c)[0] != "C"
+            else c.encode("unicode_escape").decode("ascii")
+        )
+        for c in text
+    )
+
+
+def _session(
+    dataset_path: Path, allow: List[Path], model: Optional[str], base_url: Optional[str]
+) -> Any:
+    from usif.agent import ChatClient, Session, Toolbox, load_config
+
+    config = load_config({"model": model, "base_url": base_url})
+    config.api_key()  # fail early, before the first question
+    toolbox = Toolbox(dataset_path, roots=allow or [Path.cwd()])
+
+    def on_tool(name: str, arguments: Dict[str, Any]) -> None:
+        shown = json.dumps(arguments, ensure_ascii=False)
+        typer.echo(f"  [{name}] {shown[:160]}", err=True)
+
+    return Session(ChatClient(config), toolbox, on_tool=on_tool)
+
+
+_ALLOW = typer.Option(
+    [], "--allow", help="Directory the agent may read and scan (repeatable; default: current)."
+)
+_MODEL = typer.Option(None, "--model", help="Model name (default from configuration).")
+_BASE_URL = typer.Option(None, "--base-url", help="OpenAI-compatible endpoint URL.")
+
+
+@agent_app.command("ask")
+def agent_ask(
+    dataset_path: Path = typer.Argument(..., metavar="DATASET"),
+    request: str = typer.Argument(..., metavar="REQUEST", help="What you want, in plain words."),
+    allow: List[Path] = _ALLOW,
+    plan_out: Optional[Path] = typer.Option(None, "--plan-out", help="Save proposed changes here."),
+    model: Optional[str] = _MODEL,
+    base_url: Optional[str] = _BASE_URL,
+) -> None:
+    """Ask one question or give one instruction; proposed changes need your approval."""
+    session = _session(dataset_path, allow, model, base_url)
+    typer.echo(_terminal_text(session.ask(request)))
+    if len(session.plan):
+        typer.echo("")
+        _review(session.plan, yes=False, plan_out=plan_out)
+
+
+@agent_app.command("chat")
+def agent_chat(
+    dataset_path: Path = typer.Argument(..., metavar="DATASET"),
+    allow: List[Path] = _ALLOW,
+    model: Optional[str] = _MODEL,
+    base_url: Optional[str] = _BASE_URL,
+) -> None:
+    """Talk to the agent. /plan shows proposals, /apply approves them, /quit ends."""
+    session = _session(dataset_path, allow, model, base_url)
+    typer.echo(f"usif agent on {session.toolbox.dataset} ({session.model.config.model})")
+    typer.echo("Commands: /plan  /apply  /save FILE  /discard  /quit")
+    while True:
+        try:
+            line = input("you> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            typer.echo("")
+            line = "/quit"
+        if not line:
+            continue
+        command, _, argument = line.partition(" ")
+        if command in ("/quit", "/exit"):
+            if len(session.plan):
+                saved = _save_pending(session.plan)
+                typer.echo(f"unapproved plan saved to {saved} (usif agent apply {saved})")
+            return
+        if command == "/plan":
+            typer.echo(session.plan.describe())
+        elif command == "/discard":
+            session.plan.operations.clear()
+            typer.echo("plan discarded")
+        elif command == "/save":
+            saved = session.plan.save(Path(argument)) if argument else _save_pending(session.plan)
+            typer.echo(f"plan saved to {saved}")
+        elif command == "/apply":
+            try:
+                if _review(session.plan, yes=False, plan_out=None):
+                    session.toolbox.plan = type(session.plan)(str(session.toolbox.dataset))
+            except USIFError as exc:
+                typer.echo(f"usif: error: {exc}", err=True)
+        elif command.startswith("/"):
+            typer.echo(f"unknown command {command}")
+        else:
+            before = len(session.plan)
+            try:
+                typer.echo(_terminal_text(session.ask(line)))
+            except USIFError as exc:
+                typer.echo(f"usif: error: {exc}", err=True)
+                continue
+            if len(session.plan) != before:
+                typer.echo(
+                    f"[{len(session.plan)} proposed changes; /plan to review, /apply to approve]"
+                )
+
+
+@agent_app.command("show")
+def agent_show(
+    plan_path: Path = typer.Argument(..., metavar="PLAN"), json_output: bool = _JSON
+) -> None:
+    """Show a saved change plan."""
+    from usif.agent import Plan
+
+    plan = Plan.load(plan_path)
+    if json_output:
+        _print_json(plan.to_dict())
+    else:
+        typer.echo(plan.describe())
+
+
+@agent_app.command("apply")
+def agent_apply(
+    plan_path: Path = typer.Argument(..., metavar="PLAN"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Apply without asking."),
+) -> None:
+    """Apply a reviewed change plan (all of it, in one transaction)."""
+    from usif.agent import Plan
+
+    plan = Plan.load(plan_path)
+    if not yes and not sys.stdin.isatty():
+        raise ValidationError("not a terminal: pass --yes to approve the plan")
+    _review(plan, yes=yes, plan_out=None, save=False)
+
+
+@agent_app.command("plans")
+def agent_plans(
+    applied: bool = typer.Option(False, "--applied", help="List the journal of applied plans."),
+    json_output: bool = _JSON,
+) -> None:
+    """List the change plans kept in ~/.usif/plans (pending review, or --applied)."""
+    from usif.agent import Plan
+    from usif.agent.config import plans_dir
+
+    rows: List[Dict[str, Any]] = []
+    for path in sorted(plans_dir(applied).glob("*.json"), key=lambda p: p.stat().st_mtime):
+        try:
+            plan = Plan.load(path)
+        except USIFError as exc:
+            rows.append({"file": str(path), "error": str(exc)})
+            continue
+        rows.append(
+            {
+                "file": str(path),
+                "id": plan.id,
+                "created": plan.created,
+                "dataset": plan.dataset,
+                "operations": len(plan),
+                "request": plan.request[:80],
+            }
+        )
+    if json_output:
+        _print_json(rows)
+        return
+    for row in rows:
+        if "error" in row:
+            typer.echo(f"{row['file']}: {row['error']}")
+        else:
+            typer.echo(
+                f"{row['id']}  {row['created']}  {row['operations']:>4} ops  {row['dataset']}"
+                + (f"  \"{row['request']}\"" if row["request"] else "")
+            )
+    typer.echo(f"{len(rows)} plans in {plans_dir(applied)}")
+
+
+@agent_app.command("config")
+def agent_config(json_output: bool = _JSON) -> None:
+    """Show the LLM settings in effect (the API key is only reported as set or not)."""
+    from usif.agent.config import config_path, load_config, usif_home
+
+    data = {
+        **load_config().describe(),
+        "usif_home": str(usif_home()),
+        "config_file": str(config_path()),
+    }
+    if json_output:
+        _print_json(data)
+    else:
+        _echo_summary(data)
 
 
 def _describe(exc: BaseException) -> str:
