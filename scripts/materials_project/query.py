@@ -27,6 +27,7 @@ SUMMARY_FIELDS = [
     "energy_above_hull",
     "formation_energy_per_atom",
     "energy_per_atom",
+    "uncorrected_energy_per_atom",
     "density",
     "volume",
     "total_magnetization",
@@ -46,9 +47,7 @@ def build_search_kwargs(
     max_band_gap: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Build sanitized keyword arguments for ``materials.summary.search``."""
-    search_kwargs = {
-        k: v for k, v in query.items() if k in {"chemsys", "elements", "band_gap"}
-    }
+    search_kwargs = {k: v for k, v in query.items() if k in {"chemsys", "elements", "band_gap"}}
     if min_band_gap is not None or max_band_gap is not None:
         bg_min = min_band_gap if min_band_gap is not None else 0.0
         bg_max = max_band_gap if max_band_gap is not None else 10.0

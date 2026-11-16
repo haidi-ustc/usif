@@ -12,8 +12,8 @@ class MaterialsProjectClient:
 
     def __init__(self, api_key: str):
         self.api_key = api_key
-        self._context = None
-        self._client = None
+        self._context: Any = None
+        self._client: Any = None
 
     def __enter__(self) -> "MaterialsProjectClient":
         MPRester = require_mp_rester()

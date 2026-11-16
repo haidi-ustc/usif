@@ -1,34 +1,26 @@
-#!/usr/bin/env python3
-"""Minimal USIF quickstart: arrays -> USIF -> .usif -> USIF (no optional backend needed)."""
+"""Smallest USIF workflow: build a structure, save it, read it back, store it in a dataset."""
 
-import sys
+import tempfile
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import numpy as np  # noqa: E402
+import usif
+from usif import Cell, Structure
 
-from usif.interop.common import build_structure  # noqa: E402
-from usif.services import load_structure, save_structure  # noqa: E402
-
-
-def main() -> None:
-    structure = build_structure(
-        [11, 17],
+with tempfile.TemporaryDirectory() as tmp:
+    nacl = Structure.from_fractional(
+        ["Na", "Cl"],
         [[0, 0, 0], [0.5, 0.5, 0.5]],
-        lattice=np.eye(3) * 5.64,
-        cartesian=False,
-        energy=-10.5,
-        custom={"calculator": "VASP"},
+        Cell.cubic(5.64),
+        properties={"energy": -6.8},
     )
-    with TemporaryDirectory() as tmp:
-        path = Path(tmp) / "nacl.usif"
-        save_structure(structure, path)
-        loaded = load_structure(path)
-    print(f"Formula: {loaded.formula}")
-    print(f"Energy: {loaded.structure_properties.energy} eV")
-    print(f"Custom calculator: {loaded.structure_properties.custom['calculator']}")
+    print(f"Formula: {nacl.reduced_formula}")
 
+    path = Path(tmp) / "nacl.usif"
+    usif.write(nacl, path)
+    again = usif.read(path)
+    print(f"Round trip exact: {again == nacl}")
 
-if __name__ == "__main__":
-    main()
+    with usif.Dataset(Path(tmp) / "data.usifc") as dataset:
+        dataset.add(nacl, "nacl", "/salts")
+        hits = [entry.path for entry in dataset.query(usif.Q.formula("NaCl"))]
+        print(f"Query hits: {hits}")
