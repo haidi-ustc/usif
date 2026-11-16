@@ -9,8 +9,9 @@ identical no matter which adapter produced a structure.
 from __future__ import annotations
 
 import math
-from collections import Counter
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Mapping, Tuple
+
+import numpy as np
 
 from usif.elements import ELECTRONEGATIVITY, element_symbol
 
@@ -65,14 +66,44 @@ def _reduce(amounts: Dict[str, int]) -> Tuple[str, int]:
 
 
 def element_counts(atomic_numbers: Iterable[int]) -> Dict[str, int]:
-    """Return ``{symbol: count}`` for a sequence of atomic numbers."""
-    return dict(Counter(element_symbol(z) for z in atomic_numbers))
+    """Return ``{symbol: count}`` (in order of atomic number) for a sequence of atomic numbers."""
+    if not isinstance(atomic_numbers, np.ndarray):
+        atomic_numbers = np.fromiter(atomic_numbers, dtype=np.int64)
+    numbers = atomic_numbers
+    if numbers.size == 0:
+        return {}
+    counts = np.bincount(numbers.astype(np.int64).ravel())
+    present = np.flatnonzero(counts)
+    return {element_symbol(int(z)): int(counts[z]) for z in present}
+
+
+def formula_from_counts(counts: Mapping[str, int], *, reduce: bool = True) -> str:
+    """Formula from ``{symbol: count}``; reduced (``"NaCl"``) or full (``"Na4Cl4"``)."""
+    if not counts:
+        return ""
+    if reduce:
+        formula, _ = _reduce(dict(counts))
+        return _SPECIAL_FORMULAS.get(formula, formula)
+    parts = []
+    for symbol in sorted(counts, key=_sort_key):
+        count = counts[symbol]
+        parts.append(symbol if count == 1 else f"{symbol}{count}")
+    return "".join(parts)
 
 
 def reduced_formula(atomic_numbers: Iterable[int]) -> str:
     """Return the reduced formula of a set of atoms, e.g. ``[11, 17, 11, 17]`` -> ``"NaCl"``."""
-    counts = element_counts(atomic_numbers)
-    if not counts:
-        return ""
-    formula, _ = _reduce(counts)
-    return _SPECIAL_FORMULAS.get(formula, formula)
+    return formula_from_counts(element_counts(atomic_numbers))
+
+
+def full_formula(atomic_numbers: Iterable[int]) -> str:
+    """Return the unreduced formula, e.g. ``[11, 17, 11, 17]`` -> ``"Na2Cl2"``.
+
+    Elements are ordered as in :func:`reduced_formula` (by electronegativity).
+    """
+    return formula_from_counts(element_counts(atomic_numbers), reduce=False)
+
+
+def chemical_system(atomic_numbers: Iterable[int]) -> str:
+    """Return the alphabetically sorted, dash-joined element set, e.g. ``"Cl-Na"``."""
+    return "-".join(sorted(element_counts(atomic_numbers)))

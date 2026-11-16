@@ -1,114 +1,116 @@
-"""Expand symmetric USIF structures to explicit atoms.
-
-This is the single place where a SYMMETRIC structure becomes FULL_ATOMIC.
-Every adapter (matsimpy, pymatgen, ASE, file writers) exports from the result,
-so all of them reconstruct identical atoms.
-"""
+"""Symmetric (asymmetric-unit) form of a periodic structure and its expansion."""
 
 from __future__ import annotations
 
-import copy
-import logging
-from typing import List, Tuple
+from dataclasses import dataclass, field
+from typing import Optional, Tuple
 
 import numpy as np
 
-from usif.constants import StorageMode, StructureType
-from usif.properties.atomic import AtomicProperties
-from usif.structures.sites import AtomSite
-from usif.structures.structure import USIFStructure
-from usif.symmetry.spacegroup import expand_orbit, setting_operations, xyz_tuple
-from usif.symmetry.tables import FORMAT5_POINT_GROUP_ROTATIONS
+from usif.errors import FormatError, ValidationError
+from usif.symmetry.spacegroup import expand_orbit, setting_operations, spacegroup_of_hall
 
-logger = logging.getLogger(__name__)
+__all__ = ["SymmetricForm", "canonical_order", "expand"]
 
-#: Cartesian tolerance (Angstrom) for merging images of one molecular site.
-MOLECULAR_MERGE_TOLERANCE = 1e-6
-
-Site = Tuple[int, Tuple[float, float, float]]
+#: Rounding (fractional) applied before sorting expanded atoms canonically.
+CANONICAL_ROUNDING = 1e-8
 
 
-def _fit_multiplicity(images: np.ndarray, multiplicity: int, label: str) -> np.ndarray:
-    if len(images) != multiplicity:
-        logger.warning(
-            "%s generated %d images but the record declares multiplicity %d; "
-            "the record was not stored losslessly",
-            label,
-            len(images),
-            multiplicity,
-        )
-    return images[:multiplicity]
+def _frozen(array: np.ndarray) -> np.ndarray:
+    array.flags.writeable = False
+    return array
 
 
-def _sorted_sites(sites: List[Site]) -> List[Site]:
-    # Deterministic order: atomic number, then coordinates. Rounding keeps
-    # floating-point noise from reordering otherwise identical results.
-    return sorted(sites, key=lambda s: (s[0], tuple(round(c, 8) for c in s[1])))
+@dataclass(frozen=True, eq=False)
+class SymmetricForm:
+    """Asymmetric unit of a periodic structure in its stored cell.
+
+    ``transformation`` (P) and ``origin_shift`` (p) map stored-cell fractional
+    coordinates to the standard setting of ``hall_number``: ``x_std = P x + p``.
+    ``order`` (optional) restores the original atom order: atom ``i`` of the
+    structure is atom ``order[i]`` of the canonical expansion.
+    """
+
+    hall_number: int
+    transformation: np.ndarray
+    origin_shift: np.ndarray
+    numbers: np.ndarray
+    multiplicities: np.ndarray
+    positions: np.ndarray  # fractional, shape (R, 3)
+    order: Optional[np.ndarray] = field(default=None)
+
+    def __post_init__(self) -> None:
+        if not 1 <= int(self.hall_number) <= 530:
+            raise ValidationError(f"Hall number must be in 1..530, got {self.hall_number}")
+        P = np.array(self.transformation, dtype=np.float64).reshape(3, 3)
+        p = np.array(self.origin_shift, dtype=np.float64).reshape(3)
+        if not (np.all(np.isfinite(P)) and np.all(np.isfinite(p))):
+            raise ValidationError("symmetry setting must be finite")
+        if abs(float(np.linalg.det(P))) < 1e-9:
+            raise ValidationError("symmetry setting transformation is singular")
+        numbers = np.array(self.numbers, dtype=np.uint8).reshape(-1)
+        mult = np.array(self.multiplicities, dtype=np.int64).reshape(-1)
+        positions = np.array(self.positions, dtype=np.float64).reshape(-1, 3)
+        if not (len(numbers) == len(mult) == len(positions)) or len(numbers) == 0:
+            raise ValidationError("representative arrays must be non-empty and equally long")
+        if np.any(mult < 1):
+            raise ValidationError("multiplicities must be positive")
+        if not np.all(np.isfinite(positions)):
+            raise ValidationError("representative positions must be finite")
+        object.__setattr__(self, "hall_number", int(self.hall_number))
+        object.__setattr__(self, "transformation", _frozen(P))
+        object.__setattr__(self, "origin_shift", _frozen(p))
+        object.__setattr__(self, "numbers", _frozen(numbers))
+        object.__setattr__(self, "multiplicities", _frozen(mult))
+        object.__setattr__(self, "positions", _frozen(positions))
+        if self.order is not None:
+            order = np.array(self.order, dtype=np.int64).reshape(-1)
+            if order.shape[0] != self.natoms or not np.array_equal(
+                np.sort(order), np.arange(self.natoms)
+            ):
+                raise ValidationError("order must be a permutation of the expanded atoms")
+            object.__setattr__(self, "order", _frozen(order))
+
+    @property
+    def natoms(self) -> int:
+        return int(self.multiplicities.sum())
+
+    @property
+    def spacegroup(self) -> int:
+        return spacegroup_of_hall(self.hall_number)
+
+    def operations(self) -> Tuple[np.ndarray, np.ndarray]:
+        return setting_operations(self.hall_number, self.transformation, self.origin_shift)
 
 
-def expanded_crystal_sites(structure: USIFStructure) -> List[Site]:
-    """Return ``(atomic_number, fractional_coords)`` for every atom of a symmetric crystal."""
-    hall, P, p = structure.symmetry_setting()
-    rotations, translations = setting_operations(hall, P, p)
-    sites: List[Site] = []
-    for site in structure.wyckoff_sites or []:
-        images = expand_orbit(site.coords, rotations, translations)
-        images = _fit_multiplicity(
-            images, site.multiplicity, f"Wyckoff site Z={site.atomic_number}"
-        )
-        sites.extend((site.atomic_number, xyz_tuple(image)) for image in images)
-    return _sorted_sites(sites)
+def canonical_order(numbers: np.ndarray, fractional: np.ndarray) -> np.ndarray:
+    """Indices sorting atoms by Z, then by wrapped, rounded fractional coordinates."""
+    wrapped = np.mod(np.round(np.mod(fractional, 1.0) / CANONICAL_ROUNDING), 1 / CANONICAL_ROUNDING)
+    return np.lexsort((wrapped[:, 2], wrapped[:, 1], wrapped[:, 0], numbers))
 
 
-def expanded_molecule_sites(structure: USIFStructure) -> List[Site]:
-    """Return ``(atomic_number, cartesian_coords)`` for every atom of a symmetric molecule."""
-    point_group = structure.point_group or "C1"
-    rotations = FORMAT5_POINT_GROUP_ROTATIONS.get(point_group)
-    if rotations is None:
-        logger.warning(
-            "Point group %s has no stored operations; repeating representative sites",
-            point_group,
-        )
-    sites: List[Site] = []
-    for site in structure.point_group_sites or []:
-        coords = np.asarray(site.coords, dtype=float)
-        if rotations is None:
-            images = np.repeat(coords[None, :], site.multiplicity, axis=0)
-        else:
-            images_list: List[np.ndarray] = []
-            for rotation in rotations:
-                image = np.asarray(rotation, dtype=float) @ coords
-                if not any(
-                    np.linalg.norm(image - u) < MOLECULAR_MERGE_TOLERANCE for u in images_list
-                ):
-                    images_list.append(image)
-            images = _fit_multiplicity(
-                np.array(images_list), site.multiplicity, f"Point-group site Z={site.atomic_number}"
+def expand(form: SymmetricForm) -> Tuple[np.ndarray, np.ndarray]:
+    """Return ``(numbers, fractional_positions)`` of every atom.
+
+    Atoms come in the canonical order (:func:`canonical_order`) unless the
+    form carries an ``order``, which is then applied.
+    """
+    rotations, translations = form.operations()
+    numbers = []
+    images = []
+    for z, mult, rep in zip(form.numbers, form.multiplicities, form.positions):
+        orbit = expand_orbit(rep, rotations, translations, int(mult))
+        if len(orbit) != int(mult):
+            raise FormatError(
+                f"representative Z={int(z)} expands to {len(orbit)} atoms, "
+                f"multiplicity says {int(mult)}"
             )
-        sites.extend((site.atomic_number, xyz_tuple(image)) for image in images)
-    return _sorted_sites(sites)
-
-
-def expand_structure(structure: USIFStructure) -> USIFStructure:
-    """Return a FULL_ATOMIC equivalent of ``structure`` (itself if already full)."""
-    if structure.storage_mode == StorageMode.FULL_ATOMIC:
-        return structure
-
-    if structure.structure_type == StructureType.CRYSTAL:
-        sites = expanded_crystal_sites(structure)
-    else:
-        sites = expanded_molecule_sites(structure)
-
-    atom_sites = [AtomSite(z, coords, AtomicProperties()) for z, coords in sites]
-    return USIFStructure(
-        structure_type=structure.structure_type,
-        storage_mode=StorageMode.FULL_ATOMIC,
-        lattice_matrix=(
-            None if structure.lattice_matrix is None else np.array(structure.lattice_matrix)
-        ),
-        spacegroup=structure.spacegroup,
-        point_group=structure.point_group,
-        atom_sites=atom_sites,
-        structure_properties=copy.deepcopy(structure.structure_properties),
-        formula=structure.formula,
-    )
+        images.append(orbit)
+        numbers.append(np.full(len(orbit), z, dtype=np.uint8))
+    all_numbers = np.concatenate(numbers)
+    all_frac = np.concatenate(images)
+    canonical = canonical_order(all_numbers, all_frac)
+    all_numbers, all_frac = all_numbers[canonical], all_frac[canonical]
+    if form.order is not None:
+        all_numbers, all_frac = all_numbers[form.order], all_frac[form.order]
+    return all_numbers, all_frac

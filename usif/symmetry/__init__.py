@@ -1,23 +1,50 @@
-"""Symmetry: spglib-based reduction, setting-aware expansion, and policies."""
+"""spglib-based symmetry analysis and lossless asymmetric-unit storage.
 
-from usif.symmetry.policies import SymmetryPolicy, apply_symmetry_policy
+* :func:`analyze` reports the space group of a periodic structure.
+* :func:`reduce` returns a :class:`SymmetricForm` when it is lossless.
+* :func:`expand` rebuilds every atom of a :class:`SymmetricForm`.
+"""
 
-__all__ = [
-    "SymmetryPolicy",
-    "SymmetryReducer",
-    "apply_symmetry_policy",
-    "expand_structure",
-]
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+
+from usif.errors import ValidationError
+from usif.model.structure import Structure
+from usif.symmetry.expand import SymmetricForm, expand
+from usif.symmetry.reduce import LOSSLESS_TOLERANCE, reduce
+from usif.symmetry.spacegroup import analyze_crystal
+
+__all__ = ["LOSSLESS_TOLERANCE", "SpacegroupInfo", "SymmetricForm", "analyze", "expand", "reduce"]
 
 
-def __getattr__(name: str):
-    """Lazily import modules that pull in spglib."""
-    if name == "SymmetryReducer":
-        from usif.symmetry.reduce import SymmetryReducer
+@dataclass(frozen=True)
+class SpacegroupInfo:
+    number: int
+    symbol: str
+    hall_number: int
+    wyckoffs: tuple[str, ...]
+    equivalent_atoms: tuple[int, ...]
 
-        return SymmetryReducer
-    if name == "expand_structure":
-        from usif.symmetry.expand import expand_structure
 
-        return expand_structure
-    raise AttributeError(f"module 'usif.symmetry' has no attribute {name!r}")
+def analyze(structure: Structure, symprec: float = 1e-3) -> SpacegroupInfo:
+    """Space group of a 3D-periodic structure as found by spglib."""
+    if structure.cell is None or structure.pbc != (True, True, True):
+        raise ValidationError("space-group analysis needs a 3D-periodic structure")
+    result = analyze_crystal(
+        structure.cell.matrix,
+        np.mod(structure.frac_positions, 1.0),
+        structure.numbers,
+        symprec=symprec,
+    )
+    if result is None:
+        raise ValidationError(f"spglib could not determine the symmetry at symprec={symprec}")
+    return SpacegroupInfo(
+        number=result.spacegroup,
+        symbol=result.international,
+        hall_number=result.hall_number,
+        wyckoffs=result.wyckoffs,
+        equivalent_atoms=tuple(int(i) for i in result.equivalent_atoms),
+    )
