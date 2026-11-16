@@ -5,7 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-python -m pip install -e ".[dev,pymatgen,ase,mp]"      # dev install (CI uses this for lint + integration)
+python -m pip install -e ".[dev,pymatgen,ase,mp]"      # editable dev install; keeps the `usif` command
+                                                        # in sync with the source (a stale non-editable
+                                                        # install shadows it)
 
 # Tests — run from the repo root
 python -m pytest tests/unit
@@ -14,14 +16,14 @@ python -m pytest tests/unit/dataset/test_dataset.py::test_name    # single test
 python -m pytest -m "not slow and not network"
 
 # CI quality gates (all must pass)
-black --check usif tests examples
-isort --check-only usif tests examples
+black --check usif tests examples scripts
+isort --check-only usif tests examples scripts
 mypy usif
 bandit -q -r usif -x tests
 python scripts/check_release_metadata.py
 
-python -m scripts.benchmark                 # size/speed of the encoding options
-python -m scripts.materials_project --help  # MP download / dataset build (needs .[mp])
+python -m scripts.benchmark -h              # size/speed of the encoding options
+python -m scripts.materials_project -h      # MP download / dataset build (needs .[mp])
 ```
 
 Formatting is black/isort with line length 100. Coverage gate is `fail_under = 80`. Markers
@@ -65,7 +67,12 @@ indexed by `docs/README.md`); keep it, `README.md` and `examples/` in sync with 
 - `usif/backends`: `Backend` protocol + registry (matsimpy → ase → pymatgen → `usif.backends`
   entry points). Backends only map library objects/files to and from `Structure`.
 - `usif/io.py`: `read/read_all/write/write_all/convert` dispatch — native suffixes to the codec,
-  format-5/6 records to `upgrade`, everything else to a backend. `usif/cli.py` is Typer.
+  format-5/6 records to `upgrade`, everything else to a backend.
+- `usif/cli.py` is Typer (never import click directly). Conventions, covered by
+  `tests/integration/test_cli.py`: `-h` and `--help` everywhere (`context_settings`); a bare command
+  group prints help and exits 0; usage errors exit 2; `USIFError`/`OSError`/`KeyError` print one
+  line `usif: error: ...` and exit 2, never a traceback; `validate` exits 1 when invalid. The
+  script CLIs in `scripts/` follow the same rules.
 
 **Hashes** (`codec/record.py`): `record_hash` = BLAKE2b-256 of the raw payload (identity and
 dataset dedup; encoding options are part of it); `geometry_hash` = BLAKE2b-256 of the payload up to
@@ -85,6 +92,32 @@ the end of `POSN`/`SYMM`; the header digest covers the stored (compressed) bytes
   "alias for add", or "P1 "/"P2 "/"P3 ". Say "format 5/6" or "USIF 0.8 files"; write the triclinic
   space group as "P-1" or "space group 1".
 - `usif/symmetry/tables.py` (format-5 tables) is fingerprinted by sha256: never edit it.
+
+## Development principles
+
+- **Avoid overengineering.** Prefer one clear mechanism over a plugin system; add registries only
+  for the four extension points in `docs/ARCHITECTURE.md`. Breaking changes are fine pre-1.0 when
+  they simplify the design; old files stay readable through `usif/upgrade`.
+- **Exact by default, strict on input.** Lossy options are explicit (`precision="f32"`,
+  `symmetry="auto"` within 1e-5 Å). Encoders cast to the declared wire type; decoders reject
+  anything an encoder would not write. Validate at the boundary (`ValidationError` for user input,
+  `FormatError` for bytes) instead of letting NumPy or SQLite errors escape.
+- **Physics.** Units are CODATA 2018; never silently reinterpret a value whose unit you cannot
+  convert. Keep MP fields with MP's meaning (`energy` = uncorrected DFT total).
+- **Measure before optimising.** Benchmark (`python -m scripts.benchmark`, or a dataset of ~30k
+  entries), check `EXPLAIN QUERY PLAN` for dataset queries, and add a test that pins a fixed plan.
+- **Docs are part of the change.** Update `docs/guide/`, the README, examples, the changelog and the
+  reference docs with the code; run every snippet you keep. One page per topic, no duplicates.
+- **Verify before claiming done:** all CI gates above, the full test suite, and both wheel smoke
+  scripts (`.github/workflows/ci.yml` and `workflow.yaml` must track the public API).
+
+## Git workflow
+
+- Commit only when asked. Work on a feature branch, commit in logical, layered steps (each with a
+  descriptive body), merge into `main` (`--no-ff` for a multi-commit feature, fast-forward for a
+  single fix), push, then delete merged branches locally and on `origin` so only `main` remains.
+- Never commit `newplan.md` or the user's uncommitted `.gitignore` edits.
+- Pushing does not publish: `workflow.yaml` uploads to PyPI only on a GitHub release or a manual run.
 
 ## Versioning and release metadata
 
