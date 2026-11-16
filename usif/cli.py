@@ -26,13 +26,25 @@ from usif.version import (
     __version__,
 )
 
+#: ``-h`` works everywhere ``--help`` does.
+CONTEXT = {"help_option_names": ["-h", "--help"]}
+
 app = typer.Typer(
     help="USIF tools: inspect, convert, validate and upgrade structures and datasets.",
-    no_args_is_help=True,
+    context_settings=CONTEXT,
     add_completion=False,
 )
-dataset_app = typer.Typer(help="Work with .usifc datasets.", no_args_is_help=True)
+dataset_app = typer.Typer(help="Work with .usifc datasets.", context_settings=CONTEXT)
 app.add_typer(dataset_app, name="dataset")
+
+
+@dataset_app.callback(invoke_without_command=True)
+def _dataset_root(ctx: typer.Context) -> None:
+    """Work with .usifc datasets."""
+    if ctx.invoked_subcommand is None:  # bare "usif dataset" shows help, not an error
+        typer.echo(ctx.get_help())
+        raise typer.Exit(0)
+
 
 _JSON = typer.Option(False, "--json", help="Print machine-readable JSON.")
 _PROP_FILTER = re.compile(r"^\s*([^<>=!\s]+)\s*(<=|>=|==|!=|<|>|=)\s*(\S+)\s*$")
@@ -150,7 +162,9 @@ def version_command(json_output: bool = _JSON) -> None:
 @app.command("inspect")
 def inspect_command(
     path: Path = typer.Argument(
-        ..., help="Structure file (.usif, .json, or any backend format) or .usifc dataset."
+        ...,
+        metavar="PATH",
+        help="Structure file (.usif, .json, or any backend format) or .usifc dataset.",
     ),
     json_output: bool = _JSON,
 ) -> None:
@@ -185,7 +199,7 @@ def convert_command(
 
 @app.command("validate")
 def validate_command(
-    path: Path = typer.Argument(...),
+    path: Path = typer.Argument(..., metavar="PATH"),
     full: bool = typer.Option(False, "--full", help="Datasets: decode and re-hash every record."),
     json_output: bool = _JSON,
 ) -> None:
@@ -214,8 +228,12 @@ def validate_command(
 
 @app.command("upgrade")
 def upgrade_command(
-    source: Path = typer.Argument(..., help="A format-5/6 .usif record or a v2 .usifc container."),
-    target: Path = typer.Argument(..., help="Output .usif record or .usifc dataset."),
+    source: Path = typer.Argument(
+        ..., metavar="SOURCE", help="A format-5/6 .usif record or a v2 .usifc container."
+    ),
+    target: Path = typer.Argument(
+        ..., metavar="TARGET", help="Output .usif record or .usifc dataset."
+    ),
     symmetry: str = typer.Option("off", help="'auto' stores the asymmetric unit when lossless."),
 ) -> None:
     """Rewrite a file written by USIF 0.8 or earlier in the current formats."""
@@ -283,7 +301,9 @@ def _query(
 @dataset_app.command("add")
 def dataset_add(
     dataset_path: Path = typer.Argument(..., metavar="DATASET"),
-    files: List[Path] = typer.Argument(..., help="Structure files; names default to file stems."),
+    files: List[Path] = typer.Argument(
+        ..., metavar="FILES...", help="Structure files; names default to file stems."
+    ),
     group: str = typer.Option("/", help="Group to add to."),
     symmetry: str = typer.Option("off", help="'auto' stores asymmetric units when lossless."),
     compression: str = typer.Option("zlib"),
@@ -339,8 +359,10 @@ def dataset_list(
 @dataset_app.command("export")
 def dataset_export(
     dataset_path: Path = typer.Argument(..., metavar="DATASET"),
-    key: str = typer.Argument(..., help="Entry path (/group/name) or record hash."),
-    output: Path = typer.Argument(...),
+    key: str = typer.Argument(
+        ..., metavar="ENTRY", help="Entry path (/group/name) or record hash."
+    ),
+    output: Path = typer.Argument(..., metavar="OUTPUT"),
 ) -> None:
     """Write one dataset entry to a structure file."""
     from usif.dataset import Dataset
@@ -360,6 +382,15 @@ def dataset_compact(dataset_path: Path = typer.Argument(..., metavar="DATASET"))
     typer.echo(f"reclaimed {reclaimed} bytes")
 
 
+def _describe(exc: BaseException) -> str:
+    """A one-line message for errors reported without a traceback."""
+    if isinstance(exc, OSError) and exc.strerror:
+        return f"{exc.filename}: {exc.strerror}" if exc.filename else exc.strerror
+    if isinstance(exc, KeyError):
+        return f"not found: {exc.args[0] if exc.args else ''}"
+    return str(exc)
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Run the CLI and return a process exit code (2 for USIF errors)."""
     command = get_command(app)
@@ -371,7 +402,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         code = exc.code
         return code if isinstance(code, int) else (0 if code is None else 1)
     except (USIFError, OSError, KeyError) as exc:
-        typer.echo(f"usif: error: {exc}", err=True)
+        typer.echo(f"usif: error: {_describe(exc)}", err=True)
         return 2
     return 0
 

@@ -11,6 +11,7 @@ Multi-structure files belong in a :class:`usif.dataset.Dataset`.
 
 from __future__ import annotations
 
+import errno
 import os
 from pathlib import Path
 from typing import Any, List, Optional, Sequence, Union
@@ -86,7 +87,7 @@ def read_all(
     """Every structure (frame) in a file."""
     path = Path(source)
     if not path.is_file():
-        raise FileNotFoundError(path)
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(path))
     if backend is None and format is None:
         native = _read_native(path, schema)
         if native is not None:

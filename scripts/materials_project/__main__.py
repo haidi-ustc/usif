@@ -14,7 +14,12 @@ from typing import Optional
 
 import typer
 
-app = typer.Typer(add_completion=False, no_args_is_help=True, help=__doc__)
+app = typer.Typer(
+    add_completion=False,
+    no_args_is_help=True,
+    help=__doc__,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
 
 
 @app.command()

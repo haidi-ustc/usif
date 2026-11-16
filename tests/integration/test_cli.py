@@ -93,6 +93,39 @@ def test_dataset_commands(capsys, nacl_file, tmp_path):
 
 def test_errors_and_usage(capsys, tmp_path):
     code, _, err = run(capsys, "inspect", tmp_path / "missing.usif")
-    assert code == 2 and "usif: error" in err
+    assert code == 2 and "usif: error" in err and "No such file or directory" in err
     assert run(capsys, "no-such-command")[0] == 2
     assert run(capsys, "dataset", "list")[0] == 2
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        [],
+        ["-h"],
+        ["--help"],
+        ["dataset"],
+        ["dataset", "-h"],
+        ["dataset", "list", "-h"],
+        ["inspect", "-h"],
+        ["convert", "-h"],
+        ["upgrade", "-h"],
+        ["validate", "-h"],
+    ],
+    ids=lambda argv: " ".join(argv) or "bare",
+)
+def test_help_is_shown_with_exit_code_zero(capsys, argv):
+    code, out, err = run(capsys, *argv)
+    assert code == 0, err
+    assert "Usage: usif" in out and "Traceback" not in out + err
+
+
+def test_scripts_accept_short_help():
+    import subprocess
+    import sys
+
+    for module in ("scripts.benchmark", "scripts.materials_project"):
+        result = subprocess.run(
+            [sys.executable, "-m", module, "-h"], capture_output=True, text=True, timeout=120
+        )
+        assert result.returncode == 0 and "Usage" in result.stdout, result.stderr

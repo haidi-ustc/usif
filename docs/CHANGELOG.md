@@ -49,7 +49,8 @@ its file formats. It is not API-compatible with 0.8, but it reads every file 0.8
 - `usif.backends` replaces `usif.interop`: matsimpy, ASE and pymatgen backends behind one
   `Backend` protocol, plus third-party backends from the `usif.backends` entry-point group.
 - The CLI has `version`, `inspect`, `convert`, `validate`, `upgrade` and `dataset
-  add/list/export/compact`.
+  add/list/export/compact`. `-h` works like `--help`; bare `usif` and `usif dataset` print help
+  and exit 0; errors are one readable line (exit code 2), never a traceback.
 - Benchmarks (`python -m scripts.benchmark`) and the Materials Project tooling
   (`python -m scripts.materials_project download|build`) are development scripts, no longer part
   of the package. The Materials Project `energy` is now the raw DFT total
