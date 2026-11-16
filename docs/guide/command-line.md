@@ -14,8 +14,15 @@ Installing USIF provides the `usif` command. From Python, `usif.cli.main(argv)` 
 | `usif dataset list DATASET [filters] [--limit N] [--json]` | List matching entries. Filters: `--group`, `--formula`, `--chemsys`, `--elements Fe,O`, `--max-atoms`, `--prop 'energy<-1.5'` (repeatable). |
 | `usif dataset export DATASET KEY OUTPUT` | Write one entry (path `/group/name` or record hash) to a file. |
 | `usif dataset compact DATASET` | Drop unreferenced records and reclaim space. |
+| `usif dataset import SOURCE DATASET [--group G] [--all-frames] [--update] [--symmetry] [--plan-out FILE] [-y]` | Scan a project directory for calculations and structure files and register them with provenance attributes. Shows the change plan and asks before applying; `--yes` applies directly. See [Data agent](agent.md). |
+| `usif agent ask DATASET REQUEST [--allow DIR] [--plan-out FILE] [--model] [--base-url]` | Ask the LLM agent a question or give it an instruction. Proposed changes are shown as a plan and need your approval. |
+| `usif agent chat DATASET [--allow DIR]` | Interactive agent session (`/plan`, `/apply`, `/save FILE`, `/discard`, `/quit`). |
+| `usif agent show PLAN [--json]` | Print a saved change plan. |
+| `usif agent apply PLAN [-y]` | Apply a reviewed plan in one transaction (asks first; `--yes` when not on a terminal). |
+| `usif agent plans [--applied] [--json]` | Plans waiting for review in `~/.usif/plans`, or the journal of applied plans. |
+| `usif agent config [--json]` | The LLM settings in effect (the key is only reported as set or not). |
 
-USIF errors are printed as `usif: error: ...` with exit code 2.
+Every command and group accepts `-h`/`--help`; a bare group (`usif dataset`, `usif agent`) prints its help. USIF errors are printed as `usif: error: ...` with exit code 2.
 
 ## Example session
 

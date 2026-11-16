@@ -154,6 +154,22 @@ class TestStorage:
         report = ds.check(full=True)
         assert not report.ok and "digest" in report.errors[0]
 
+    def test_failed_transaction_keeps_the_original_error(self, ds):
+        # SQLite rolls back by itself after I/O errors or a full disk; the rollback that
+        # follows must not replace the error that caused it.
+        with pytest.raises(ValueError, match="boom"):
+            with ds.transaction():
+                ds.add(nacl(), "a")
+                ds._conn.execute("ROLLBACK")
+                raise ValueError("boom")
+        assert "/a" not in ds
+        before = len(ds)
+        ds.add(nacl(), "b")  # the dataset is still usable
+        with pytest.raises(DatasetError, match="no transaction"):
+            with ds.transaction():
+                ds._conn.execute("ROLLBACK")  # work lost, then the commit fails cleanly
+        assert len(ds) == before + 1
+
 
 class TestModes:
     def test_read_only(self, ds, tmp_path):
@@ -339,3 +355,28 @@ class TestQueryPlans:
         assert filled.count(Q.attr("missing").between(0, 1)) == 0
         with pytest.raises(ValidationError):
             Q.prop("energy").between("a", 1)
+
+
+def test_isin_matches_any_of_the_values(tmp_path):
+    with Dataset(tmp_path / "d.usifc") as data:
+        for i in range(4):
+            data.add(nacl(5.0 + i, energy=-float(i)), f"e{i}", "/", {"tag": f"t{i}", "n": i})
+        assert data.count(Q.attr("tag").isin(["t1", "t3", "zz"])) == 2
+        assert data.count(Q.attr("n").isin([0, 2])) == 2
+        assert data.count(Q.prop("energy").isin([-1.0, -3.0])) == 2
+        assert data.count(Q.attr("tag").isin([])) == 0
+        with pytest.raises(ValidationError, match="at most"):
+            Q.attr("tag").isin(range(501))
+        with pytest.raises(ValidationError, match="numbers"):
+            Q.prop("energy").isin(["x"])
+
+
+@pytest.mark.parametrize("mode", ["a", "r"])
+def test_connections_use_a_large_cache_and_mmap(tmp_path, mode):
+    from usif.dataset.sql import CACHE_KIB, MMAP_BYTES
+
+    path = tmp_path / "c.usifc"
+    Dataset(path).close()
+    with Dataset(path, mode) as data:
+        assert data._conn.execute("PRAGMA cache_size").fetchone()[0] == -CACHE_KIB
+        assert data._conn.execute("PRAGMA mmap_size").fetchone()[0] in (MMAP_BYTES, 0)

@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.10.0
+
+Release record `20261116.019`, release ID `usif-20261116-019`. A CLI-first data agent and local
+dataset import for research groups, with human approval of every change; faster dataset queries.
+
+### Data agent and local datasets
+
+- `usif dataset import SOURCE DATASET` scans project directories for VASP calculations
+  (`vasprun.xml`, `OUTCAR`, `CONTCAR`, `POSCAR`, with INCAR parameters and the KPOINTS header) and
+  structure files. It registers them with provenance attributes (`source`, `source_sha256`,
+  `notes` from README files, ...). Imports are incremental: files already registered are skipped,
+  and changed sources are reported as conflicts (replaced with `--update`).
+- Change plans (`usif.agent.plan.v1`): every change proposed by the import or by the agent is a
+  reviewable JSON plan, applied only on approval (`[y/N]`, or `usif agent apply PLAN --yes`) and
+  in one transaction. Plan ids detect edits, sources are re-checked against their SHA-256, and
+  added entries record the plan id.
+- `usif agent ask` / `chat`: an LLM agent over an OpenAI-compatible endpoint. DeepSeek
+  (`deepseek-flash`, key in `DEEPSEEK_API_KEY`) is the default; other providers are configured in
+  `~/.usif/config.toml` or with `USIF_LLM_*` variables. The agent searches the dataset,
+  inspects and scans allowed directories, and proposes imports, attribute changes and removals,
+  but cannot write. `usif agent show`, `apply` and `config` complete the commands.
+- Safety: the scanner opens no symbolic links and no file outside the scanned directory. The plan
+  review escapes model-supplied text and shows attribute values. Every field of a plan read from
+  a file is type-checked. Redirects from the LLM endpoint are refused, and remote endpoints must
+  use HTTPS.
+- `~/.usif` (or `$USIF_HOME`) holds `config.toml`, plans waiting for review (`plans/`) and a
+  journal of applied plans (`plans/applied/`); `usif agent plans [--applied]` lists them.
+- `usif.agent` Python API (`scan`, `Plan`, `apply_plan`, `Session`, ...) and `AgentError`. No new
+  dependencies: HTTP uses the standard library.
+
+### Datasets
+
+- Connections use a 64 MiB page cache and memory-mapped reads. On a 200,000-entry dataset this
+  makes unfiltered counts 45x faster (1.3 s -> 29 ms), element filters 20x faster and attribute
+  filters 18x faster; see the measurements in the [datasets guide](guide/datasets.md#size-and-speed).
+- `Q.attr(key).isin(values)` and `Q.prop(name).isin(values)` match any of up to 500 values. The
+  import uses it to check which files are already registered in one scan per 500 files, instead
+  of one scan per file.
+- A failed write transaction now raises the error that caused it. Before, after an SQLite I/O
+  error or a full disk, the rollback could fail and hide it. SQLite errors during a transaction
+  are reported as `DatasetError`.
+
 ## 0.9.0
 
 Release record `20261116.018`, release ID `usif-20261116-018`. This release redesigns the library and

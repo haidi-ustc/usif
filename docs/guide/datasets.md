@@ -111,9 +111,13 @@ An `Entry` has `id`, `group`, `name`, `path`, `record_hash`, `attrs` and a `stru
 | `Q.group("/a", recursive=True)` | Entries in a group (and its subgroups) |
 | `Q.name("nacl*")` | Entry name glob pattern (`*`, `?`, `[...]`) |
 | `Q.attr("source") == "mp"`, `Q.has_attr("source")` | Top-level entry attribute; compare against numbers, strings or booleans |
+| `Q.attr("tag").isin(["a", "b"])`, `Q.prop("energy").isin([...])` | One of up to 500 values |
 | `Q.all()` | Everything |
 
 Wrap comparisons in parentheses when combining them, because `&` binds tighter than `<`: `Q.group("/a") & (Q.prop("energy") < 0)`.
+
+Attribute conditions read the JSON of every entry they consider (about 150 ms per 200,000
+entries); combine them with record or group conditions when you can.
 
 Only numeric 0-d structure properties are indexed for `Q.prop`; arrays, per-atom values and JSON values are not queryable. Store a value you want to filter on as a scalar property or as an entry attribute.
 
@@ -156,8 +160,31 @@ To find other entries with the same geometry, use `Q.geometry(info.geometry_hash
 
 From the shell: `usif validate data.usifc --full` (exit code 1 if anything is wrong) and `usif dataset compact data.usifc`; see [Command line](command-line.md).
 
+## Size and speed
+
+One SQLite file serves a research group's dataset well. Measured on a 200,000-entry dataset
+(216 MB, 4–15 atoms per structure, provenance attributes on every entry):
+
+| Operation | Time |
+|---|---|
+| `count()` of everything | 29 ms |
+| `Q.formula(...)`, `Q.prop("energy") < x` | 5–10 ms |
+| `Q.elements("Fe", "O")` | 58 ms |
+| `Q.group("/proj7")` (4,000 entries) | 28 ms |
+| `Q.attr("code") == "vasp"` (JSON attribute, scans entries) | 157 ms |
+| first 20 matches with structures decoded | 67 ms |
+| adding structures | about 1,300 per second |
+
+Connections use a 64 MiB page cache and memory-mapped reads (`usif.dataset.sql.CACHE_KIB`,
+`MMAP_BYTES`). There is no client-server backend: it would not make these queries faster, and it
+would replace a single portable file with a server to run. Consider one only if several machines
+must write the same dataset at the same time.
+
 ## Concurrency and crashes
 
 - Writes are SQLite transactions, so an interrupted write leaves the last committed state.
 - Several processes may read while one process writes. A `Dataset` object is thread-safe.
+- Keep a shared dataset on a local disk of the machine that writes it. SQLite's locking is not
+  reliable on network file systems (NFS, SMB), so do not let several machines write one file
+  over a network share; read-only access from other machines is fine.
 - `"w"` mode refuses to replace a dataset whose write-ahead log (`<path>-wal`) still holds changes; open that dataset once in `"a"` mode to recover them first.

@@ -27,7 +27,8 @@ ALLOWED: Dict[str, Set[str]] = {
     "dataset": {"model", "codec", "upgrade"},
     "backends": {"model"},
     "io": {"model", "codec", "upgrade", "backends"},
-    "cli": {"model", "codec", "upgrade", "dataset", "backends", "io"},
+    "agent": {"model", "dataset", "io"},
+    "cli": {"model", "codec", "upgrade", "dataset", "backends", "io", "agent"},
     "__init__": {"model", "codec", "io", "dataset"},
 }
 OPTIONAL_LIBRARIES = {"ase", "pymatgen", "matsimpy", "zstandard", "mp_api", "monty"}

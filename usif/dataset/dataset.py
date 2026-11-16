@@ -226,16 +226,36 @@ class Dataset:
             self._depth += 1
             try:
                 yield
-            except BaseException:
+            except BaseException as exc:
                 self._depth -= 1
-                if self._depth == 0:
-                    conn.execute("ROLLBACK")
-                else:
-                    conn.execute(f"ROLLBACK TO {savepoint}")
-                    conn.execute(f"RELEASE {savepoint}")
+                self._rollback(conn, savepoint)
+                if isinstance(exc, sqlite3.Error):
+                    raise DatasetError(f"{self.path}: {exc}") from exc
                 raise
             self._depth -= 1
-            conn.execute("COMMIT" if self._depth == 0 else f"RELEASE {savepoint}")
+            try:
+                conn.execute("COMMIT" if self._depth == 0 else f"RELEASE {savepoint}")
+            except sqlite3.Error as exc:  # e.g. disk full while committing
+                self._rollback(conn, savepoint)
+                raise DatasetError(f"{self.path}: {exc}") from exc
+
+    def _rollback(self, conn: sqlite3.Connection, savepoint: str) -> None:
+        """Undo the innermost transaction level; never mask the error that caused it.
+
+        SQLite rolls back by itself after some failures (I/O errors, a full
+        disk), in which case there is nothing left to undo.
+        """
+        if not conn.in_transaction:
+            return
+        try:
+            if self._depth == 0:
+                conn.execute("ROLLBACK")
+            else:
+                conn.execute(f"ROLLBACK TO {savepoint}")
+                conn.execute(f"RELEASE {savepoint}")
+        except sqlite3.Error:
+            if self._depth == 0 and conn.in_transaction:
+                conn.rollback()
 
     # -- writing --------------------------------------------------------------
 

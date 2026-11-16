@@ -20,6 +20,7 @@ from usif.errors import ValidationError
 __all__ = ["Q", "normalize_group"]
 
 MAX_GROUP_DEPTH = 64
+MAX_IN_VALUES = 500
 
 
 def normalize_group(path: str) -> str:
@@ -206,6 +207,19 @@ class _Operand:
         return self._compare("!=", value)
 
     __hash__ = None  # type: ignore[assignment]
+
+    def isin(self, values: Sequence[Any]) -> Q:
+        """The value is one of ``values`` (at most 500; an empty list matches nothing)."""
+        values = list(values)
+        if not values:
+            return Q("0")
+        if len(values) > MAX_IN_VALUES:
+            raise ValidationError(f"isin() takes at most {MAX_IN_VALUES} values")
+        values = [_scalar(v) for v in values]
+        if self._numeric and not all(isinstance(v, (int, float)) for v in values):
+            raise ValidationError(f"property comparisons need numbers, got {values!r}")
+        marks = ", ".join("?" * len(values))
+        return Q(self._template.replace("{op} ?", f"IN ({marks})"), self._params + tuple(values))
 
     def between(self, low: Any, high: Any) -> Q:
         """``low <= value <= high`` as one index range."""

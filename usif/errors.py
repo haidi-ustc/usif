@@ -8,12 +8,14 @@
     │   ├── ChecksumError                   stored digest does not match the payload
     │   └── UnsupportedVersionError         record/dataset version this reader cannot read
     ├── DatasetError                        dataset file problems (locked, read-only, schema)
+    ├── AgentError                          LLM service, agent configuration or change plan problems
     └── MissingDependencyError (ImportError) optional package not installed
 """
 
 from __future__ import annotations
 
 __all__ = [
+    "AgentError",
     "ChecksumError",
     "DatasetError",
     "FormatError",
@@ -46,6 +48,10 @@ class UnsupportedVersionError(FormatError):
 
 class DatasetError(USIFError):
     """A dataset cannot be opened, written or queried."""
+
+
+class AgentError(USIFError):
+    """The LLM service, the agent configuration or a change plan cannot be used."""
 
 
 class MissingDependencyError(USIFError, ImportError):
