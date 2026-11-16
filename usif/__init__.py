@@ -1,85 +1,78 @@
-#!/usr/bin/env python3
-"""USIF (Universal Structure Interchange Format).
+"""USIF: exact, compact, queryable storage for atomistic structures.
 
-Canonical imports are organized by package: structures, storage, interop,
-properties, and format.  Top-level exports are intentionally limited to the
-lightweight core types.
+Core objects::
+
+    from usif import Structure, Cell, read, write, convert, Dataset, Q
+
+    s = read("POSCAR")                      # any backend format, .usif or .json
+    write(s, "s.usif", symmetry="auto")     # format-7 record
+    with Dataset("data.usifc") as ds:       # SQLite-backed collection
+        ds.add(s, "relaxed", "/runs")
+        hits = list(ds.query(Q.formula("NaCl") & (Q.prop("energy") < 0)))
+
+``Dataset``/``Q`` and the backends are imported on first use.
 """
 
-from .constants import BinaryFormat, CompressionType, StorageMode, StructureType
-from .encoder import USIF
-from .exceptions import (
-    ContainerError,
-    ContainerIndexError,
-    CorruptedDataError,
-    DecodingError,
-    EncodingError,
-    IntegrityError,
-    StorageError,
-    SymmetryAnalysisError,
+from typing import TYPE_CHECKING, Any
+
+from usif.codec import decode, encode
+from usif.errors import (
+    ChecksumError,
+    DatasetError,
+    FormatError,
+    MissingDependencyError,
+    UnsupportedVersionError,
     USIFError,
     ValidationError,
 )
-from .properties import (
-    AtomicProperties,
-    DEFAULT_REGISTRY,
-    PropertyDefinition,
-    PropertyRegistry,
-    PropertyValue,
-    PropertySerializer,
-    StructureProperties,
-    create_default_registry,
+from usif.io import convert, read, read_all, write, write_all
+from usif.model import DEFAULT_SCHEMA, Cell, PropertySpec, Schema, Structure
+from usif.version import (
+    DATASET_SCHEMA_VERSION,
+    FORMAT_VERSION,
+    RELEASE_DATE,
+    RELEASE_ID,
+    RELEASE_RECORD,
+    __version__,
 )
-from .structures import (
-    SYMMETRY_METADATA_KEY,
-    AtomSite,
-    PointGroupSite,
-    SymmetryMetadata,
-    USIFStructure,
-    WyckoffSite,
-)
-from .units import UnitConversions, Units
-from .version import FORMAT_VERSION, RELEASE_DATE, RELEASE_ID, RELEASE_RECORD, VERSION_INFO, __version__
 
-__author__ = "haidi@hfut.edu.cn"
+if TYPE_CHECKING:  # pragma: no cover
+    from usif.dataset import Dataset, Q
 
 __all__ = [
-    "BinaryFormat",
-    "USIFError",
-    "EncodingError",
-    "DecodingError",
-    "ValidationError",
-    "CorruptedDataError",
-    "IntegrityError",
-    "ContainerError",
-    "ContainerIndexError",
-    "SymmetryAnalysisError",
-    "StorageError",
-    "StructureType",
-    "StorageMode",
-    "CompressionType",
-    "Units",
-    "UnitConversions",
-    "PropertyDefinition",
-    "PropertySerializer",
-    "PropertyRegistry",
-    "PropertyValue",
-    "DEFAULT_REGISTRY",
-    "create_default_registry",
-    "AtomicProperties",
-    "StructureProperties",
-    "WyckoffSite",
-    "PointGroupSite",
-    "AtomSite",
-    "SymmetryMetadata",
-    "SYMMETRY_METADATA_KEY",
-    "USIFStructure",
-    "USIF",
-    "__version__",
-    "FORMAT_VERSION",
-    "VERSION_INFO",
     "RELEASE_DATE",
-    "RELEASE_RECORD",
     "RELEASE_ID",
-    "__author__",
+    "RELEASE_RECORD",
+    "DATASET_SCHEMA_VERSION",
+    "DEFAULT_SCHEMA",
+    "FORMAT_VERSION",
+    "Cell",
+    "ChecksumError",
+    "Dataset",
+    "DatasetError",
+    "FormatError",
+    "MissingDependencyError",
+    "PropertySpec",
+    "Q",
+    "Schema",
+    "Structure",
+    "USIFError",
+    "UnsupportedVersionError",
+    "ValidationError",
+    "__version__",
+    "convert",
+    "decode",
+    "encode",
+    "read",
+    "read_all",
+    "write",
+    "write_all",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    if name in ("Dataset", "Q"):
+        from usif import dataset
+
+        return getattr(dataset, name)
+    raise AttributeError(f"module 'usif' has no attribute {name!r}")
