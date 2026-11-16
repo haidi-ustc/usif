@@ -1,191 +1,150 @@
-# USIF Binary Format (`.usif`)
+# The `.usif` record, format 7
 
-This document specifies the current single-structure `.usif` record format implemented by `usif.encoder.USIF` and `usif.format.binary`.
+A record holds one structure: atoms, positions, an optional cell, per-atom arrays and structure
+properties. It is the unit stored in `.usif` files and in every row of a `.usifc` dataset.
+`usif.codec.record` implements it.
+Records written by USIF 0.8 and earlier (formats 5 and 6) are described in
+[FORMATS_0_8.md](FORMATS_0_8.md).
 
-## 1. Version and byte order
+All integers and floats are little-endian. Arrays are stored in C order.
 
-| Item | Value |
+## 1. Layout
+
+```text
++----------------------+
+| header, 40 bytes     |
++----------------------+
+| stored payload       |  compressed (or not) sequence of sections
++----------------------+
+```
+
+### Header
+
+| Offset | Size | Field | Value |
+|---:|---:|---|---|
+| 0 | 8 | magic | `89 55 53 49 46 0D 0A 1A` (`\x89USIF\r\n\x1a`) |
+| 8 | 2 | version | `7` |
+| 10 | 2 | flags | `0`; a reader rejects any set bit |
+| 12 | 1 | compression | codec id: `0` none, `1` zlib, `2` lzma (xz), `3` zstd |
+| 13 | 3 | reserved | zero |
+| 16 | 8 | raw_size | payload size after decompression |
+| 24 | 8 | stored_size | payload size as stored |
+| 32 | 8 | digest | BLAKE2b-64 of the stored payload |
+
+`digest` is the 8-byte BLAKE2b digest (`digest_size=8`) of the *stored* payload bytes. The magic's
+first byte is non-ASCII and it contains CR LF and Ctrl-Z, so text-mode transfers and truncation to 7
+bits are detected (the PNG convention).
+
+### Sections
+
+The decompressed payload is a sequence of sections:
+
+```text
+tag    4 bytes ASCII
+size   u64
+body   size bytes
+```
+
+Sections appear in this order: `ATOM`, `CELL` (optional), exactly one of `POSN` and `SYMM`, `ARRS`
+(optional), `PROP` (optional). A tag that starts with a lower-case letter is *ancillary*: readers
+that do not know it skip it, so later versions can add optional data without a format change. Any
+other unknown tag, a duplicate, a missing required section or a different order is an error.
+
+| Tag | Body |
 |---|---|
-| Binary record format version | `6` (`usif.version.FORMAT_VERSION`); format `5` is still decoded |
-| Endianness | little-endian |
-| Header size | 64 bytes |
-| Supported compression values | `0 = NONE`, `1 = GZIP` |
-| Header identity hash | geometry hash of decoded `USIFStructure` |
+| `ATOM` | `natoms u32`, then `natoms` atomic numbers (`u8`, 1..118) |
+| `CELL` | `pbc u8` (bit *i* set = periodic along lattice vector *i*), lattice `f64[3][3]` (rows are lattice vectors, Å) |
+| `POSN` | `dtype u8` (`11` = f64, `10` = f32), Cartesian positions `[natoms][3]` (Å) |
+| `SYMM` | the asymmetric unit, see section 3 |
+| `ARRS` | per-atom arrays: a column block (section 2) whose columns all have `natoms` rows |
+| `PROP` | structure properties: a column block |
 
-All integer and floating-point primitives use the explicit little-endian formats in `usif.constants.BinaryFormat`.
-
-## 2. File layout
-
-```text
-+------------------------------+
-| 64-byte fixed header          |
-+------------------------------+
-| compressed payload bytes      |
-+------------------------------+
-```
-
-The payload is the serialized structure body. The header records both the uncompressed payload size and the compressed payload size. On decode, USIF checks the compressed byte count, decompresses to the declared raw size, decodes the body, and validates the decoded geometry hash against the header geometry hash.
-
-## 3. Header layout
-
-The header is implemented by `usif.format.binary.header.USIFHeader`.
-
-| Offset | Size | Type | Field | Description |
-|---:|---:|---|---|---|
-| 0 | 7 | bytes | magic | `b"USIF\x00\x00\x00"` |
-| 7 | 1 | uint8 | version | `6` when written; `5` or `6` accepted on decode |
-| 8 | 4 | uint32 | raw_size | uncompressed payload byte length |
-| 12 | 4 | uint32 | compressed_size | compressed payload byte length |
-| 16 | 1 | uint8 | compression_type | `0 = NONE`, `1 = GZIP` |
-| 17 | 32 | bytes | geometry_hash | SHA-256 geometry hash from `calculate_geometry_hash()` |
-| 49 | 15 | bytes | reserved | zero padding to 64 bytes |
-
-Defensive limits are enforced before allocation. Current limits include 512 MiB for raw and compressed payloads, 10,000,000 atoms and symmetric sites (255 symmetric sites in format 5), 255 known properties, 255 custom properties, and 64 MiB per property value.
-
-## 4. Uncompressed payload layout
-
-The uncompressed payload is implemented by `StructureBinaryCodec.encode_body()` / `decode_body()`.
+## 2. Column blocks
 
 ```text
-uint8 structure_type        # 0 = CRYSTAL, 1 = MOLECULE
-uint8 storage_mode          # 0 = SYMMETRIC, 1 = FULL_ATOMIC
-structure-specific body
-uint32 structure_property_section_length
-bytes  structure_property_section
-uint16 formula_utf8_length
-bytes  formula_utf8
+count   u32
+repeated count times, sorted by name (byte order of the UTF-8 name):
+  name    u16 length + UTF-8 (1..255 bytes, no control characters)
+  unit    u16 length + UTF-8 (normalised spelling, "" for none)
+  dtype   u8
+  if dtype == 0 (JSON):
+    length  u64
+    text    canonical JSON (sorted keys, no whitespace, no NaN/Infinity)
+  else:
+    ndim    u8 (<= 8)
+    shape   u64[ndim]
+    data    product(shape) items of dtype
 ```
 
-The entire payload must be consumed during decode; trailing bytes are rejected.
+| Code | dtype | Code | dtype |
+|---:|---|---:|---|
+| 0 | JSON | 6 | uint8 |
+| 1 | bool | 7 | uint16 |
+| 2 | int8 | 8 | uint32 |
+| 3 | int16 | 9 | uint64 |
+| 4 | int32 | 10 | float32 |
+| 5 | int64 | 11 | float64 |
 
-## 5. Crystal body
+Numeric values must be finite. Per-atom columns have `shape[0] == natoms`. Decoding validates every
+column through the structure's `Schema`, as assignment does, so a record cannot hold a value the
+model would reject.
 
-### Crystal + symmetric storage
+## 3. The `SYMM` section
+
+`symmetry="auto"` stores the asymmetric unit when that reproduces every atom within 1e-5 Å (in
+Cartesian space, without wrapping, so atoms outside the cell are never "repaired"), the structure has
+a full 3-D periodic cell and no per-atom arrays, and the stored record comes out smaller than with
+`POSN`. Otherwise the record uses `POSN`.
 
 ```text
-float32[9] lattice_matrix   # 3x3 row-major matrix, 36 bytes
-uint16     spacegroup       # 1..230, informational; hall_number defines the operations
-uint16     hall_number      # spglib Hall number, 1..530
-uint8      setting_flags    # bit 0: P is identity (omitted); bit 1: p is zero (omitted)
-float64[9] P                # only when bit 0 is clear; row-major
-float64[3] p                # only when bit 1 is clear
-uint32     wyckoff_site_count
-repeated wyckoff_site_count times:
-  uint8      atomic_number
-  uint32     multiplicity
-  float32[3] fractional_coords   # in the stored cell, not the standard cell
-  float32    occupancy
+hall      u16     spglib Hall number (1..530)
+flags     u8      bit 0: P is the identity (omitted); bit 1: p is zero (omitted);
+                  bit 2: an atom order follows; other bits must be 0
+P         f64[3][3]   only when bit 0 is clear
+p         f64[3]      only when bit 1 is clear
+nreps     u32
+numbers   u8[nreps]
+mult      u32[nreps]  sum == natoms
+reps      f64[nreps][3]   fractional coordinates in the stored cell
+order     only when bit 2 is set: width u8 (2 or 4), then u16/u32[natoms]
 ```
 
-`(P, p)` maps stored-cell fractional coordinates to the standard setting of `hall_number`: `x_std = P x + p`. Expansion applies the Hall-number operations `(R, t)` in the stored basis as `W = P^-1 R P`, `w = P^-1 (R p + t - p)`, plus the lattice translations spanned by the columns of `P^-1` (needed when the stored cell is a supercell of the standard cell). Orbit images closer than 1e-5 in fractional coordinates are merged. Expanded atoms are ordered by atomic number, then coordinates. Unknown `setting_flags` bits are rejected.
+`(P, p)` maps stored-cell fractional coordinates to the standard setting of the Hall number:
+`x_std = P x + p`. In the stored basis the operations are `W = P⁻¹ R P` and
+`w = P⁻¹ (R p + t − p)`, plus the lattice translations spanned by the columns of `P⁻¹` (a stored
+supercell). Each representative expands to its distinct images, wrapped to [0, 1). The expanded
+atoms are sorted by atomic number, then by wrapped fractional coordinates rounded to 1e-8; when
+`order` is present, atom *i* of the structure is canonical atom `order[i]`. The expanded numbers
+must equal the `ATOM` section.
 
-Format-5 symmetric crystals store only `spacegroup` (no Hall number, flags, `P` or `p`), a `uint8` site count and `uint16` multiplicities. They are expanded in the setting they were written with, through the frozen space-group -> Hall table in `usif/symmetry/tables.py`, with `P = I` and `p = 0`.
+## 4. Identity
 
-### Crystal + full-atomic storage
+| Hash | Covers | Meaning |
+|---|---|---|
+| `record_hash` | BLAKE2b-256 of the raw payload | the stored content: same hash, same structure, same encoding |
+| `geometry_hash` | BLAKE2b-256 of the payload up to the end of `POSN`/`SYMM` | atoms, cell and positions only |
+| header `digest` | BLAKE2b-64 of the stored payload | corruption check, verified before decompression |
 
-```text
-float32[9] lattice_matrix   # 3x3 row-major matrix, 36 bytes
-uint16     spacegroup
-uint32     atom_count
-repeated atom_count times:
-  uint8      atomic_number
-  float32[3] fractional_coords
-  property section for this atom
-```
+Encoding is deterministic, so equal structures encoded with equal options give identical bytes and
+hashes. The options are part of the content: the same structure stored with `precision="f32"` or as
+`SYMM` has a different `record_hash`. A dataset uses one set of options, so deduplication inside a
+dataset is exact.
 
-Per-atom property sections are present only for full-atomic storage.
+## 5. Decoding limits
 
-## 6. Molecule body
+A reader:
 
-### Molecule + symmetric storage
+1. checks magic, version, flags and reserved bytes;
+2. rejects records whose `raw_size` exceeds its limit (2 GiB by default, `max_size=`) before allocating;
+3. requires the input to be exactly `40 + stored_size` bytes;
+4. verifies the digest, then decompresses with output bounded to `raw_size` and requires exactly
+   `raw_size` bytes;
+5. bounds-checks every read and requires each section to be fully consumed.
 
-```text
-uint8      point_group_utf8_length
-bytes      point_group_utf8
-uint32     point_group_site_count     # uint8 in format 5
-repeated point_group_site_count times:
-  uint8      atomic_number
-  uint32     multiplicity             # uint16 in format 5
-  float32[3] cartesian_coords
-  float32    occupancy
-```
+Every failure raises `usif.errors.FormatError`; digest mismatches raise its subclass `ChecksumError`.
 
-### Molecule + full-atomic storage
+## 6. Versioning
 
-```text
-uint32     atom_count
-repeated atom_count times:
-  uint8      atomic_number
-  float32[3] cartesian_coords
-  property section for this atom
-```
-
-Crystal coordinates are fractional; molecule coordinates are Cartesian.
-
-USIF 0.8 writes molecules only as full-atomic records. Symmetric molecule records (format 5) are still decoded and expanded with the frozen point-group operation tables in `usif/symmetry/tables.py`.
-
-## 7. Property section layout
-
-Property sections are implemented by `usif.format.binary.property_codec.PropertyCodec` and `usif.properties.serializer.PropertySerializer`.
-
-Each structure property section and each atomic property section has the same high-level shape:
-
-```text
-uint8 known_property_count
-repeated known_property_count times:
-  uint8 property_name_utf8_length
-  bytes property_name_utf8
-  uint32 property_value_byte_length
-  bytes property_value
-uint8 custom_property_count
-repeated custom_property_count times:
-  uint8 custom_name_utf8_length
-  bytes custom_name_utf8
-  uint32 custom_value_byte_length
-  bytes custom_value_utf8
-```
-
-Known properties are selected from the active `PropertyRegistry`. Structure sections include structure properties only; atomic sections include per-atom properties only.
-
-Custom values are stored as UTF-8 text. JSON-compatible custom values are encoded with the prefix `__USIF_JSON__:` followed by compact JSON. Non-prefixed strings are decoded as plain strings.
-
-## 8. Property value encoding
-
-`PropertySerializer` encodes values according to their `PropertyDefinition`.
-
-| Property definition | Encoding |
-|---|---|
-| scalar `float` | `float64` |
-| scalar `int` | `int64` |
-| scalar `bool` | one byte boolean |
-| scalar `str` | length-prefixed UTF-8; 1-byte length or `255` + uint32 length |
-| tuple/list with dimensions | repeated numeric elements using the definition's scalar numeric format |
-| per-atom property | count byte first, then one or more encoded elements |
-
-Per-atom count encoding uses:
-
-| Count byte | Meaning |
-|---:|---|
-| `0` | one encoded value; repeat for all atoms when a larger atom count is supplied |
-| `1..254` | that many encoded values follow |
-| `255` | uint32 count follows, then that many encoded values |
-
-When decoding a single `AtomSite`, `num_atoms=1` is used for that atom's property section.
-
-## 9. Integrity and version policy
-
-`USIF.decode()` validates:
-
-1. magic bytes;
-2. compression type;
-3. payload size declarations;
-4. decompressed raw size;
-5. structure/body bounds;
-6. property bounds and registry-defined values;
-7. geometry hash against the decoded structure.
-
-Header versions other than `5` and `6` are rejected with `CorruptedDataError`. The decoder selects the body layout from the header version, so format-5 files and containers holding format-5 records stay readable; encoders always write `FORMAT_VERSION`.
-
-## 10. Hashes
-
-The header `geometry_hash` covers the lattice, storage mode, space group and sites as float32 values. For format-6 symmetric crystals with a non-default setting (any `P != I` or `p != 0`), the Hall number, `P` and `p` are included as well; records in the default setting hash exactly as format 5 did, so their geometry hashes are unchanged.
+The header `version` changes only when a change cannot be expressed with an ancillary section or a
+new column (see [FORMAT_VERSIONING.md](FORMAT_VERSIONING.md)). Writers always write the current
+version; `usif.read()` also reads formats 5 and 6.

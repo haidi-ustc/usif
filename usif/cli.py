@@ -1,108 +1,119 @@
-"""Typer-powered command-line interface for USIF.
+"""The ``usif`` command-line interface (Typer) over :mod:`usif.io`, datasets and upgrades.
 
-The CLI exposes the stable application services and storage facade without
-making the core model depend on command-line concerns.  Programmatic callers may
-invoke :func:`main` with an argv-style list; installed users get the ``usif``
-console script declared in ``pyproject.toml``.
+:func:`main` takes an argv-style list and returns an exit code, so it can be
+called from Python and tests; installed users get the ``usif`` console script.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
-import click
+import numpy as np
 import typer
 from typer.main import get_command
 
-from usif.constants import CompressionType
-from usif.exceptions import USIFError
-from usif.services import load_structure, save_structure, structure_to_json_dict
-from usif.storage import StructureContainer
-from usif.version import FORMAT_VERSION, RELEASE_ID, RELEASE_RECORD, __version__
-
-_CONTAINER_SUFFIX = ".usifc"
+from usif import io
+from usif.errors import USIFError, ValidationError
+from usif.version import (
+    DATASET_SCHEMA_VERSION,
+    FORMAT_VERSION,
+    RELEASE_ID,
+    RELEASE_RECORD,
+    __version__,
+)
 
 app = typer.Typer(
-    help="USIF command-line tools for structures, JSON/USIF conversion, and containers.",
+    help="USIF tools: inspect, convert, validate and upgrade structures and datasets.",
     no_args_is_help=True,
     add_completion=False,
 )
-container_app = typer.Typer(help="Container-specific commands.", no_args_is_help=True)
-app.add_typer(container_app, name="container")
+dataset_app = typer.Typer(help="Work with .usifc datasets.", no_args_is_help=True)
+app.add_typer(dataset_app, name="dataset")
 
-
-def _json_default(value: Any) -> Any:
-    """Best-effort JSON conversion for CLI output values."""
-    if hasattr(value, "as_dict"):
-        return value.as_dict()
-    if isinstance(value, Path):
-        return str(value)
-    return str(value)
+_JSON = typer.Option(False, "--json", help="Print machine-readable JSON.")
+_PROP_FILTER = re.compile(r"^\s*([^<>=!\s]+)\s*(<=|>=|==|!=|<|>|=)\s*(\S+)\s*$")
 
 
 def _print_json(data: Any) -> None:
-    typer.echo(json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False, default=_json_default))
+    typer.echo(json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False, default=str))
 
 
-def _is_container_path(path: Path) -> bool:
-    return path.suffix.lower() == _CONTAINER_SUFFIX
+def _is_dataset(path: Path) -> bool:
+    return path.suffix.lower() == ".usifc"
 
 
-def _parse_compression(name: str) -> CompressionType:
-    normalized = name.strip().lower()
-    if normalized in {"none", "no", "0"}:
-        return CompressionType.NONE
-    if normalized in {"gzip", "gz", "1"}:
-        return CompressionType.GZIP
-    raise typer.BadParameter("compression must be one of: none, gzip")
+def _record_info(path: Path) -> Dict[str, Any]:
+    from usif.codec import record
+    from usif.upgrade import format6
+
+    data = path.read_bytes()
+    if record.is_record(data):
+        _, info = record.decode_with_info(data)
+        return {
+            "format": FORMAT_VERSION,
+            "record_hash": info.record_hash,
+            "geometry_hash": info.geometry_hash,
+            "compression": info.compression,
+            "symmetric": info.symmetric,
+            "bytes": len(data),
+        }
+    if format6.is_format6(data):
+        _, old = format6.decode_with_info(data)
+        return {"format": old.version, "symmetric": old.symmetric, "bytes": len(data)}
+    return {}
 
 
-def _format_structure_summary(path: Path, *, include_json: bool = False) -> dict[str, Any]:
-    structure = load_structure(path)
-    codec_info: dict[str, Any] = {
+def _structure_summary(path: Path) -> Dict[str, Any]:
+    structure = io.read(path)
+    cell = structure.cell
+    summary: Dict[str, Any] = {
         "path": str(path),
-        "type": "structure",
-        "format": "json" if path.name.lower().endswith((".json", ".usif.json")) else "usif",
         "formula": structure.formula,
-        "structure_type": structure.structure_type.name.lower(),
-        "storage_mode": structure.storage_mode.name.lower(),
-        "num_atoms": structure.num_atoms(),
+        "reduced_formula": structure.reduced_formula,
+        "natoms": structure.natoms,
+        "periodic": structure.is_periodic,
+        "arrays": {name: structure.arrays.unit(name) for name in structure.arrays},
+        "properties": {name: structure.properties.unit(name) for name in structure.properties},
     }
-    if include_json:
-        codec_info["structure"] = structure_to_json_dict(structure)
-    return codec_info
+    if cell is not None:
+        summary["cell"] = {
+            "lengths": np.round(cell.lengths, 6).tolist(),
+            "angles": np.round(cell.angles, 4).tolist(),
+            "volume": round(float(cell.volume), 6),
+            "pbc": list(cell.pbc),
+        }
+    if path.suffix.lower() == ".usif":
+        summary["record"] = _record_info(path)
+    return summary
 
 
-def _format_container_summary(path: Path) -> dict[str, Any]:
-    with StructureContainer(path, mode="r") as container:
-        stats = container.stats()
+def _dataset_summary(path: Path) -> Dict[str, Any]:
+    from usif.dataset import Dataset
+    from usif.upgrade import is_container_v2
+
+    if is_container_v2(path):
+        return {"path": str(path), "container_v2": True, "hint": "run 'usif upgrade' to convert"}
+    with Dataset(path, "r") as dataset:
         return {
             "path": str(path),
-            "type": "container",
-            "format": "usifc",
-            "stats": stats,
+            "schema": DATASET_SCHEMA_VERSION,
+            **dataset.stats(),
+            "groups": dataset.groups(),
+            "metadata": dataset.metadata(),
         }
 
 
-def _show_structure_or_container_summary(data: dict[str, Any]) -> None:
-    typer.echo(f"Path: {data['path']}")
-    typer.echo(f"Type: {data['type']}")
-    typer.echo(f"Format: {data['format']}")
-    if data["type"] == "container":
-        stats = data["stats"]
-        typer.echo(f"Records: {stats['records']}")
-        typer.echo(f"Groups: {stats['groups']}")
-        typer.echo(f"Formulas: {', '.join(stats['formulas']) if stats['formulas'] else '-'}")
-        typer.echo(f"Properties: {', '.join(stats['properties']) if stats['properties'] else '-'}")
-        typer.echo(f"File size: {stats['file_size_bytes']} bytes")
-    else:
-        typer.echo(f"Formula: {data['formula']}")
-        typer.echo(f"Structure type: {data['structure_type']}")
-        typer.echo(f"Storage mode: {data['storage_mode']}")
-        typer.echo(f"Atom count: {data['num_atoms']}")
+def _echo_summary(data: Dict[str, Any]) -> None:
+    for key, value in data.items():
+        if isinstance(value, dict):
+            value = ", ".join(f"{k}={v}" for k, v in value.items()) or "-"
+        elif isinstance(value, list):
+            value = ", ".join(map(str, value)) or "-"
+        typer.echo(f"{key:>16}: {value}")
 
 
 @app.callback(invoke_without_command=True)
@@ -110,7 +121,7 @@ def _root(
     ctx: typer.Context,
     version: bool = typer.Option(False, "--version", help="Show the package version and exit."),
 ) -> None:
-    """USIF command-line tools for structures, JSON/USIF conversion, and containers."""
+    """USIF tools: inspect, convert, validate and upgrade structures and datasets."""
     if version:
         typer.echo(f"USIF {__version__}")
         raise typer.Exit(0)
@@ -120,13 +131,12 @@ def _root(
 
 
 @app.command("version")
-def version_command(
-    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
-) -> None:
-    """Show package, release-record, and binary-format version metadata."""
+def version_command(json_output: bool = _JSON) -> None:
+    """Show the package, release and file-format versions."""
     data = {
         "version": __version__,
         "format_version": FORMAT_VERSION,
+        "dataset_schema": DATASET_SCHEMA_VERSION,
         "release_record": RELEASE_RECORD,
         "release_id": RELEASE_ID,
     }
@@ -134,222 +144,237 @@ def version_command(
         _print_json(data)
     else:
         typer.echo(f"USIF {__version__} ({RELEASE_RECORD}, {RELEASE_ID})")
-        typer.echo(f"Binary FORMAT_VERSION: {FORMAT_VERSION}")
+        typer.echo(f"record format {FORMAT_VERSION}, dataset schema {DATASET_SCHEMA_VERSION}")
 
 
 @app.command("inspect")
 def inspect_command(
-    path: Path = typer.Argument(..., help=".usif, .json, .usif.json, or .usifc file to inspect."),
-    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
-    include_structure: bool = typer.Option(
-        False,
-        "--include-structure",
-        help="Include the full JSON structure payload when inspecting a structure file with --json.",
+    path: Path = typer.Argument(
+        ..., help="Structure file (.usif, .json, or any backend format) or .usifc dataset."
     ),
+    json_output: bool = _JSON,
 ) -> None:
-    """Inspect a structure or container file."""
-    data = _format_container_summary(path) if _is_container_path(path) else _format_structure_summary(path, include_json=include_structure)
+    """Summarise a structure file or dataset."""
+    data = _dataset_summary(path) if _is_dataset(path) else _structure_summary(path)
     if json_output:
         _print_json(data)
     else:
-        _show_structure_or_container_summary(data)
+        _echo_summary(data)
 
 
 @app.command("convert")
 def convert_command(
-    input_path: Path = typer.Argument(..., metavar="INPUT", help="Input .usif, .json, or .usif.json file."),
-    output_path: Path = typer.Argument(..., metavar="OUTPUT", help="Output .usif, .json, or .usif.json file."),
-    compression: str = typer.Option("gzip", "--compression", help="USIF compression: gzip or none."),
-    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
+    input_path: Path = typer.Argument(..., metavar="INPUT"),
+    output_path: Path = typer.Argument(..., metavar="OUTPUT"),
+    compression: str = typer.Option("zlib", help="Record compression: none, zlib, lzma, zstd."),
+    precision: str = typer.Option("f64", help="Record positions: f64 (exact) or f32."),
+    symmetry: str = typer.Option("off", help="'auto' stores the asymmetric unit when lossless."),
+    backend: Optional[str] = typer.Option(
+        None, help="Backend for non-USIF files (ase, pymatgen, ...)."
+    ),
+    file_format: Optional[str] = typer.Option(None, "--format", help="Backend file format name."),
 ) -> None:
-    """Convert between .usif and official USIF JSON."""
-    compression_type = _parse_compression(compression)
-    structure = load_structure(input_path)
-    save_structure(structure, output_path, compression=compression_type)
-    if json_output:
-        _print_json({"input": str(input_path), "output": str(output_path), "ok": True})
-    else:
-        typer.echo(f"Converted {input_path} -> {output_path}")
+    """Convert one structure between any supported file formats."""
+    structure = io.read(input_path, format=file_format if backend else None, backend=backend)
+    options: Dict[str, Any] = {}
+    if output_path.suffix.lower() == ".usif":
+        options = {"compression": compression, "precision": precision, "symmetry": symmetry}
+    io.write(structure, output_path, backend=backend, format=file_format, **options)
+    typer.echo(f"{input_path} -> {output_path}")
 
 
 @app.command("validate")
 def validate_command(
-    path: Path = typer.Argument(..., help="Structure or .usifc container file to validate."),
-    level: str = typer.Option("index", "--level", help="Container validation level: index, records, or full."),
-    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
+    path: Path = typer.Argument(...),
+    full: bool = typer.Option(False, "--full", help="Datasets: decode and re-hash every record."),
+    json_output: bool = _JSON,
 ) -> None:
-    """Validate a structure or container file."""
-    if level not in {"index", "records", "full"}:
-        raise typer.BadParameter("level must be one of: index, records, full")
+    """Check a record or dataset; exit code 1 if it is invalid."""
+    errors: List[str] = []
+    if _is_dataset(path):
+        from usif.dataset import Dataset
 
-    if _is_container_path(path):
-        with StructureContainer(path, mode="r") as container:
-            result = container.validate(level=level)
-        data: dict[str, Any] = {
-            "path": str(path),
-            "type": "container",
-            "ok": result.ok,
-            "level": result.level,
-            "errors": result.errors,
-            "warnings": result.warnings,
-            "structure_count": result.structure_count,
-            "group_count": result.group_count,
-            "checked_records": result.checked_records,
-            "elapsed_seconds": result.elapsed_seconds,
-        }
+        with Dataset(path, "r") as dataset:
+            report = dataset.check(full=full)
+        errors = report.errors
     else:
         try:
-            structure = load_structure(path)
-            data = {
-                "path": str(path),
-                "type": "structure",
-                "ok": True,
-                "formula": structure.formula,
-                "num_atoms": structure.num_atoms(),
-                "errors": [],
-            }
-        except Exception as exc:  # noqa: BLE001 - CLI validation returns structured failure output
-            data = {"path": str(path), "type": "structure", "ok": False, "errors": [str(exc)]}
-
+            io.read(path)
+        except USIFError as exc:
+            errors = [str(exc)]
     if json_output:
-        _print_json(data)
+        _print_json({"path": str(path), "ok": not errors, "errors": errors})
     else:
-        typer.echo(f"Validation ok: {data['ok']}")
-        typer.echo(f"Type: {data['type']}")
-        if data.get("level"):
-            typer.echo(f"Level: {data['level']}")
-        if data.get("errors"):
-            typer.echo("Errors:")
-            for error in data["errors"]:
-                typer.echo(f"  - {error}")
-        if data.get("warnings"):
-            typer.echo("Warnings:")
-            for warning in data["warnings"]:
-                typer.echo(f"  - {warning}")
-    if not data["ok"]:
+        typer.echo(f"{path}: {'ok' if not errors else 'INVALID'}")
+        for error in errors:
+            typer.echo(f"  {error}")
+    if errors:
         raise typer.Exit(1)
 
 
-@container_app.command("stats")
-def container_stats_command(
-    path: Path = typer.Argument(..., help=".usifc container path."),
-    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
+@app.command("upgrade")
+def upgrade_command(
+    source: Path = typer.Argument(..., help="A format-5/6 .usif record or a v2 .usifc container."),
+    target: Path = typer.Argument(..., help="Output .usif record or .usifc dataset."),
+    symmetry: str = typer.Option("off", help="'auto' stores the asymmetric unit when lossless."),
 ) -> None:
-    """Show lightweight .usifc statistics."""
-    with StructureContainer(path, mode="r") as container:
-        stats = container.stats()
-    if json_output:
-        _print_json(stats)
-    else:
-        typer.echo(f"Records: {stats['records']}")
-        typer.echo(f"Groups: {stats['groups']}")
-        typer.echo(f"Unique formulas: {stats['unique_formulas']}")
-        typer.echo(f"Properties: {', '.join(stats['properties']) if stats['properties'] else '-'}")
-        typer.echo(f"File size: {stats['file_size_bytes']} bytes")
+    """Rewrite a file written by USIF 0.8 or earlier in the current formats."""
+    from usif.upgrade import is_container_v2
+
+    if is_container_v2(source):
+        from usif.dataset import Dataset
+
+        with Dataset(target, "w", symmetry=symmetry) as dataset:
+            count = dataset.import_v2(source)
+        typer.echo(f"{source} -> {target}: {count} entries")
+        return
+    if source.suffix.lower() != ".usif" or target.suffix.lower() != ".usif":
+        raise ValidationError("upgrade takes a .usif record or a v2 .usifc container")
+    io.write(io.read(source), target, symmetry=symmetry)
+    typer.echo(f"{source} -> {target}")
 
 
-@container_app.command("list")
-def container_list_command(
-    path: Path = typer.Argument(..., help=".usifc container path."),
-    kind: str = typer.Argument(..., help="Index kind: names, formulas, properties, or groups."),
-    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
+# -- dataset commands ---------------------------------------------------------------
+
+
+def _query(
+    group: Optional[str],
+    formula: Optional[str],
+    chemsys: Optional[str],
+    elements: Optional[str],
+    max_atoms: Optional[int],
+    props: Sequence[str],
+) -> Any:
+    from usif.dataset import Q
+
+    where = Q.all()
+    if group:
+        where &= Q.group(group)
+    if formula:
+        where &= Q.formula(formula)
+    if chemsys:
+        where &= Q.chemsys(chemsys)
+    if elements:
+        where &= Q.elements(*[e for e in elements.split(",") if e])
+    if max_atoms is not None:
+        where &= Q.natoms(max=max_atoms)
+    for text in props:
+        match = _PROP_FILTER.match(text)
+        if match is None:
+            raise ValidationError(f"property filters look like 'energy<-1.5', got {text!r}")
+        name, op, raw = match.groups()
+        operand = Q.prop(name)
+        try:
+            value = float(raw)
+        except ValueError:
+            raise ValidationError(f"property filter {text!r} needs a number") from None
+        where &= {
+            "<": operand < value,
+            "<=": operand <= value,
+            ">": operand > value,
+            ">=": operand >= value,
+            "=": operand == value,
+            "==": operand == value,
+            "!=": operand != value,
+        }[op]
+    return where
+
+
+@dataset_app.command("add")
+def dataset_add(
+    dataset_path: Path = typer.Argument(..., metavar="DATASET"),
+    files: List[Path] = typer.Argument(..., help="Structure files; names default to file stems."),
+    group: str = typer.Option("/", help="Group to add to."),
+    symmetry: str = typer.Option("off", help="'auto' stores asymmetric units when lossless."),
+    compression: str = typer.Option("zlib"),
 ) -> None:
-    """List container indexes."""
-    if kind not in {"names", "formulas", "properties", "groups"}:
-        raise typer.BadParameter("kind must be one of: names, formulas, properties, groups")
-    with StructureContainer(path, mode="r") as container:
-        if kind == "names":
-            values = container.list_names()
-        elif kind == "formulas":
-            values = container.list_formulas()
-        elif kind == "properties":
-            values = container.list_properties()
-        else:
-            values = container.list_groups()
-    if json_output:
-        _print_json({kind: values})
-    else:
-        for value in values:
-            typer.echo(value)
+    """Add structure files (every frame of multi-frame files) to a dataset."""
+    from usif.dataset import Dataset
+
+    count = 0
+    with Dataset(dataset_path, symmetry=symmetry, compression=compression) as dataset:
+        with dataset.transaction():
+            for path in files:
+                frames = io.read_all(path)
+                for index, structure in enumerate(frames):
+                    name = path.stem if len(frames) == 1 else f"{path.stem}-{index}"
+                    dataset.add(structure, name, group, {"source": path.name}, overwrite=True)
+                    count += 1
+    typer.echo(f"added {count} structures to {dataset_path}")
 
 
-def _parse_property_range(values: tuple[str, str, str] | None) -> tuple[str, float, float] | None:
-    if not values:
-        return None
-    name, low, high = values
-    return name, float(low), float(high)
-
-
-def _parse_custom(filters: Iterable[str]) -> dict[str, Any]:
-    result: dict[str, Any] = {}
-    for item in filters:
-        if "=" not in item:
-            raise typer.BadParameter("custom filters must use dotted.path=value")
-        key, value = item.split("=", 1)
-        result[key] = value
-    return result
-
-
-@container_app.command("query")
-def container_query_command(
-    path: Path = typer.Argument(..., help=".usifc container path."),
-    formula: str | None = typer.Option(None, "--formula", help="Formula equality filter."),
-    group: str | None = typer.Option(None, "--group", help="Group path filter."),
-    has_property: str | None = typer.Option(None, "--has-property", help="Require a property name."),
-    property_range: tuple[str, str, str] | None = typer.Option(
-        None,
-        "--property-range",
-        help="Numeric property range as NAME MIN MAX.",
-    ),
-    custom: list[str] = typer.Option(
-        [],
-        "--custom",
-        metavar="DOTTED.PATH=VALUE",
-        help="Dotted custom-property equality filter; may be repeated.",
-    ),
-    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON."),
+@dataset_app.command("list")
+def dataset_list(
+    dataset_path: Path = typer.Argument(..., metavar="DATASET"),
+    group: Optional[str] = typer.Option(None),
+    formula: Optional[str] = typer.Option(None, help="Reduced formula, e.g. NaCl."),
+    chemsys: Optional[str] = typer.Option(None, help="Exact element set, e.g. Na-Cl."),
+    elements: Optional[str] = typer.Option(None, help="Must contain these, e.g. Fe,O."),
+    max_atoms: Optional[int] = typer.Option(None),
+    prop: List[str] = typer.Option([], help="Numeric filter, e.g. 'energy<-1.5' (repeatable)."),
+    limit: Optional[int] = typer.Option(None),
+    json_output: bool = _JSON,
 ) -> None:
-    """Query a .usifc container."""
-    parsed_property_range = _parse_property_range(property_range)
-    parsed_custom = _parse_custom(custom)
-    with StructureContainer(path, mode="r") as container:
-        results = container.query(
-            formula=formula,
-            group=group,
-            has_property=has_property,
-            property_range=parsed_property_range,
-            custom=parsed_custom or None,
-        )
-    data = [
-        {"record_hash": record_hash, "formula": structure.formula, "num_atoms": structure.num_atoms()}
-        for record_hash, structure in results
-    ]
+    """List entries matching the filters."""
+    from usif.dataset import Dataset
+
+    where = _query(group, formula, chemsys, elements, max_atoms, prop)
+    with Dataset(dataset_path, "r") as dataset:
+        rows: List[Dict[str, Any]] = [
+            {
+                "path": entry.path or f"{entry.group}/<{entry.record_hash[:12]}>",
+                "record_hash": entry.record_hash,
+                "attrs": entry.attrs,
+            }
+            for entry in dataset.query(where, limit=limit)
+        ]
     if json_output:
-        _print_json({"count": len(data), "results": data})
-    else:
-        typer.echo(f"Matches: {len(data)}")
-        for item in data:
-            typer.echo(f"{item['record_hash']}  {item['formula']}  atoms={item['num_atoms']}")
+        _print_json(rows)
+        return
+    for row in rows:
+        typer.echo(f"{row['record_hash'][:16]}  {row['path']}")
+    typer.echo(f"{len(rows)} entries")
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    """Run the Typer CLI and return a process-style exit code."""
+@dataset_app.command("export")
+def dataset_export(
+    dataset_path: Path = typer.Argument(..., metavar="DATASET"),
+    key: str = typer.Argument(..., help="Entry path (/group/name) or record hash."),
+    output: Path = typer.Argument(...),
+) -> None:
+    """Write one dataset entry to a structure file."""
+    from usif.dataset import Dataset
+
+    with Dataset(dataset_path, "r") as dataset:
+        io.write(dataset.get(key), output)
+    typer.echo(f"{key} -> {output}")
+
+
+@dataset_app.command("compact")
+def dataset_compact(dataset_path: Path = typer.Argument(..., metavar="DATASET")) -> None:
+    """Drop unreferenced records and reclaim space."""
+    from usif.dataset import Dataset
+
+    with Dataset(dataset_path) as dataset:
+        reclaimed = dataset.compact()
+    typer.echo(f"reclaimed {reclaimed} bytes")
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    """Run the CLI and return a process exit code (2 for USIF errors)."""
     command = get_command(app)
     try:
-        result = command.main(args=list(argv) if argv is not None else None, prog_name="usif", standalone_mode=False)
-        return int(result) if isinstance(result, int) else 0
-    except (click.ClickException, click.Abort) as exc:
-        if isinstance(exc, click.ClickException):
-            exc.show(file=sys.stderr)
-            return exc.exit_code
-        typer.echo("Aborted", err=True)
-        return 1
-    except typer.Exit as exc:
-        return int(exc.exit_code or 0)
-    except (USIFError, OSError, ValueError, TypeError) as exc:
+        command.main(
+            args=list(argv) if argv is not None else None, prog_name="usif", standalone_mode=True
+        )
+    except SystemExit as exc:  # standalone mode reports usage errors and Exit this way
+        code = exc.code
+        return code if isinstance(code, int) else (0 if code is None else 1)
+    except (USIFError, OSError, KeyError) as exc:
         typer.echo(f"usif: error: {exc}", err=True)
         return 2
+    return 0
 
 
-if __name__ == "__main__":  # pragma: no cover - exercised through console entry point/tests
+if __name__ == "__main__":  # pragma: no cover - exercised through the console script
     raise SystemExit(main())

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "usif"
-version = "0.8.0"
-description = "Universal Structure Interchange Format for crystals and molecules"
+version = "0.9.0"
+description = "Exact, compact and queryable storage for atomistic structures"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "LicenseRef-USIF-NonCommercial"
@@ -14,7 +14,7 @@ authors = [
     {name = "haidi@hfut.edu.cn", email = "haidi@hfut.edu.cn"}
 ]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Chemistry",
     "Topic :: Scientific/Engineering :: Physics",
@@ -45,12 +45,13 @@ pymatgen = [
 ase = [
     "ase>=3.22.0",
 ]
+zstd = [
+    "zstandard>=0.21.0",
+]
+# Dependencies of scripts/materials_project (not part of the installed package).
 mp = [
     "monty>=2022.0.0",
     "mp-api>=0.35.0",
-]
-benchmark = [
-    "numpy>=1.19.0",
 ]
 dev = [
     "pytest>=6.0",
@@ -66,6 +67,7 @@ dev = [
     "typer>=0.12.0",
 ]
 all = [
+    "zstandard>=0.21.0",
     "pymatgen>=2022.0.0",
     "ase>=3.22.0",
     "monty>=2022.0.0",
@@ -84,14 +86,13 @@ all = [
 ]
 
 [tool.setuptools]
-# Auto-discover packages (equivalent to find_packages() in setup.py)
-packages = {find = {include = ["usif*", "scripts*"]}}
+packages = {find = {include = ["usif*"]}}
 
 [tool.usif.release]
-date = "2026-11-15"
-sequence = 17
-record = "20261115.017"
-id = "usif-20261115-017"
+date = "2026-11-16"
+sequence = 18
+record = "20261116.018"
+id = "usif-20261116-018"
 
 
 [tool.pytest.ini_options]
@@ -102,12 +103,12 @@ python_functions = ["test_*"]
 addopts = "--strict-markers --strict-config"
 markers = [
     "unit: fast tests with no optional external services",
-    "integration: adapter/service tests that may need optional packages",
-    "interop: pymatgen or ASE interoperability tests",
+    "integration: backend, CLI and integration tests that may need optional packages",
+    "interop: matsimpy, ASE or pymatgen backend tests",
     "mp_data: tests that exercise bundled Materials Project fixture data",
     "network: tests that require live external network/API access",
     "slow: long-running tests or larger fixture sweeps",
-    "large: larger container/index behavior tests",
+    "large: larger dataset behaviour tests",
     "performance: performance-sensitive checks that are not normal PR gates",
     "reliability: corruption, integrity, recovery, and concurrency tests",
     "examples: repository example smoke tests",
@@ -123,7 +124,7 @@ use_parentheses = true
 ensure_newline_before_comments = true
 skip_glob = ["build/*", "dist/*", "*.egg-info/*", "htmlcov/*", ".tox/*", ".venv/*", "venv/*"]
 known_first_party = ["usif"]
-known_third_party = ["ase", "click", "matsimpy", "monty", "mp_api", "numpy", "pymatgen", "pytest", "spglib", "typer"]
+known_third_party = ["ase", "matsimpy", "monty", "mp_api", "numpy", "pymatgen", "pytest", "spglib", "typer"]
 
 
 [tool.black]
@@ -149,9 +150,6 @@ warn_unused_configs = true
 no_implicit_optional = true
 check_untyped_defs = false
 
-# Interop adapters are type-checked in 6.4+. External-library imports are
-# tolerated through ignore_missing_imports above, but USIF adapter code is no
-# longer hidden behind ignore_errors.
 
 [tool.bandit]
 exclude_dirs = ["tests", "docs/archive", "build", "dist"]

@@ -128,18 +128,27 @@ def validate_release_metadata(root: Path) -> ReleaseMetadata:
 
     changelog = root / "docs" / "CHANGELOG.md"
     changelog_text = changelog.read_text(encoding="utf-8")
-    first_heading = next((line.strip() for line in changelog_text.splitlines() if line.startswith("## ")), "")
+    first_heading = next(
+        (line.strip() for line in changelog_text.splitlines() if line.startswith("## ")), ""
+    )
     if first_heading != f"## {meta.version}":
-        raise AssertionError(f"CHANGELOG latest heading is {first_heading!r}, expected ## {meta.version}")
+        raise AssertionError(
+            f"CHANGELOG latest heading is {first_heading!r}, expected ## {meta.version}"
+        )
     if meta.record not in changelog_text.split("## ", 2)[1]:
         raise AssertionError("CHANGELOG latest entry does not include the release record")
     if meta.release_id not in changelog_text.split("## ", 2)[1]:
         raise AssertionError("CHANGELOG latest entry does not include the release id")
 
-    _assert_contains(root / ".github" / "workflows" / "ci.yml", f'usif.__version__ == "{meta.version}"')
-    _assert_contains(root / ".github" / "workflows" / "ci.yml", f'usif.RELEASE_RECORD == "{meta.record}"')
+    _assert_contains(
+        root / ".github" / "workflows" / "ci.yml", f'usif.__version__ == "{meta.version}"'
+    )
+    _assert_contains(
+        root / ".github" / "workflows" / "ci.yml", f'usif.RELEASE_RECORD == "{meta.record}"'
+    )
     _assert_contains(root / "docs" / "RELEASE.md", "python scripts/check_release_metadata.py")
-    _assert_contains(root / "docs" / "VERSIONING.md", meta.record)
+    _assert_contains(root / "docs" / "RELEASE.md", f'version = "{meta.version}"')
+    _assert_contains(root / "docs" / "RELEASE.md", f'usif.RELEASE_RECORD == "{meta.record}"')
     return meta
 
 
@@ -174,9 +183,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.write_report:
         _write_report(args.write_report, meta)
-    print(
-        f"release metadata OK: version={meta.version} record={meta.record} id={meta.release_id}"
-    )
+    print(f"release metadata OK: version={meta.version} record={meta.record} id={meta.release_id}")
     return 0
 
 

@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MP_DATA_DIR = REPO_ROOT / "tests" / "fixtures" / "mp_structures"
 
@@ -15,14 +14,24 @@ DEFAULT_MP_DATA_DIR = REPO_ROOT / "tests" / "fixtures" / "mp_structures"
 def pytest_configure(config: pytest.Config) -> None:
     """Register markers used by CI and local test selection."""
     config.addinivalue_line("markers", "unit: fast tests with no optional external services")
-    config.addinivalue_line("markers", "integration: adapter/service tests that may need optional packages")
-    config.addinivalue_line("markers", "interop: pymatgen or ASE interoperability tests")
-    config.addinivalue_line("markers", "mp_data: tests that exercise bundled Materials Project fixture data")
-    config.addinivalue_line("markers", "network: tests that require live external network/API access")
+    config.addinivalue_line(
+        "markers", "integration: backend, CLI and integration tests that may need optional packages"
+    )
+    config.addinivalue_line("markers", "interop: matsimpy, ASE or pymatgen backend tests")
+    config.addinivalue_line(
+        "markers", "mp_data: tests that exercise bundled Materials Project fixture data"
+    )
+    config.addinivalue_line(
+        "markers", "network: tests that require live external network/API access"
+    )
     config.addinivalue_line("markers", "slow: long-running tests or larger fixture sweeps")
-    config.addinivalue_line("markers", "large: larger container/index behavior tests")
-    config.addinivalue_line("markers", "performance: performance-sensitive checks that are not normal PR gates")
-    config.addinivalue_line("markers", "reliability: corruption, integrity, recovery, and concurrency tests")
+    config.addinivalue_line("markers", "large: larger dataset behaviour tests")
+    config.addinivalue_line(
+        "markers", "performance: performance-sensitive checks that are not normal PR gates"
+    )
+    config.addinivalue_line(
+        "markers", "reliability: corruption, integrity, recovery, and concurrency tests"
+    )
     config.addinivalue_line("markers", "examples: repository example smoke tests")
 
 

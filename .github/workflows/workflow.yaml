@@ -1,0 +1,148 @@
+name: Publish to PyPI
+
+# Build, verify and publish the usif sdist and wheel.
+#
+# * Publishing a GitHub release whose tag is v<project.version> (e.g. v0.8.0)
+#   uploads to PyPI.
+# * Running the workflow manually uploads to TestPyPI (or PyPI if chosen).
+#
+# Uses PyPI trusted publishing (OIDC): no API token is stored in the repository.
+# One-time setup on pypi.org / test.pypi.org -> project "usif" -> Publishing:
+#   owner: haidi-ustc, repository: usif, workflow: workflow.yaml,
+#   environment: pypi (or testpypi)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: "Target package index"
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and verify distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: python -m pip install --upgrade build twine
+
+      - name: Validate release metadata
+        run: python scripts/check_release_metadata.py --write-report release-checks.txt
+
+      - name: Check release tag matches project version
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+
+          with open("pyproject.toml", "rb") as handle:
+              version = tomllib.load(handle)["project"]["version"]
+          tag = os.environ["TAG"]
+          if tag != f"v{version}":
+              raise SystemExit(f"release tag {tag!r} does not match project version v{version}")
+          print(f"tag {tag} matches project version {version}")
+          PY
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Check distribution metadata
+        run: python -m twine check --strict dist/*
+
+      - name: Smoke-test the wheel in a clean environment
+        run: |
+          python -m venv /tmp/usif-wheel-smoke
+          /tmp/usif-wheel-smoke/bin/python -m pip install dist/*.whl
+          /tmp/usif-wheel-smoke/bin/usif version
+          cd /tmp
+          /tmp/usif-wheel-smoke/bin/python - <<'PY'
+          import sys
+
+          import usif
+          from usif import Cell, Dataset, Structure
+          from usif.codec import decode_with_info, encode_with_info
+
+          # The core must not pull in any optional structure library.
+          loaded = [m for m in ("pymatgen", "ase", "matsimpy") if m in sys.modules]
+          assert not loaded, f"core imported optional backends: {loaded}"
+
+          frac = [[0, 0, 0], [0, 0.5, 0.5], [0.5, 0, 0.5], [0.5, 0.5, 0],
+                  [0.5, 0.5, 0.5], [0.5, 0, 0], [0, 0.5, 0], [0, 0, 0.5]]
+          nacl = Structure.from_fractional([11] * 4 + [17] * 4, frac, Cell.cubic(5.64))
+          data, info = encode_with_info(nacl, symmetry="auto", compression="none")
+          assert info.symmetric, "spglib symmetry reduction did not apply"
+          decoded, _ = decode_with_info(data)
+          assert decoded.allclose(nacl, atol=1e-5) and decoded.reduced_formula == "NaCl"
+          with Dataset("/tmp/usif-smoke.usifc", "w") as ds:
+              ds.add(nacl, "nacl")
+              assert len(ds) == 1
+          print("usif wheel smoke OK", usif.__version__, usif.RELEASE_RECORD)
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: |
+            dist/
+            release-checks.txt
+          if-no-files-found: error
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    if: >-
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' && inputs.repository == 'pypi')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/usif/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.repository == 'testpypi'
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/usif/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/
+          skip-existing: true

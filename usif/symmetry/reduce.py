@@ -1,204 +1,168 @@
-"""Lossless symmetry reduction of full-atomic crystals (spglib backed)."""
+"""Lossless reduction of a periodic structure to its asymmetric unit."""
 
 from __future__ import annotations
 
-import copy
 import logging
-from typing import Dict, List, Optional, Sequence
+from collections import defaultdict
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from usif.constants import StorageMode, StructureType, SymmetryConstants
-from usif.properties.atomic import AtomicProperties
-from usif.structures.metadata import SYMMETRY_METADATA_KEY
-from usif.structures.sites import WyckoffSite
-from usif.structures.structure import USIFStructure
-from usif.symmetry.spacegroup import (
-    analyze_crystal,
-    expand_orbit,
-    setting_operations,
-    xyz_tuple,
-)
+from usif.model.structure import Structure
+from usif.symmetry.expand import SymmetricForm, canonical_order
+from usif.symmetry.spacegroup import analyze_crystal, expand_orbit, setting_operations
+
+__all__ = ["LOSSLESS_TOLERANCE", "MAX_REDUCTION_ATOMS", "SYMPREC_CANDIDATES", "reduce"]
 
 logger = logging.getLogger(__name__)
 
-#: Above this many atoms the pairwise lossless check is skipped (kept full-atomic).
-MAX_REDUCTION_ATOMS = 20_000
+#: Maximum Cartesian deviation (Å) of a re-expanded atom from the original.
+LOSSLESS_TOLERANCE = 1e-5
+#: spglib tolerances tried, coarsest first; the first lossless result wins.
+SYMPREC_CANDIDATES = (1e-1, 1e-3, 1e-5)
+#: Larger structures are not analysed (spglib cost).
+MAX_REDUCTION_ATOMS = 100_000
+
+_GRID = 1e-3  # fractional bucket size for matching expanded atoms to originals
 
 
-def has_atomic_data(properties: AtomicProperties) -> bool:
-    """True when an atom carries any per-atom value that symmetry storage would lose."""
-    return any(
-        value is not None
-        for value in (properties.force, properties.charge, properties.magmom, properties.velocity)
-    ) or bool(properties.custom)
+def reduce(
+    structure: Structure,
+    *,
+    tolerance: float = LOSSLESS_TOLERANCE,
+    symprecs: Sequence[float] = SYMPREC_CANDIDATES,
+) -> Optional[SymmetricForm]:
+    """Return the asymmetric-unit form of ``structure`` or ``None``.
+
+    A form is returned only if it reproduces every atom, in the original
+    order and lattice image, within ``tolerance`` Å, and if symmetry
+    actually generates atoms. Structures with per-atom arrays, without
+    full 3D periodicity, or above :data:`MAX_REDUCTION_ATOMS` atoms are not
+    reduced.
+    """
+    if structure.cell is None or structure.pbc != (True, True, True):
+        return None
+    if len(structure.arrays) or structure.natoms > MAX_REDUCTION_ATOMS:
+        return None
+    lattice = structure.cell.matrix
+    numbers = structure.numbers
+    frac = structure.frac_positions
+
+    for symprec in symprecs:
+        form = _candidate(lattice, numbers, frac, symprec, tolerance)
+        if form is not None:
+            return form
+    return None
 
 
-def structure_has_atomic_data(structure: USIFStructure) -> bool:
-    return any(has_atomic_data(site.properties) for site in structure.atom_sites or [])
-
-
-def _symprec_candidates(tolerance: float) -> List[float]:
-    """Coarse to fine: a coarse tolerance can find a higher symmetry that is not
-    exact, while a finer one may still find an exact lower symmetry."""
-    values = [tolerance] + [v for v in (1e-3, 1e-5) if v < tolerance]
-    return sorted(set(values), reverse=True)
-
-
-def _as_stored(values: np.ndarray) -> np.ndarray:
-    """Round to the float32 precision records store coordinates and lattices in."""
-    return np.asarray(values, dtype=np.float32).astype(float)
-
-
-def _sites_match(
+def _candidate(
     lattice: np.ndarray,
-    numbers: Sequence[int],
+    numbers: np.ndarray,
     frac: np.ndarray,
-    expanded: Dict[int, np.ndarray],
+    symprec: float,
     tolerance: float,
-) -> bool:
-    """True when the expanded atoms equal the original atoms (as a set) within ``tolerance`` Å."""
-    numbers_arr = np.asarray(numbers)
-    for z, candidates in expanded.items():
-        originals = frac[numbers_arr == z]
-        if len(originals) != len(candidates):
-            return False
-        diff = originals[:, None, :] - candidates[None, :, :]
-        diff -= np.round(diff)
-        dist = np.linalg.norm(diff @ lattice, axis=2)
-        # Each original must match a distinct candidate. Images are separated by
-        # far more than the tolerance, so a nearest-neighbour check per row plus
-        # a uniqueness check on the chosen columns is exact.
-        nearest = dist.argmin(axis=1)
-        if not np.all(dist[np.arange(len(originals)), nearest] <= tolerance):
-            return False
-        if len(set(nearest.tolist())) != len(originals):
-            return False
-    return set(expanded) == set(numbers_arr.tolist())
+) -> Optional[SymmetricForm]:
+    try:
+        symmetry = analyze_crystal(lattice, np.mod(frac, 1.0), numbers, symprec=symprec)
+    except Exception as exc:  # spglib raises on pathological cells
+        logger.debug("spglib failed at symprec=%s: %s", symprec, exc)
+        return None
+    if symmetry is None:
+        return None
+    reps: Dict[int, int] = {}
+    for rep in symmetry.equivalent_atoms:
+        reps[int(rep)] = reps.get(int(rep), 0) + 1
+    if len(reps) == len(numbers):
+        return None  # symmetry generates nothing
+
+    rep_index = np.fromiter(reps, dtype=np.int64)
+    rep_frac = np.mod(frac[rep_index], 1.0)
+    rotations, translations = setting_operations(
+        symmetry.hall_number, symmetry.transformation, symmetry.origin_shift
+    )
+    expanded_numbers: List[np.ndarray] = []
+    expanded_frac: List[np.ndarray] = []
+    for index, position in zip(rep_index, rep_frac):
+        orbit = expand_orbit(position, rotations, translations)
+        if len(orbit) != reps[int(index)]:
+            return None
+        expanded_frac.append(orbit)
+        expanded_numbers.append(np.full(len(orbit), numbers[index], dtype=np.uint8))
+    all_numbers = np.concatenate(expanded_numbers)
+    all_frac = np.concatenate(expanded_frac)
+    canonical = canonical_order(all_numbers, all_frac)
+    all_numbers, all_frac = all_numbers[canonical], all_frac[canonical]
+
+    order = _match(lattice, numbers, frac, all_numbers, all_frac, tolerance)
+    if order is None:
+        return None
+    identity = np.array_equal(order, np.arange(len(order)))
+    return SymmetricForm(
+        hall_number=symmetry.hall_number,
+        transformation=symmetry.transformation,
+        origin_shift=symmetry.origin_shift,
+        numbers=numbers[rep_index],
+        multiplicities=np.fromiter(reps.values(), dtype=np.int64),
+        positions=rep_frac,
+        order=None if identity else order,
+    )
 
 
-class SymmetryReducer:
-    """Convert full-atomic crystals to symmetric storage when it is exact."""
+def _match(
+    lattice: np.ndarray,
+    numbers: np.ndarray,
+    frac: np.ndarray,
+    expanded_numbers: np.ndarray,
+    expanded_frac: np.ndarray,
+    tolerance: float,
+) -> Optional[np.ndarray]:
+    """``order`` with ``expanded[order[i]] == original[i]`` within ``tolerance``, or None.
 
-    @staticmethod
-    def reduce_crystal(
-        structure: USIFStructure,
-        tolerance: float = SymmetryConstants.DEFAULT_SPACEGROUP_TOLERANCE,
-        *,
-        lossless_tolerance: float = SymmetryConstants.LOSSLESS_TOLERANCE,
-        require_gain: bool = True,
-    ) -> USIFStructure:
-        """Return a symmetric equivalent of ``structure`` or ``structure`` itself.
+    Matching is periodic (bucketed by wrapped fractional coordinates); the
+    final check is non-periodic, so an original atom outside the cell does
+    not match its in-cell image.
+    """
+    if len(expanded_numbers) != len(numbers):
+        return None
+    cells = int(round(1.0 / _GRID))
+    buckets: Dict[Tuple[int, int, int, int], List[int]] = defaultdict(list)
+    keys = np.floor(np.mod(expanded_frac, 1.0) * cells).astype(np.int64) % cells
+    for j, (z, key) in enumerate(zip(expanded_numbers, keys)):
+        buckets[(int(z), int(key[0]), int(key[1]), int(key[2]))].append(j)
 
-        The result is symmetric only if expanding it reproduces every atom of
-        the input to within ``lossless_tolerance`` Angstrom after float32
-        rounding, i.e. it never stores less information than full-atomic mode.
-        Atom order is not preserved by symmetric storage. Structures with
-        per-atom properties are never reduced here; callers decide via
-        :class:`~usif.symmetry.policies.SymmetryPolicy` whether to drop them.
-        With ``require_gain`` (default) a structure whose atoms are all
-        symmetry-distinct is left full-atomic, since nothing would be saved.
-        """
-        if structure.storage_mode != StorageMode.FULL_ATOMIC or not structure.is_crystal():
-            return structure
-        sites = structure.atom_sites or []
-        if not sites or len(sites) > MAX_REDUCTION_ATOMS:
-            return structure
-        if structure_has_atomic_data(structure):
-            logger.debug("Structure has per-atom properties; keeping full atomic storage")
-            return structure
-
-        if structure.lattice_matrix is None:
-            return structure
-        lattice = _as_stored(structure.lattice_matrix)
-        numbers = [site.atomic_number for site in sites]
-        frac = np.mod(_as_stored(np.array([site.coords for site in sites], dtype=float)), 1.0)
-
-        for symprec in _symprec_candidates(tolerance):
-            candidate = SymmetryReducer._candidate(
-                structure, lattice, numbers, frac, symprec, require_gain
+    used = np.zeros(len(expanded_numbers), dtype=bool)
+    order = np.empty(len(numbers), dtype=np.int64)
+    original_keys = np.floor(np.mod(frac, 1.0) * cells).astype(np.int64) % cells
+    offsets = [(a, b, c) for a in (-1, 0, 1) for b in (-1, 0, 1) for c in (-1, 0, 1)]
+    for i, (z, key) in enumerate(zip(numbers, original_keys)):
+        best = -1
+        best_distance = np.inf
+        for da, db, dc in offsets:
+            bucket = buckets.get(
+                (
+                    int(z),
+                    int((key[0] + da) % cells),
+                    int((key[1] + db) % cells),
+                    int((key[2] + dc) % cells),
+                )
             )
-            if candidate is None:
-                break  # finer tolerances cannot find more symmetry
-            if SymmetryReducer._is_lossless(candidate, lattice, numbers, frac, lossless_tolerance):
-                return candidate
-        return structure
-
-    @staticmethod
-    def _candidate(
-        structure: USIFStructure,
-        lattice: np.ndarray,
-        numbers: List[int],
-        frac: np.ndarray,
-        symprec: float,
-        require_gain: bool = True,
-    ) -> Optional[USIFStructure]:
-        try:
-            symmetry = analyze_crystal(lattice, frac, numbers, symprec=symprec)
-        except Exception as exc:  # spglib raises on degenerate cells
-            logger.debug("Symmetry analysis failed at symprec=%s: %s", symprec, exc)
+            if not bucket:
+                continue
+            for j in bucket:
+                if used[j]:
+                    continue
+                delta = frac[i] - expanded_frac[j]
+                delta -= np.round(delta)
+                distance = float(np.linalg.norm(delta @ lattice))
+                if distance < best_distance:
+                    best, best_distance = j, distance
+        if best < 0 or best_distance > tolerance:
             return None
-        if symmetry is None:
-            return None
-        representatives: Dict[int, int] = {}
-        for index, rep in enumerate(symmetry.equivalent_atoms):
-            representatives.setdefault(int(rep), 0)
-            representatives[int(rep)] += 1
-        if require_gain and len(representatives) == len(numbers):
-            return None  # no atom is generated by symmetry: nothing to gain
+        used[best] = True
+        order[i] = best
 
-        wyckoff_sites = [
-            WyckoffSite(numbers[rep], count, xyz_tuple(frac[rep]))
-            for rep, count in representatives.items()
-        ]
-        # No symmetry metadata is attached: a format-6 symmetric record is
-        # lossless by construction and fully describes its own setting.
-        properties = copy.deepcopy(structure.structure_properties)
-        properties.custom.pop(SYMMETRY_METADATA_KEY, None)
-        return USIFStructure(
-            structure_type=StructureType.CRYSTAL,
-            storage_mode=StorageMode.SYMMETRIC,
-            lattice_matrix=np.array(structure.lattice_matrix, dtype=float),
-            spacegroup=symmetry.spacegroup,
-            hall_number=symmetry.hall_number,
-            setting_transformation=symmetry.transformation,
-            origin_shift=symmetry.origin_shift,
-            wyckoff_sites=wyckoff_sites,
-            structure_properties=properties,
-            formula=structure.formula,
-        )
-
-    @staticmethod
-    def _is_lossless(
-        candidate: USIFStructure,
-        lattice: np.ndarray,
-        numbers: List[int],
-        frac: np.ndarray,
-        tolerance: float,
-    ) -> bool:
-        hall, P, p = candidate.symmetry_setting()
-        rotations, translations = setting_operations(hall, P, p)
-        expanded: Dict[int, List[np.ndarray]] = {}
-        for site in candidate.wyckoff_sites or []:
-            stored = _as_stored(np.array(site.coords, dtype=float))
-            images = expand_orbit(stored, rotations, translations)
-            if len(images) != site.multiplicity:
-                return False
-            expanded.setdefault(site.atomic_number, []).extend(images)
-        return _sites_match(
-            lattice,
-            numbers,
-            frac,
-            {z: np.array(v) for z, v in expanded.items()},
-            tolerance,
-        )
-
-    @staticmethod
-    def reduce_molecule(structure: USIFStructure, tolerance: float = 0.0) -> USIFStructure:
-        """Molecules are always stored full-atomic.
-
-        Point-group storage needs a reliable molecular point-group analyzer
-        and saves little space for molecules; format-5 point-group records
-        remain readable through :func:`usif.symmetry.expand.expand_structure`.
-        """
-        return structure
+    # Non-periodic check: the decoded atom must lie in the same lattice image.
+    deviation = (frac - expanded_frac[order]) @ lattice
+    if float(np.max(np.linalg.norm(deviation, axis=1))) > tolerance:
+        return None
+    return order

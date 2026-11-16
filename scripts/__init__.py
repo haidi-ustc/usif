@@ -1,6 +1,5 @@
-"""Release and engineering helper scripts for USIF.
+"""Development scripts for USIF: release checks, benchmarks, Materials Project data.
 
-This package is intentionally installable so source-distributed tests can import
-``scripts.check_release_metadata`` consistently in editable, sdist, and wheel
-smoke environments.
+They run from a source checkout (``python -m scripts.<name>``) and are not part of
+the installed package.
 """

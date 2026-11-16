@@ -1,29 +1,23 @@
 # USIF examples
 
-Run examples from the repository root with an editable install or with the repository on `PYTHONPATH`.
+Run the examples from the repository root, with USIF installed (`pip install -e .`) or with the repository on `PYTHONPATH`. Each script works in a temporary directory and leaves no files behind. `tests/examples/test_examples.py` runs all of them.
 
-| File | Purpose |
-|---|---|
-| `quickstart.py` | Smallest arrays -> USIF -> `.usif` -> USIF workflow (no optional backend). |
-| `01_manual_structure_binary_roundtrip.py` | Manual `USIFStructure` creation and binary encode/decode. |
-| `02_container_write_query_validate.py` | `.usifc` write, query, validation, and stats workflow. |
-| `03_pymatgen_conversion_roundtrip.py` | pymatgen conversion through services and adapters (needs `usif[pymatgen]`). |
-| `04_properties_and_hashes.py` | Per-atom properties plus geometry/record hash semantics. |
-| `05_symmetry_policy_import.py` | SymmetryPolicy and lossless spglib symmetric storage. |
-| `06_json_structure_roundtrip.py` | Official `.json` / `.usif.json` save-load workflow. |
-| `07_property_management.py` | Scalar, vector, tensor, and custom property management. |
-| `08_property_units.py` | Property unit metadata and Unicode/ASCII unit alias normalization. |
-| `download_mp_data.py` | Optional live Materials Project downloader CLI. |
-| `10_materials_project_dataset.py` | Local Materials Project group JSON loading and conversion guidance. |
-| `12_matsimpy_conversion_roundtrip.py` | matsimpy conversion through services (needs matsimpy). |
+| Script | Shows | Needs |
+|---|---|---|
+| `quickstart.py` | Build a structure, write and read a `.usif` file, store and query it in a dataset | core |
+| `01_structures_and_records.py` | Properties with units, per-atom arrays, record options (compression, precision, symmetry), geometry and record hashes, exact JSON round trip | core |
+| `02_dataset_workflow.py` | Datasets: `add_many`, groups and attributes, deduplication, `Q` queries, `check`, `compact`, read-only access | core |
+| `03_library_conversion.py` | Round trips through matsimpy, ASE and pymatgen objects; writing and reading extxyz | each installed backend (missing ones are skipped) |
+| `04_upgrade_0_8_files.py` | Reading a format-5 record, listing a v2 container, importing it into a dataset | core (uses `tests/fixtures/`) |
+| `05_cli_workflow.py` | The `usif` command line, run through `usif.cli.main` | core |
 
-The Materials Project downloader requires the `mp` extra and an API key. Its `--help` command does not require either.
+```bash
+python examples/quickstart.py
+python examples/02_dataset_workflow.py
+```
 
-- `09_large_container_workflow.py` — lightweight `.usifc` introspection, stats, and indexed query filters.
+Benchmarks and Materials Project data are development scripts in [`scripts/`](../scripts):
+`python -m scripts.benchmark` and `python -m scripts.materials_project --help`
+(see [its README](../scripts/materials_project/README.md)).
 
-
-## Complete documentation site
-
-See `docs/site/` for the productized documentation set: quickstart, concepts, tutorials, cookbook recipes, and public API map.
-
-- `11_cli_workflow.py` — demonstrates the official `usif` CLI entry point for version, convert, inspect, and validate workflows.
+The [user guide](../docs/README.md) explains each topic; every page points to its example.
