@@ -1,55 +1,63 @@
-# Release Process
+# Versioning and releases
 
-This project uses `pyproject.toml` as the single packaging configuration and release metadata source. See `docs/VERSIONING.md` for the date-based unique release record scheme. `setup.cfg` and generated egg-info directories are intentionally not part of the source tree.
+## Version numbers
 
-## Pre-release checklist
+`pyproject.toml` is the single source of the package version and the release record:
 
-1. Update `[project].version` and `[tool.usif.release]` in `pyproject.toml`.
-2. Update `docs/CHANGELOG.md`.
-3. Validate release metadata:
+```toml
+[project]
+version = "0.9.0"
 
-```bash
-python scripts/check_release_metadata.py --write-report release-checks.txt
+[tool.usif.release]
+date = "2026-11-16"
+sequence = 18
+record = "20261116.018"
+id = "usif-20261116-018"
 ```
 
-4. Run formatting, type, security, and dependency checks:
+**Bump policy.** USIF is pre-1.0 (it was renumbered from `7.1.0` to `0.7.1` with identical
+code). Releases bump the **minor** version (`0.9.0` -> `0.10.0`); patch releases (`0.9.1`) are
+for fixes only. A major version (`1.0.0`) is a deliberate decision, never an automatic bump.
 
-```bash
-python -m black --check usif tests examples
-python -m isort --check-only usif tests examples
-python -m mypy usif
-python -m bandit -q -r usif -x tests
-python -m pip_audit
-```
+**Release record.** `date` is the ISO release date, `sequence` increases by one with every
+release, `record` is `YYYYMMDD.NNN` and `id` is `usif-YYYYMMDD-NNN`. A source checkout reads
+these from `pyproject.toml`; an installed wheel uses the `_FALLBACK_*` constants baked into
+`usif/version.py`.
 
-5. Run the layered tests:
+The `.usif` record format and the dataset schema have their own version numbers, which change
+only with their layouts; see [FORMAT_VERSIONING.md](FORMAT_VERSIONING.md).
 
-```bash
-python -m pytest tests/unit --cov=usif --cov-report=term-missing
-python -m pytest tests/integration tests/reliability tests/examples
-```
+## Release checklist
 
-6. Build artifacts:
+1. Update, together:
+   - `[project].version` and `[tool.usif.release]` in `pyproject.toml`;
+   - the `_FALLBACK_*` constants in `usif/version.py`;
+   - `docs/CHANGELOG.md` (a new top entry naming the record and id);
+   - the version and record in `.github/workflows/ci.yml`, in this file and in
+     `tests/unit/release/test_release_versioning.py`.
+2. Validate the metadata; the checker covers all of the above:
 
-```bash
-python -m build
-```
+   ```bash
+   python scripts/check_release_metadata.py --write-report release-checks.txt
+   ```
 
-7. Install and smoke-test the built wheel in a clean virtual environment:
+3. Run the checks and tests listed in [CONTRIBUTING.md](CONTRIBUTING.md).
+4. Build: `python -m build`.
+5. Smoke-test the wheel in a clean virtual environment:
 
-```bash
-python -m venv /tmp/usif-wheel-smoke
-/tmp/usif-wheel-smoke/bin/python -m pip install dist/*.whl
-/tmp/usif-wheel-smoke/bin/python - <<'PY'
-import usif
-assert usif.__version__ == "0.8.0"
-assert usif.RELEASE_RECORD == "20261115.017"
-from usif import USIF, USIFStructure
-from usif.storage import StructureContainer
-print("USIF wheel smoke OK", usif.__version__)
-PY
-```
+   ```bash
+   python -m venv /tmp/usif-wheel-smoke
+   /tmp/usif-wheel-smoke/bin/python -m pip install dist/*.whl
+   /tmp/usif-wheel-smoke/bin/python - <<'PY'
+   import usif
+   assert usif.__version__ == "0.9.0"
+   assert usif.RELEASE_RECORD == "20261116.018"
+   from usif import Cell, Dataset, Structure, decode, encode
+   s = Structure.from_fractional(["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]], Cell.cubic(5.64))
+   assert decode(encode(s)) == s
+   print("USIF wheel smoke OK", usif.__version__)
+   PY
+   ```
 
-## Artifact hygiene
-
-Source archives should not contain local caches, generated build outputs, or planning archives unless intentionally requested. Keep the published package focused on runtime code, tests, current docs, examples, and deterministic fixtures.
+The wheel contains only the `usif` package; tests, examples, docs and `scripts/` ship in the
+source archive.

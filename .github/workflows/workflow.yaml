@@ -78,12 +78,9 @@ jobs:
           /tmp/usif-wheel-smoke/bin/python - <<'PY'
           import sys
 
-          import numpy as np
-
           import usif
-          from usif import USIF
-          from usif.interop.common import build_structure
-          from usif.symmetry import SymmetryPolicy, apply_symmetry_policy
+          from usif import Cell, Dataset, Structure
+          from usif.codec import decode_with_info, encode_with_info
 
           # The core must not pull in any optional structure library.
           loaded = [m for m in ("pymatgen", "ase", "matsimpy") if m in sys.modules]
@@ -91,12 +88,14 @@ jobs:
 
           frac = [[0, 0, 0], [0, 0.5, 0.5], [0.5, 0, 0.5], [0.5, 0.5, 0],
                   [0.5, 0.5, 0.5], [0.5, 0, 0], [0, 0.5, 0], [0, 0, 0.5]]
-          nacl = build_structure([11] * 4 + [17] * 4, frac, lattice=np.eye(3) * 5.64, cartesian=False)
-          reduced = apply_symmetry_policy(nacl, SymmetryPolicy(mode="analyze"))
-          assert reduced.spacegroup == 225, reduced.spacegroup
-          codec = USIF()
-          decoded, _ = codec.decode(codec.encode(reduced))
-          assert decoded.formula == "NaCl"
+          nacl = Structure.from_fractional([11] * 4 + [17] * 4, frac, Cell.cubic(5.64))
+          data, info = encode_with_info(nacl, symmetry="auto", compression="none")
+          assert info.symmetric, "spglib symmetry reduction did not apply"
+          decoded, _ = decode_with_info(data)
+          assert decoded.allclose(nacl, atol=1e-5) and decoded.reduced_formula == "NaCl"
+          with Dataset("/tmp/usif-smoke.usifc", "w") as ds:
+              ds.add(nacl, "nacl")
+              assert len(ds) == 1
           print("usif wheel smoke OK", usif.__version__, usif.RELEASE_RECORD)
           PY
 

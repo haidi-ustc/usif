@@ -1,5 +1,83 @@
 # Changelog
 
+## 0.9.0
+
+Release record `20261116.018`, release ID `usif-20261116-018`. This release redesigns the library and
+its file formats. It is not API-compatible with 0.8, but it reads every file 0.8 wrote.
+
+### Model
+
+- `usif.Structure` replaces `USIFStructure`. A structure is columns: `numbers`, Cartesian
+  `positions` (float64), an optional immutable `Cell` with `pbc`, per-atom `arrays` and structure
+  `properties`. Both are `PropertyMap`s with dtypes, shapes and units.
+- There are no storage modes. Symmetry is an encoding option (`symmetry="auto"`), not a property of
+  the structure, so any structure can carry per-atom data.
+- `Schema` / `PropertySpec` / `DEFAULT_SCHEMA` replace `PropertyRegistry`, `AtomicProperties` and
+  `StructureProperties`. Unknown names are accepted as typed or JSON columns.
+- Units are labels: `usif.units` normalises their spelling (NFC, `µ`/`μ`, `Ang`, `bohr`, ...) and
+  never converts stored values. `usif.units.convert` (CODATA 2018; 1 eV/Å³ = 160.2176634 GPa) is
+  used by the backends to export built-in quantities in each library's units; an unconvertible
+  unit raises `ValidationError`.
+- Built-in properties gained `free_energy` (eV) and `dipole` (e·Å). `stress` is documented as
+  Cauchy stress, positive tensile (ASE sign). `magmom` must be (N,) or (N, 3);
+  `spin_multiplicity` must be at least 1; integer properties reject values out of range instead
+  of wrapping.
+
+### Formats
+
+- `.usif` record format 7 (`FORMAT_VERSION = 7`, [BINARY_FORMAT.md](BINARY_FORMAT.md)): a 40-byte
+  header with a BLAKE2b digest of the stored payload, tagged sections (`ATOM`, `CELL`, `POSN`/`SYMM`,
+  `ARRS`, `PROP`, plus skippable ancillary sections), self-describing typed columns, and
+  deterministic encoding. Options: compression `none`/`zlib`/`lzma`/`zstd` (`usif[zstd]`),
+  precision `f64`/`f32`, symmetry `off`/`auto`.
+- Symmetric records keep the original atom order and are used only when lossless (1e-5 Å) and
+  smaller.
+- Every field has one wire dtype and decoding accepts only canonical bytes, so a decoded record
+  re-encodes to the same bytes.
+- `record_hash` and `geometry_hash` are BLAKE2b-256 of the payload and of its geometry sections.
+- JSON documents use schema `usif.structure.json.v2`.
+- `.usifc` is now an SQLite dataset ([DATASET_FORMAT.md](DATASET_FORMAT.md)): deduplicated
+  records, groups, JSON attributes, indexed queries with `Q`, transactions, concurrent readers and
+  integrity checks (`DATASET_SCHEMA_VERSION = 1`).
+- Files written by 0.8 and earlier ([FORMATS_0_8.md](FORMATS_0_8.md)) are read by frozen readers in
+  `usif.upgrade`: format-5/6 records through `usif.read()`, version-2 containers through
+  `Dataset.import_v2()` or `usif upgrade`.
+
+### API and tools
+
+- `usif.read`, `read_all`, `write`, `write_all` and `convert` replace the `services` functions.
+- `usif.backends` replaces `usif.interop`: matsimpy, ASE and pymatgen backends behind one
+  `Backend` protocol, plus third-party backends from the `usif.backends` entry-point group.
+- The CLI has `version`, `inspect`, `convert`, `validate`, `upgrade` and `dataset
+  add/list/export/compact`.
+- Benchmarks (`python -m scripts.benchmark`) and the Materials Project tooling
+  (`python -m scripts.materials_project download|build`) are development scripts, no longer part
+  of the package. The Materials Project `energy` is now the raw DFT total
+  (`uncorrected_energy_per_atom * natoms`), not the MP2020-corrected value.
+- An architecture test enforces the package layering.
+- Dataset property and element conditions are answered from their indexes (`IN` subqueries);
+  `Q.prop(name).between(low, high)` is a single index range (it was a quadratic plan).
+- `usif.RELEASE_RECORD`, `RELEASE_ID` and `RELEASE_DATE` are exported at the top level.
+- Documentation: one user guide (`docs/guide/`, indexed by `docs/README.md`) replaces
+  `docs/site/`; `PROPERTY_SYSTEM.md` moved into the guide, `TESTING.md` into `CONTRIBUTING.md`
+  and `VERSIONING.md` into `RELEASE.md`.
+- `click` is no longer a dependency.
+
+### Migration from 0.8
+
+| 0.8 | 0.9 |
+|---|---|
+| `USIFStructure(...)`, `StorageMode` | `Structure(numbers, positions, cell, arrays=..., properties=...)` |
+| `structure.atom_sites[i].properties.force` | `structure.arrays["force"][i]` |
+| `structure.structure_properties.energy` | `structure.properties["energy"]` |
+| `import_structure(obj)` / `export_structure(s, "ase")` | `usif.convert(obj)` / `usif.convert(s, "ase")` |
+| `save_structure(s, path)` / `load_structure(path)` | `usif.write(s, path)` / `usif.read(path)` |
+| `USIF().encode(s)` / `USIF().decode(b)` | `usif.encode(s)` / `usif.decode(b)` |
+| `SymmetryPolicy`, `optimize_structure` | `encode(s, symmetry="auto")`, `Dataset(path, symmetry="auto")` |
+| `StructureContainer(path).add(s)` | `Dataset(path).add(s, name, group, attrs)` |
+| container filters | `dataset.query(Q.formula("NaCl") & (Q.prop("energy") < 0))` |
+| old `.usifc` files | `usif upgrade old.usifc new.usifc` |
+
 ## 0.8.0
 
 Updated release metadata to the date record `20261115.017` and release ID `usif-20261115-017`.
