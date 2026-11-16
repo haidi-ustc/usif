@@ -1,15 +1,74 @@
 # Contributing
 
-Install development dependencies with `python -m pip install -e ".[dev,pymatgen,ase,mp]"`. Before opening a PR, run the same layered checks used by CI:
+## Setup
+
+From a source checkout, with the development dependencies:
 
 ```bash
-python -m black --check usif tests examples
-python -m isort --check-only usif tests examples
-python -m mypy usif
-python -m bandit -q -r usif -x tests
-python -m pip_audit
-python -m pytest tests/unit --cov=usif --cov-report=term-missing
+python -m pip install -e ".[dev,pymatgen,ase,mp]"
+```
+
+matsimpy is optional and not on PyPI; install it from its source checkout to run its tests.
+Run every command below from the repository root.
+
+## Checks
+
+CI runs these; all must pass before a change is merged:
+
+```bash
+black --check usif tests examples scripts
+isort --check-only usif tests examples scripts
+mypy usif
+bandit -q -r usif -x tests
+pip_audit
+python scripts/check_release_metadata.py
+python -m pytest tests/unit --cov=usif --cov-report=term-missing   # coverage gate: 80%
 python -m pytest tests/integration tests/reliability tests/examples
 ```
 
-README-linked examples must have smoke coverage under `tests/examples/`. Materials Project tests should use deterministic fixtures under `tests/fixtures/`; live API/network checks must be explicitly marked `network` and skipped by default. Prefer `MP_API_KEY` over command-line API keys. See `docs/TESTING.md` and `docs/RELEASE.md` for the full workflow.
+black and isort use a line length of 100. Useful subsets:
+
+```bash
+python -m pytest tests/unit/codec/test_codec.py -k round_trip
+python -m pytest -m "not slow and not network"
+```
+
+## Test layout
+
+| Path | Contents |
+|---|---|
+| `tests/unit/model/` | `Structure`, `Cell`, property maps, schemas, units |
+| `tests/unit/codec/` | Record format 7 (including wire types and canonical decoding), JSON documents, compression |
+| `tests/unit/symmetry/` | Lossless reduction and expansion |
+| `tests/unit/dataset/` | `.usifc` datasets, `Q` queries and their query plans |
+| `tests/unit/architecture/` | Import layering, lazy optional imports, frozen tables, retired wording |
+| `tests/unit/release/` | Version and release metadata consistency |
+| `tests/integration/interop/` | matsimpy, ASE and pymatgen backends, unit conversion, `usif.read`/`write`/`convert` |
+| `tests/integration/materials_project/` | The `scripts/materials_project` mapper and command line, on bundled fixtures |
+| `tests/integration/test_cli.py` | The `usif` command line |
+| `tests/reliability/test_upgrade.py` | Reading USIF 0.8 files against golden fixtures |
+| `tests/examples/` | Every script in `examples/` and the benchmark script |
+| `tests/fixtures/` | Test data: `format5/`, `format6/` (USIF 0.8 files) and `mp_structures/` |
+
+Tests that need an optional library use `pytest.importorskip`. `tests/conftest.py` applies the
+markers `unit`, `integration`, `interop`, `mp_data`, `reliability` and `examples` from the
+directory, so do not add them by hand; `network`, `slow`, `large` and `performance` are for
+individual tests. Live Materials Project access is never part of the default suite; set
+`MP_DATA_DIR` to run the Materials Project tests on another local download.
+
+## Guidelines
+
+- Keep the package layering described in [ARCHITECTURE.md](ARCHITECTURE.md);
+  `tests/unit/architecture/` enforces it.
+- The core depends only on numpy, spglib and typer. Import optional libraries (matsimpy, ASE,
+  pymatgen, zstandard) inside the function that needs them, never at module level.
+- Applications that are not part of the library (benchmarks, Materials Project tooling) belong in
+  `scripts/`, which is not packaged.
+- `usif/upgrade/` and the format-5 tables in `usif/symmetry/tables.py` are frozen. They must keep
+  decoding `tests/fixtures/format5` and `tests/fixtures/format6` exactly; never regenerate or edit
+  those fixtures to make a test pass (`format6/generate.py` was run against the USIF 0.8.0 code).
+- A change to the record or dataset layout needs a format version decision; see
+  [FORMAT_VERSIONING.md](FORMAT_VERSIONING.md).
+- Every script in `examples/` must be listed in `tests/examples/test_examples.py`.
+- Public API changes follow [API_STABILITY.md](API_STABILITY.md); releases follow
+  [RELEASE.md](RELEASE.md).

@@ -1,76 +1,44 @@
-# API Stability Policy
+# API stability
 
-USIF 0.8.x is the stable architecture line.  The public API is intentionally small;
-internal modules may keep changing when they improve reliability, performance, or
-maintainability.
+USIF is pre-1.0. Releases bump the minor version (0.9.0, 0.10.0, ...) and may change the public API; patch releases (0.9.1, ...) contain fixes only and do not change it.
+
+USIF 0.9.0 is a breaking redesign. The 0.8 API (`USIFStructure`, `USIF`, `StructureContainer`, `usif.services`, `usif.interop`, `SymmetryPolicy`, `PropertyRegistry`, `AtomicProperties`/`StructureProperties`, `CompressionType`) was removed without a compatibility layer. The 0.9.0 entry of [CHANGELOG.md](CHANGELOG.md) has the migration guide.
 
 ## Public API
 
-The following entry points are considered stable for 0.8.x minor releases:
+The public API is listed in [guide/api.md](guide/api.md). In short:
 
-- `usif.USIFStructure`
-- `usif.USIF`
-- `usif.properties.PropertyRegistry`
-- `usif.properties.DEFAULT_REGISTRY`
-- `usif.properties.create_default_registry()`
-- `usif.storage.StructureContainer`
-- `usif.storage.USIFGroup`
-- `usif.storage.ContainerValidationResult`
-- `usif.services.import_structure()`
-- `usif.services.import_pymatgen()`
-- `usif.services.import_matsimpy()`
-- `usif.services.read_foreign_file()`
-- `usif.services.export_structure()`
-- `usif.services.save_structure()`
-- `usif.services.load_structure()`
-- `usif.services.save_structure_json()`
-- `usif.services.load_structure_json()`
-- `usif.interop.common.AtomsData`, `build_structure()`, `structure_to_arrays()`
-- `usif.interop.matsimpy.MatsimpyImporter`
-- `usif.interop.matsimpy.MatsimpyExporter`
-- `usif.interop.pymatgen.PymatgenImporter`
-- `usif.interop.pymatgen.PymatgenExporter`
-- `usif.interop.ase.ASEImporter`
-- `usif.interop.ase.ASEExporter`
-- `usif.symmetry.SymmetryPolicy` and `apply_symmetry_policy()`
-- `usif.benchmarks.benchmark_compression()`
-- `usif.integrations.materials_project` high-level functions documented in README
-- `usif` console script and `usif.cli.main()` programmatic CLI entry point
+- the names exported by `usif` (`Structure`, `Cell`, `Schema`, `PropertySpec`, `DEFAULT_SCHEMA`, `read`, `read_all`, `write`, `write_all`, `convert`, `encode`, `decode`, `Dataset`, `Q`, the exceptions and the version constants);
+- `usif.model`, `usif.codec` (including `jsondoc` and `compression`), `usif.dataset`, `usif.backends`, `usif.upgrade`, `usif.symmetry` (`analyze`), `usif.units`, `usif.errors`;
+- the `usif` command line and `usif.cli.main()`;
+- the extension points: property specs (`Schema.register`), compression codecs (`usif.codec.compression.register`), backends (`usif.backends.register` and the `usif.backends` entry-point group).
+
+The development scripts in `scripts/` (benchmarks, Materials Project tooling) are not part of the package or its API.
 
 ## Internal API
 
-Modules under storage implementation boundaries, low-level index stores, mixins,
-recovery scanners, binary codec helpers, and test utilities are internal unless
-explicitly listed above.  They are safe to import for advanced experiments, but
-minor releases may change them without deprecation.
+Everything else is internal and may change in any release, including:
 
-Examples of internal modules:
+- `usif.codec.wire`, `usif.codec.columns` and the private helpers of `usif.codec.record`;
+- `usif.dataset.sql` and the SQL text produced by `Q`;
+- `usif.symmetry.spacegroup`, `usif.symmetry.tables` and the internals of `reduce`/`expand`;
+- `usif.fileio`, `usif.elements`, `usif.formula`;
+- names starting with an underscore.
 
-- `usif.storage.index_persistence`
-- `usif.storage.io_ops`
-- `usif.storage.prefetch`
-- `usif.storage.recovery`
-- `usif.format.binary.*`
+## File formats
 
-## Experimental API
+File formats are versioned independently of the package:
 
-Features marked experimental in documentation or docstrings may change within the
-0.8.x line.  Examples include performance markers, large-container benchmarking
-fixtures, and future optional native ASE conversion paths.
+- `.usif` record format 7 (`usif.FORMAT_VERSION`), specified in [BINARY_FORMAT.md](BINARY_FORMAT.md);
+- JSON documents with schema `usif.structure.json.v2`;
+- `.usifc` dataset schema 1 (`usif.DATASET_SCHEMA_VERSION`), specified in [DATASET_FORMAT.md](DATASET_FORMAT.md).
 
-## Deprecation policy
+A file written by a release stays readable by later releases. Files written by USIF 0.8 and earlier (record formats 5 and 6, container version 2) are read by the frozen readers in `usif.upgrade`; see [FORMATS_0_8.md](FORMATS_0_8.md) and [FORMAT_VERSIONING.md](FORMAT_VERSIONING.md).
 
-The 0.8.x line keeps public entry points narrow and avoids broad forwarding modules.  When a
-public API must change:
+## Changing the public API
 
-1. Add a changelog entry explaining the reason.
-2. Update README, examples, and architecture docs in the same release.
-3. Add or update tests that describe the new public contract.
-4. Prefer one minor release with a clear warning only when the old API is widely
-   documented.  Otherwise, remove internal APIs directly.
+When a public name changes:
 
-## Breaking changes
-
-Breaking changes to the stable public API should normally wait for 8.0.  Breaking
-changes to undocumented internal modules are allowed in 0.8.x when tests and docs
-are updated.
+1. Describe the change and the replacement in [CHANGELOG.md](CHANGELOG.md).
+2. Update the README, `docs/guide/`, the examples and their tests in the same change.
+3. Add or update tests for the new behaviour.
