@@ -4,8 +4,8 @@ USIF has four version numbers. They change for different reasons and are never m
 
 | Version | Where | Current | Changes when |
 |---|---|---|---|
-| package version | `pyproject.toml` `[project].version` | 0.9.0 | every release (see [RELEASE.md](RELEASE.md)) |
-| release record | `pyproject.toml` `[tool.usif.release]` | `20261116.018` | every release |
+| package version | `pyproject.toml` `[project].version` | 0.10.0 | every release (see [RELEASE.md](RELEASE.md)) |
+| release record | `pyproject.toml` `[tool.usif.release]` | `20261116.019` | every release |
 | `.usif` record format | `usif.version.FORMAT_VERSION` | 7 | the record layout changes in a way readers must know about |
 | dataset schema | `usif.version.DATASET_SCHEMA_VERSION` (SQLite `user_version`) | 1 | the `.usifc` tables change |
 

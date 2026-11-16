@@ -6,13 +6,13 @@
 
 ```toml
 [project]
-version = "0.9.0"
+version = "0.10.0"
 
 [tool.usif.release]
 date = "2026-11-16"
-sequence = 18
-record = "20261116.018"
-id = "usif-20261116-018"
+sequence = 19
+record = "20261116.019"
+id = "usif-20261116-019"
 ```
 
 **Bump policy.** USIF is pre-1.0 (it was renumbered from `7.1.0` to `0.7.1` with identical
@@ -50,8 +50,8 @@ only with their layouts; see [FORMAT_VERSIONING.md](FORMAT_VERSIONING.md).
    /tmp/usif-wheel-smoke/bin/python -m pip install dist/*.whl
    /tmp/usif-wheel-smoke/bin/python - <<'PY'
    import usif
-   assert usif.__version__ == "0.9.0"
-   assert usif.RELEASE_RECORD == "20261116.018"
+   assert usif.__version__ == "0.10.0"
+   assert usif.RELEASE_RECORD == "20261116.019"
    from usif import Cell, Dataset, Structure, decode, encode
    s = Structure.from_fractional(["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]], Cell.cubic(5.64))
    assert decode(encode(s)) == s
