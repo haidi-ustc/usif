@@ -14,7 +14,7 @@ USIF stores atomistic structures (crystals and molecules) exactly, compactly and
   and writes every file format they support, and has a `usif` command line.
 - **Small core.** Only numpy, spglib and typer are required; every structure library is optional.
 
-Python 3.10+. Version 0.9.0. Files written by USIF 0.8 and earlier are still readable (see
+Python 3.10+. Version 0.10.0. Files written by USIF 0.8 and earlier are still readable (see
 [Upgrading from 0.8](#upgrading-from-08)).
 
 ## Installation
@@ -87,6 +87,23 @@ usif upgrade old.usifc new.usifc           # USIF 0.8 files -> current formats
 ```
 
 See the [command-line guide](docs/guide/command-line.md) for every command and option.
+
+## A local dataset for your group, with an AI agent
+
+Register the calculations scattered across project directories in one searchable dataset, and
+ask about it in plain words:
+
+```bash
+usif dataset import ~/projects/oer group.usifc --group /oer   # VASP dirs, CIF, extxyz, ... + provenance
+export DEEPSEEK_API_KEY=...                                   # any OpenAI-compatible LLM; DeepSeek by default
+usif agent ask group.usifc "Which Ti oxides do we have, and with which ENCUT?"
+usif agent chat group.usifc --allow ~/projects                # "register the new runs in ~/projects/oer"
+```
+
+The agent reads the dataset and your files and proposes changes as a change plan. Nothing is
+written until you approve the plan: changes are applied in one transaction, checked against
+source-file hashes, and each new entry records the plan that added it. See the
+[agent guide](docs/guide/agent.md).
 
 ## Upgrading from 0.8
 

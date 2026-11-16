@@ -14,6 +14,7 @@ python -m pytest tests/unit
 python -m pytest tests/integration tests/reliability tests/examples
 python -m pytest tests/unit/dataset/test_dataset.py::test_name    # single test
 python -m pytest -m "not slow and not network"
+# live LLM test: needs DEEPSEEK_API_KEY in the environment (marked network, skipped otherwise)
 
 # CI quality gates (all must pass)
 black --check usif tests examples scripts
@@ -68,6 +69,13 @@ indexed by `docs/README.md`); keep it, `README.md` and `examples/` in sync with 
   entry points). Backends only map library objects/files to and from `Structure`.
 - `usif/io.py`: `read/read_all/write/write_all/convert` dispatch — native suffixes to the codec,
   format-5/6 records to `upgrade`, everything else to a backend.
+- `usif/agent`: local-dataset import and the LLM data agent (CLI-first, no GUI). `discover.scan`
+  finds VASP directories and structure files and builds `Candidate`s with provenance attrs
+  (`source`, `source_sha256`, `incar`, `notes`, ...). `plan.Plan` (JSON `usif.agent.plan.v1`, id =
+  hash of content) and `apply_plan`, the only write path: it re-checks sources and runs in one
+  transaction. `tools.Toolbox` holds read-only tools plus `propose_*` tools that only extend the
+  plan. `session.Session` is the tool loop, and `llm.ChatClient` is OpenAI-compatible HTTP (stdlib)
+  with DeepSeek as the default (`config.py`; key only from the env var named by `api_key_env`).
 - `usif/cli.py` is Typer (never import click directly). Conventions, covered by
   `tests/integration/test_cli.py`: `-h` and `--help` everywhere (`context_settings`); a bare command
   group prints help and exits 0; usage errors exit 2; `USIFError`/`OSError`/`KeyError` print one
@@ -81,8 +89,8 @@ the end of `POSN`/`SYMM`; the header digest covers the stored (compressed) bytes
 ## Guardrails that tests enforce (`tests/unit/architecture/test_architecture.py`)
 
 - The import-layer table (`ALLOWED`): basics ← model ← symmetry ← codec ← upgrade (only
-  `codec.wire`) ← dataset; backends see only model; io sees codec/upgrade/backends; cli sees all.
-  Imports inside functions count too. A new top-level module must be added to the table.
+  `codec.wire`) ← dataset; backends see only model; io sees codec/upgrade/backends; agent sees
+  model/dataset/io; cli sees all. Imports inside functions count too. A new top-level module must be added to the table.
 - Optional libraries (`ase`, `pymatgen`, `matsimpy`, `zstandard`, `mp_api`, `monty`) are never
   imported at module level. The core depends only on numpy, spglib and typer.
 - No relative imports inside `usif/`. Applications (benchmarks, Materials Project tooling) live in
@@ -102,6 +110,10 @@ the end of `POSN`/`SYMM`; the header digest covers the stored (compressed) bytes
   `symmetry="auto"` within 1e-5 Å). Encoders cast to the declared wire type; decoders reject
   anything an encoder would not write. Validate at the boundary (`ValidationError` for user input,
   `FormatError` for bytes) instead of letting NumPy or SQLite errors escape.
+- **Human in the loop.** The agent (LLM) never writes. Its tools open datasets read-only, read
+  files only under `--allow` roots, and record changes as a `Plan`. Applying a plan needs a
+  person: a `[y/N]` prompt, or `--yes` on `usif agent apply` / `usif dataset import`, never on
+  `ask`/`chat`. Never put the API key in messages, plans, logs or output.
 - **Physics.** Units are CODATA 2018; never silently reinterpret a value whose unit you cannot
   convert. Keep MP fields with MP's meaning (`energy` = uncorrected DFT total).
 - **Measure before optimising.** Benchmark (`python -m scripts.benchmark`, or a dataset of ~30k
@@ -121,7 +133,7 @@ the end of `POSN`/`SYMM`; the header digest covers the stored (compressed) bytes
 
 ## Versioning and release metadata
 
-**Bump policy:** pre-1.0 (current `0.9.0`). Releases bump the *minor* version (0.9.0, 0.10.0, …),
+**Bump policy:** pre-1.0 (current `0.10.0`). Releases bump the *minor* version (0.9.0, 0.10.0, …),
 patch versions are for fixes only, and 1.0.0 only happens when the user explicitly asks. Older
 CHANGELOG headings keep their historical numbers.
 

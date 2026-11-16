@@ -10,6 +10,7 @@ Run the examples from the repository root, with USIF installed (`pip install -e 
 | `03_library_conversion.py` | Round trips through matsimpy, ASE and pymatgen objects; writing and reading extxyz | each installed backend (missing ones are skipped) |
 | `04_upgrade_0_8_files.py` | Reading a format-5 record, listing a v2 container, importing it into a dataset | core (uses `tests/fixtures/`) |
 | `05_cli_workflow.py` | The `usif` command line, run through `usif.cli.main` | core |
+| `06_local_dataset.py` | A group's local dataset: scan a project directory, review and apply the change plan, search by properties and provenance | core |
 
 ```bash
 python examples/quickstart.py

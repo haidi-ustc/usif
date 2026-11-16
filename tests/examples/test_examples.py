@@ -21,6 +21,13 @@ EXPECTED = {
     "03_library_conversion.py": [],
     "04_upgrade_0_8_files.py": ["Imported 6 entries", "Validation ok: True"],
     "05_cli_workflow.py": ["$ usif validate"],
+    "06_local_dataset.py": [
+        "Found 3 structures, 3 new",
+        "Applied: 3 added",
+        "New after import: 0",
+        "Near the minimum: ['/salts/eos/a5.60/final']",
+        "Added by plan: 3",
+    ],
 }
 
 

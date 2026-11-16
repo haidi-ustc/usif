@@ -1,6 +1,6 @@
 # Public API
 
-This is the public API of USIF 0.9.0. Everything else (for example `usif.codec.wire`, `usif.codec.columns`, `usif.dataset.sql`, `usif.symmetry.spacegroup`, `usif.fileio`, and names starting with `_`) is internal. See [API stability](../API_STABILITY.md).
+This is the public API of USIF 0.10.0. Everything else (for example `usif.codec.wire`, `usif.codec.columns`, `usif.dataset.sql`, `usif.symmetry.spacegroup`, `usif.fileio`, and names starting with `_`) is internal. See [API stability](../API_STABILITY.md).
 
 ## `usif`
 
@@ -56,6 +56,22 @@ See [Records and JSON documents](records.md).
 
 See [Datasets](datasets.md).
 
+## `usif.agent`
+
+The data agent and local-dataset import ([guide](agent.md)). Nothing here is imported by `import usif`.
+
+| Name | Description |
+|---|---|
+| `scan(root, *, group="/", dataset=None, all_frames=False)` | Find calculations and structure files -> `ScanResult` (`candidates`, `new`, `skipped`) of `Candidate`s (`path`, `source`, `sha256`, `formula`, `natoms`, `properties`, `attrs`, `status`) |
+| `Plan(dataset, operations, options, origin, request)` | A change plan: `id`, `describe()`, `to_dict()`, `save(path)`, `Plan.load(path)`, `Plan.from_dict(data)` |
+| `Operation(op, target, attrs, source, sha256, frame, overwrite, note)` | One change: `add`, `set_attrs`, `set_group_attrs` or `remove` |
+| `plan_from_scan(dataset, candidates, *, update=False, options=None)` | A plan adding the new candidates |
+| `apply_plan(plan, *, dataset=None) -> ApplyReport` | Verify and apply an approved plan in one transaction |
+| `LLMConfig`, `load_config(overrides=None)` | OpenAI-compatible endpoint settings (DeepSeek by default) |
+| `ChatClient(config)`, `ChatModel` | The HTTP chat client and the protocol it implements (`complete(messages, tools)`) |
+| `Toolbox(dataset, *, roots=())` | The agent's read-only and `propose_*` tools; `plan` holds the proposals |
+| `Session(model, toolbox, *, on_tool=None)` | The conversation loop: `ask(text) -> str`, `plan` |
+
 ## `usif.backends`
 
 `Backend` and `FileBackend` (protocols), `register(backend, *, replace=False)`, `get(name)`, `backends()`, `available(name)`, `for_object(obj)`, `is_instance_of(obj, package, *qualnames)`. Built-in backend classes: `usif.backends.matsimpy.MatsimpyBackend`, `usif.backends.ase.AseBackend`, `usif.backends.pymatgen.PymatgenBackend`. Plugins use the entry-point group `usif.backends`. See [Writing a backend](libraries.md#writing-a-backend).
@@ -91,5 +107,6 @@ USIFError
 │   ├── ChecksumError                     stored digest does not match the payload
 │   └── UnsupportedVersionError           record or dataset version this reader cannot read
 ├── DatasetError                          dataset cannot be opened, written or queried
+├── AgentError                            LLM service, agent configuration or change plan problem
 └── MissingDependencyError (ImportError)  optional package not installed
 ```

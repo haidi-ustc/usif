@@ -1,6 +1,6 @@
 # USIF architecture
 
-This is the code-facing description of USIF 0.9. File layouts are specified in
+This is the code-facing description of USIF 0.10. File layouts are specified in
 [BINARY_FORMAT.md](BINARY_FORMAT.md) (`.usif` records), [DATASET_FORMAT.md](DATASET_FORMAT.md)
 (`.usifc` datasets) and [FORMATS_0_8.md](FORMATS_0_8.md) (files written by USIF 0.8 and earlier).
 
@@ -62,6 +62,15 @@ usif/
     matsimpy.py, ase.py, pymatgen.py
 
   io.py            read / read_all / write / write_all / convert
+
+  agent/           local-dataset import and the LLM data agent (CLI-first)
+    config.py      LLMConfig: OpenAI-compatible endpoint, DeepSeek by default; key from the environment
+    llm.py         ChatClient: /chat/completions with tool calling (standard library HTTP)
+    discover.py    scan(): calculations and structure files -> Candidates with provenance
+    plan.py        Plan / Operation (usif.agent.plan.v1), apply_plan(): the only write path
+    tools.py       Toolbox: read-only dataset and file tools, propose_* tools
+    session.py     Session: the model <-> tools loop
+
   cli.py           the usif command (Typer)
 ```
 
@@ -77,6 +86,7 @@ usif/
 | `dataset` | storage, indexing, queries | basics, model, codec, upgrade |
 | `backends` | mapping other libraries' objects | basics, model |
 | `io` | single-structure I/O dispatch | basics, model, codec, upgrade, backends |
+| `agent` | import, change plans, the LLM agent | basics, model, dataset, io |
 | `cli` | the command line | everything above |
 
 `tests/unit/architecture/test_architecture.py` enforces the table with an AST scan of every import,
@@ -114,7 +124,9 @@ io (codec, upgrade, backends) <- cli (also dataset)
 | Record content | ancillary (lower-case) section tags are skipped by readers that do not know them |
 
 Deliberately absent: a registry of record sections (user data goes in typed columns), pluggable
-dataset engines (the SQLite schema *is* the format), and unit conversion (units are labels).
+dataset engines (the SQLite schema *is* the format; measured at 200k entries, every query takes
+under about 200 ms, see [datasets](guide/datasets.md#size-and-speed)), and unit conversion (units
+are labels).
 
 ## 6. Hashes
 
@@ -131,3 +143,8 @@ dataset engines (the SQLite schema *is* the format), and unit conversion (units 
 * Records are validated through the same model checks as user input.
 * Dataset queries bind every value and name as SQL parameters.
 * Archive extraction (Materials Project) rejects path traversal and oversized members.
+* The agent cannot write: its tools open the dataset read-only and read files only below the
+  `--allow` directories; `propose_*` tools build a `Plan`, and only `apply_plan` writes, after a
+  person approves. `apply_plan` re-checks source SHA-256s and target entries and runs in one
+  transaction. The API key is read from the environment by the HTTP client alone and is redacted
+  from error text.

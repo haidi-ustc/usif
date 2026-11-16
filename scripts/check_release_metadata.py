@@ -128,16 +128,19 @@ def validate_release_metadata(root: Path) -> ReleaseMetadata:
 
     changelog = root / "docs" / "CHANGELOG.md"
     changelog_text = changelog.read_text(encoding="utf-8")
-    first_heading = next(
-        (line.strip() for line in changelog_text.splitlines() if line.startswith("## ")), ""
-    )
-    if first_heading != f"## {meta.version}":
-        raise AssertionError(
-            f"CHANGELOG latest heading is {first_heading!r}, expected ## {meta.version}"
-        )
-    if meta.record not in changelog_text.split("## ", 2)[1]:
+    # Changes not yet released may be collected under "## Unreleased" above the latest release.
+    released = [
+        section
+        for section in changelog_text.split("\n## ")[1:]
+        if not section.startswith("Unreleased")
+    ]
+    latest = released[0] if released else ""
+    heading = latest.splitlines()[0].strip() if latest else ""
+    if heading != meta.version:
+        raise AssertionError(f"CHANGELOG latest release is {heading!r}, expected {meta.version}")
+    if meta.record not in latest:
         raise AssertionError("CHANGELOG latest entry does not include the release record")
-    if meta.release_id not in changelog_text.split("## ", 2)[1]:
+    if meta.release_id not in latest:
         raise AssertionError("CHANGELOG latest entry does not include the release id")
 
     _assert_contains(
