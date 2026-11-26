@@ -111,8 +111,8 @@ def _verify(conn: sqlite3.Connection, path: Path) -> None:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
     except sqlite3.DatabaseError as exc:
         raise DatasetError(
-            f"{path} is not a USIF dataset ({exc}); files written by USIF 0.8 or earlier "
-            "can be converted with 'usif upgrade'"
+            f"{path} is not a USIF dataset ({exc}); a container written by USIF 0.8 or "
+            "earlier is copied into a dataset with Dataset.import_v2"
         ) from exc
     if app_id != APPLICATION_ID:
         raise DatasetError(f"{path} is an SQLite database but not a USIF dataset")

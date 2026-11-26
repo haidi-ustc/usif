@@ -7,6 +7,10 @@ the agent, query-to-file export on the command line, and change-plan format v2.
 
 ### Breaking changes
 
+- The `usif upgrade` command is removed. Format-5/6 records are still read by every command and
+  by `usif.read` (`usif convert old.usif new.usif` rewrites one as format 7); a version-2
+  container is copied into a dataset with `Dataset.import_v2`, to which `usif inspect` and the
+  `Dataset` error message now point. The frozen readers in `usif.upgrade` are unchanged.
 - Change plans are `usif.agent.plan.v2` (the operations of 0.11: `add`, `link`, `set_attrs`,
   `set_group_attrs`, `remove`). The plan id now also hashes the format name. Plans saved by 0.10
   and 0.11 (`usif.agent.plan.v1`) are not read: `usif agent show/apply` refuse them with a

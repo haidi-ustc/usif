@@ -48,7 +48,7 @@ converted.
 |---|---|---|
 | USIF 0.7 | `.usif` format 5 | `usif.upgrade.format6` |
 | USIF 0.8 | `.usif` format 6 | `usif.upgrade.format6` |
-| USIF 0.7, 0.8 | `.usifc` container v2 | `usif.upgrade.container_v2`, `usif upgrade` |
+| USIF 0.7, 0.8 | `.usifc` container v2 | `usif.upgrade.container_v2`, `Dataset.import_v2` |
 
 The golden fixtures in `tests/fixtures/format5` and `tests/fixtures/format6` must keep decoding to
 the same structures. [FORMATS_0_8.md](FORMATS_0_8.md) specifies these layouts.

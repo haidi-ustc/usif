@@ -17,7 +17,7 @@ from usif import io
 from usif.cli.agent import agent_app
 from usif.cli.common import CONTEXT, JSON_OPTION, describe, echo_summary, print_json
 from usif.cli.dataset import dataset_app
-from usif.errors import USIFError, ValidationError
+from usif.errors import USIFError
 from usif.version import (
     DATASET_SCHEMA_VERSION,
     FORMAT_VERSION,
@@ -27,7 +27,7 @@ from usif.version import (
 )
 
 app = typer.Typer(
-    help="USIF tools: inspect, convert, validate and upgrade structures and datasets.",
+    help="USIF tools: inspect, convert and validate structures and datasets.",
     context_settings=CONTEXT,
     add_completion=False,
 )
@@ -84,12 +84,19 @@ def _structure_summary(path: Path) -> Dict[str, Any]:
     return summary
 
 
+#: How to bring a USIF 0.8 (version-2) container into a dataset.
+HINT_V2 = (
+    "a USIF 0.8 container: copy it into a new dataset with "
+    "usif.Dataset('new.usifc', 'w').import_v2('old.usifc') (see docs/guide/upgrading.md)"
+)
+
+
 def _dataset_summary(path: Path) -> Dict[str, Any]:
     from usif.dataset import Dataset
     from usif.upgrade import is_container_v2
 
     if is_container_v2(path):
-        return {"path": str(path), "container_v2": True, "hint": "run 'usif upgrade' to convert"}
+        return {"path": str(path), "container_v2": True, "hint": HINT_V2}
     with Dataset(path, "r") as dataset:
         return {
             "path": str(path),
@@ -105,7 +112,7 @@ def _root(
     ctx: typer.Context,
     version: bool = typer.Option(False, "--version", help="Show the package version and exit."),
 ) -> None:
-    """USIF tools: inspect, convert, validate and upgrade structures and datasets."""
+    """USIF tools: inspect, convert and validate structures and datasets."""
     if version:
         typer.echo(f"USIF {__version__}")
         raise typer.Exit(0)
@@ -196,32 +203,6 @@ def validate_command(
             typer.echo(f"  {error}")
     if errors:
         raise typer.Exit(1)
-
-
-@app.command("upgrade")
-def upgrade_command(
-    source: Path = typer.Argument(
-        ..., metavar="SOURCE", help="A format-5/6 .usif record or a v2 .usifc container."
-    ),
-    target: Path = typer.Argument(
-        ..., metavar="TARGET", help="Output .usif record or .usifc dataset."
-    ),
-    symmetry: str = typer.Option("off", help="'auto' stores the asymmetric unit when lossless."),
-) -> None:
-    """Rewrite a file written by USIF 0.8 or earlier in the current formats."""
-    from usif.upgrade import is_container_v2
-
-    if is_container_v2(source):
-        from usif.dataset import Dataset
-
-        with Dataset(target, "w", symmetry=symmetry) as dataset:
-            count = dataset.import_v2(source)
-        typer.echo(f"{source} -> {target}: {count} entries")
-        return
-    if source.suffix.lower() != ".usif" or target.suffix.lower() != ".usif":
-        raise ValidationError("upgrade takes a .usif record or a v2 .usifc container")
-    io.write(io.read(source), target, symmetry=symmetry)
-    typer.echo(f"{source} -> {target}")
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

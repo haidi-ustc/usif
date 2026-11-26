@@ -9,7 +9,6 @@ Installing USIF provides the `usif` command. From Python, `usif.cli.main(argv)` 
 | `usif inspect PATH [--json]` | Summary of a structure file (formula, cell, property units, and for `.usif` the record format, hashes and compression) or of a `.usifc` dataset (counts, groups, metadata). |
 | `usif convert INPUT OUTPUT` | Convert one structure between any supported formats. Options for `.usif` output: `--compression`, `--precision`, `--symmetry`. For backend formats: `--backend`, `--format`. |
 | `usif validate PATH [--full] [--json]` | Decode a structure file, or check a dataset (`--full` decodes and re-hashes every record). Exit code 1 if invalid. |
-| `usif upgrade SOURCE TARGET [--symmetry auto]` | Rewrite a format-5/6 `.usif` record or a v2 `.usifc` container in the current format (see [Upgrading](upgrading.md)). |
 | `usif dataset add DATASET FILES... [--group G] [--symmetry] [--compression]` | Add every frame of each file. Entry names are file stems (`stem-0`, `stem-1`, ... for multi-frame files), existing names are overwritten, and each entry gets the attribute `source` (the file name). |
 | `usif dataset list DATASET [filters] [--limit N] [--json]` | List matching entries. Filters: `--group`, `--formula`, `--chemsys`, `--elements Fe,O`, `--max-atoms`, `--prop 'energy<-1.5'` (repeatable). |
 | `usif dataset export DATASET OUTPUT [--entry KEY]... [filters] [--limit N] [--format F] [--overwrite]` | Write the selected entries to one file, in dataset order: the `--entry` paths (`/group/name` or record hash, repeatable), or every entry matching the filters of `dataset list` (all entries if neither is given). One structure can go to any format, including `.usif` and `.json`; several need a multi-frame format such as `.extxyz`. An existing `OUTPUT` is refused unless `--overwrite` is given (it is then replaced only after the new file is complete), and nothing is written when no entry matches. See [Exporting](datasets.md#exporting). |
@@ -21,6 +20,11 @@ Installing USIF provides the `usif` command. From Python, `usif.cli.main(argv)` 
 | `usif agent apply PLAN [-y]` | Apply a reviewed plan in one transaction (asks first; `--yes` when not on a terminal). |
 | `usif agent plans [--applied] [--json]` | Plans waiting for review in `~/.usif/plans`, or the journal of applied plans. |
 | `usif agent config [--json]` | The LLM settings and the default dataset in effect, with where the default comes from (the key is only reported as set or not). |
+
+Files written by USIF 0.8 and earlier need no separate command: every command reads format-5/6
+records (`usif convert old.usif new.usif` rewrites one as format 7), and `usif inspect` reports a
+version-2 container, which is copied into a dataset with `Dataset.import_v2` (see
+[Upgrading](upgrading.md)). `usif upgrade` was removed in 0.12.0.
 
 Every command and group accepts `-h`/`--help`; a bare group (`usif dataset`, `usif agent`) prints its help. USIF errors are printed as `usif: error: ...` with exit code 2.
 

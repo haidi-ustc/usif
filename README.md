@@ -90,7 +90,6 @@ usif validate data.usifc --full            # exit code 1 if invalid
 usif dataset add data.usifc *.cif --group /cifs
 usif dataset list data.usifc --elements Na,Cl --prop 'energy<-1.5'
 usif dataset export data.usifc salts.extxyz --group /salts --prop 'energy<-1.5'  # never overwrites without --overwrite
-usif upgrade old.usifc new.usifc           # USIF 0.8 files -> current formats
 ```
 
 See the [command-line guide](docs/guide/command-line.md) for every command and option.
@@ -134,8 +133,8 @@ scripted model.
 0.9.0 is a redesign: the 0.8 API (`USIFStructure`, `USIF`, `StructureContainer`,
 `usif.services`, `usif.interop`, `SymmetryPolicy`, `PropertyRegistry`) is replaced. Files from
 0.8 and earlier still open. `usif.read()` reads format-5/6 `.usif` records, and version-2
-`.usifc` containers are converted with `usif upgrade old.usifc new.usifc` or
-`Dataset.import_v2()`. The [upgrade guide](docs/guide/upgrading.md) and the migration table in
+`.usifc` containers are copied into a dataset with `Dataset.import_v2()`; `usif convert
+old.usif new.usif` rewrites a record as format 7. The [upgrade guide](docs/guide/upgrading.md) and the migration table in
 the [changelog](docs/CHANGELOG.md) map each old call to its replacement.
 
 ## Documentation

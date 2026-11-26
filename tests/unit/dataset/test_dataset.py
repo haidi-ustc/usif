@@ -231,7 +231,7 @@ class TestModes:
             Dataset(other, "r")
         junk = tmp_path / "junk.usifc"
         junk.write_bytes(b"USIF container v2 " * 100)
-        with pytest.raises(DatasetError, match="usif upgrade"):
+        with pytest.raises(DatasetError, match="Dataset.import_v2"):
             Dataset(junk, "r")
 
     def test_rejects_newer_schema(self, ds):

@@ -22,7 +22,7 @@ Symmetric format-5/6 records are expanded to all atoms. The 0.8 atom order of ex
 
 ## Containers (`.usifc`, version 2)
 
-A version-2 container is not an SQLite file; `usif.Dataset` cannot open it. Convert it with `usif upgrade old.usifc new.usifc` (add `--symmetry auto` for compact records), or import it into a new or existing dataset:
+A version-2 container is not an SQLite file; `usif.Dataset` cannot open it. Import it into a new or existing dataset with `Dataset.import_v2` (open the target with `symmetry="auto"` for compact records):
 
 ```python
 from usif import Dataset
@@ -52,8 +52,12 @@ with open_container_v2(path) as container:
 
 ## Command line
 
+There is no `usif upgrade` command (it was removed in 0.12.0). Every command reads format-5/6
+records, so `usif convert` rewrites one as format 7; a container is converted from Python with
+`Dataset.import_v2` as shown above (`usif dataset import` scans structure files and does not read
+containers).
+
 ```bash
-usif inspect old.usifc            # reports a v2 container and suggests 'usif upgrade'
-usif upgrade old.usif new.usif    # one record
-usif upgrade old.usifc new.usifc  # a whole container
+usif convert old.usif new.usif    # a format-5/6 record -> format 7
+usif inspect old.usifc            # reports a v2 container and how to import it
 ```

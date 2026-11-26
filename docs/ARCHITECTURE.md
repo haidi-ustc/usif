@@ -73,7 +73,7 @@ usif/
     session.py     Session: the model <-> tools loop
 
   cli/             the usif command (Typer)
-    root.py        app, file commands (version, inspect, convert, validate, upgrade), main()
+    root.py        app, file commands (version, inspect, convert, validate), main()
     dataset.py     usif dataset ... (add, list, export of a query to one file, compact, import)
     agent.py       usif agent ... (ask, chat, show, apply, plans, config)
     plans.py       review(): show a plan, apply it only on approval, keep or journal it
