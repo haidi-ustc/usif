@@ -128,7 +128,7 @@ the end of `POSN`/`SYMM`; the header digest covers the stored (compressed) bytes
 - **Docs are part of the change.** Update `docs/guide/`, the README, examples, the changelog and the
   reference docs with the code; run every snippet you keep. One page per topic, no duplicates.
 - **Verify before claiming done:** all CI gates above, the full test suite, and both wheel smoke
-  scripts (`.github/workflows/ci.yml` and `workflow.yaml` must track the public API).
+  scripts (`.github/workflows/ci.yml` and `publish.yml` must track the public API).
 
 ## Git workflow
 
