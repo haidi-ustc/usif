@@ -123,15 +123,13 @@ dmypy.json
 .pyre/
 
 # USIF specific
-# Downloaded Materials Project data (moved to tests/data/)
-# Note: tests/data/mp_structures.zip should be tracked for testing
-tests/data/mp_structures/
-tests/data/mp_test_extracted/
 *.usif
 *.usifc
-# Golden format-5 records used by tests/reliability/test_format5_compat.py
+# Golden USIF 0.8 records (format 5/6, v2 containers) read by tests/reliability and examples
 !tests/fixtures/format5/*.usif
 !tests/fixtures/format5/*.usifc
+!tests/fixtures/format6/*.usif
+!tests/fixtures/format6/*.usifc
 
 # Test data
 test_data/
