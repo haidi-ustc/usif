@@ -4,12 +4,17 @@ The agent (and ``usif dataset import``) never write to a dataset. They build a
 :class:`Plan`, a list of operations on one dataset, which a person reviews and
 approves; :func:`apply_plan` then executes it in a single transaction.
 
-A plan is a JSON document (``usif.agent.plan.v1``) that can be saved, read,
-edited by hand, and applied later. Its ``id`` is a hash of the dataset path, the
-encoding options and the operations, so an applied entry's ``plan`` attribute
-identifies exactly what was approved. Before writing, :func:`apply_plan`
-re-checks every source file against its recorded SHA-256 and every target
-entry against the dataset, and refuses the whole plan if anything changed.
+A plan is a JSON document (``usif.agent.plan.v2``) that can be saved, read,
+edited by hand, and applied later. Its ``id`` is a hash of the format, the
+dataset path, the encoding options and the operations, so an applied entry's
+``plan`` attribute identifies exactly what was approved. Before writing,
+:func:`apply_plan` re-checks every source file against its recorded SHA-256 and
+every target entry against the dataset, and refuses the whole plan if anything
+changed.
+
+Only the current format is read. Plans written by usif 0.10 and 0.11
+(``usif.agent.plan.v1``) are rejected with a message saying so; their files
+are left as they are.
 """
 
 from __future__ import annotations
@@ -34,7 +39,9 @@ from usif.model.properties import normalize_json
 
 __all__ = ["OPERATIONS", "PLAN_FORMAT", "ApplyReport", "Operation", "Plan", "apply_plan"]
 
-PLAN_FORMAT = "usif.agent.plan.v1"
+PLAN_FORMAT = "usif.agent.plan.v2"
+#: Plan formats of earlier releases, recognised only to explain why they are not read.
+_RETIRED_FORMATS = {"usif.agent.plan.v1": "usif 0.10 and 0.11"}
 #: Operation kinds and what they do.
 OPERATIONS = {
     "add": "store the structure of `source` as entry `target`",
@@ -160,8 +167,6 @@ class Operation:
         unknown = set(data) - {f for f in cls.__dataclass_fields__}
         if unknown:
             raise AgentError(f"unknown operation fields {sorted(unknown)}")
-        if not isinstance(data, Mapping):
-            raise AgentError("plan operations must be JSON objects")
         try:
             return cls(**dict(data))
         except TypeError as exc:
@@ -210,6 +215,7 @@ class Plan:
     @property
     def id(self) -> str:
         content = {
+            "format": PLAN_FORMAT,
             "dataset": self.dataset,
             "options": self.options,
             "operations": [op.to_dict() for op in self.operations],
@@ -262,8 +268,15 @@ class Plan:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "Plan":
-        if data.get("format") != PLAN_FORMAT:
-            raise AgentError(f"not a change plan (format {data.get('format')!r})")
+        found = data.get("format")
+        if isinstance(found, str) and found in _RETIRED_FORMATS:
+            raise AgentError(
+                f"change plan format {found} (written by {_RETIRED_FORMATS[found]}) is not read "
+                f"by this version, which reads {PLAN_FORMAT}; the file is left as it is: make "
+                "the plan again to apply it"
+            )
+        if found != PLAN_FORMAT:
+            raise AgentError(f"not a change plan (format {shown(found, 80)})")
         operations = data.get("operations", [])
         if not isinstance(operations, list) or not isinstance(data.get("dataset"), str):
             raise AgentError("a change plan needs a 'dataset' path and an 'operations' list")

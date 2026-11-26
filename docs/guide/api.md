@@ -63,7 +63,7 @@ The data agent and local-dataset import ([guide](agent.md)). Nothing here is imp
 | Name | Description |
 |---|---|
 | `scan(root, *, group="/", dataset=None, all_frames=False)` | Find calculations and structure files -> `ScanResult` (`candidates`, `new`, `skipped`) of `Candidate`s (`path`, `source`, `sha256`, `formula`, `natoms`, `properties`, `attrs`, `status`) |
-| `Plan(dataset, operations, options, origin, request)` | A change plan: `id`, `describe()`, `to_dict()`, `save(path)`, `Plan.load(path)`, `Plan.from_dict(data)` |
+| `Plan(dataset, operations, options, origin, request)` | A change plan (JSON `usif.agent.plan.v2`; earlier plan formats are refused): `id`, `describe()`, `to_dict()`, `save(path)`, `Plan.load(path)`, `Plan.from_dict(data)` |
 | `Operation(op, target, attrs, source, sha256, frame, overwrite, note)` | One change: `add`, `link`, `set_attrs`, `set_group_attrs` or `remove` |
 | `plan_from_scan(dataset, candidates, *, update=False, options=None)` | A plan adding the new candidates |
 | `apply_plan(plan, *, dataset=None) -> ApplyReport` | Verify and apply an approved plan in one transaction |

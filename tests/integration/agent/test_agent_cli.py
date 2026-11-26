@@ -89,7 +89,25 @@ def test_import_with_yes_and_saved_plan(capsys, tmp_path):
         capsys, "dataset", "import", source, "d.usifc", "--plan-out", plan_path, "--yes"
     )
     assert code == 0 and "applied plan" in out and plan_path.exists()
-    assert json.loads(plan_path.read_text())["format"] == "usif.agent.plan.v1"
+    assert json.loads(plan_path.read_text())["format"] == "usif.agent.plan.v2"
+
+
+def test_plans_saved_by_0_11_are_listed_but_not_applied(capsys, tmp_path):
+    pending = tmp_path / "home" / "plans"
+    pending.mkdir(parents=True)
+    old = {
+        "format": "usif.agent.plan.v1",
+        "id": "0123456789abcdef",
+        "dataset": str(tmp_path / "d.usifc"),
+        "operations": [{"op": "set_group_attrs", "target": "/g", "attrs": {"a": 1}}],
+    }
+    (pending / "0123456789abcdef.json").write_text(json.dumps(old))
+    code, out, _ = run(capsys, "agent", "plans")
+    assert code == 0 and "usif.agent.plan.v1 (written by usif 0.10 and 0.11)" in out
+    assert "1 plans" in out
+    code, _, err = run(capsys, "agent", "apply", pending / "0123456789abcdef.json", "--yes")
+    assert code == 2 and "make the plan again" in err and not (tmp_path / "d.usifc").exists()
+    assert json.loads((pending / "0123456789abcdef.json").read_text()) == old  # left as it was
 
 
 def test_agent_config_never_prints_the_key(capsys, monkeypatch):

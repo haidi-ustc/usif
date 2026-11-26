@@ -68,7 +68,7 @@ usif/
                    the explicit default dataset (USIF_DATASET, then [agent] dataset; never guessed)
     llm.py         ChatClient: /chat/completions with tool calling (standard library HTTP)
     discover.py    scan(): calculations and structure files -> Candidates with provenance
-    plan.py        Plan / Operation (usif.agent.plan.v1), apply_plan(): the only write path
+    plan.py        Plan / Operation (usif.agent.plan.v2 only), apply_plan(): the only write path
     tools.py       Toolbox: read-only dataset and file tools, propose_* tools (projects, links)
     session.py     Session: the model <-> tools loop
 

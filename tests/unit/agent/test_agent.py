@@ -1,5 +1,6 @@
 """The data agent without a network: config, HTTP client, scanning, plans, tools, session."""
 
+import hashlib
 import io as stdio
 import json
 import urllib.request
@@ -365,7 +366,26 @@ def test_display_escapes_model_text_and_shows_values(tmp_path):
         with pytest.raises(AgentError):
             Operation.from_dict(bad)
     with pytest.raises(AgentError):
-        Plan.from_dict({"format": "usif.agent.plan.v1", "dataset": "d", "operations": [1]})
+        Plan.from_dict({"format": "usif.agent.plan.v2", "dataset": "d", "operations": [1]})
+
+
+def test_plan_format_v2_and_retired_v1(tmp_path):
+    plan = Plan(tmp_path / "d.usifc", [Operation("set_group_attrs", "/g", {"a": 1})])
+    data = plan.to_dict()
+    assert data["format"] == "usif.agent.plan.v2"
+    assert Plan.from_dict(data).id == plan.id
+    # The id covers the format: the same operations under another format are another plan.
+    content = {"dataset": plan.dataset, "options": {}, "operations": data["operations"]}
+    for fmt in ("usif.agent.plan.v1", "usif.agent.plan.v2"):
+        text = json.dumps({**content, "format": fmt}, sort_keys=True, separators=(",", ":"))
+        assert (hashlib.sha256(text.encode()).hexdigest()[:16] == plan.id) is fmt.endswith("v2")
+    old = tmp_path / "old.json"
+    old.write_text(json.dumps({**data, "format": "usif.agent.plan.v1"}))
+    with pytest.raises(AgentError, match=r"usif.agent.plan.v1 \(written by usif 0.10 and 0.11\)"):
+        Plan.load(old)
+    for fmt in (None, "usif.agent.plan.v3", 7):
+        with pytest.raises(AgentError, match="not a change plan"):
+            Plan.from_dict({**data, "format": fmt})
 
 
 def test_add_remove_add_is_a_valid_sequence(tmp_path):

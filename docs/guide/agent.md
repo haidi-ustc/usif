@@ -65,7 +65,7 @@ Two candidates can map to the same entry, for example a VASP directory `calc/` a
 
 ## Change plans and approval
 
-A plan is a JSON file (`usif.agent.plan.v1`) listing operations on one dataset:
+A plan is a JSON file (`usif.agent.plan.v2`) listing operations on one dataset:
 
 | Operation | Effect |
 |---|---|
@@ -91,8 +91,8 @@ plan 148d5135ac05c74a for /data/group.usifc: 1 add, 1 set_group_attrs
   Text that can come from the model (notes, paths, attributes, the request) has control characters
   escaped and is shortened, and so does the agent's answer. A crafted answer cannot hide or forge
   lines of the plan. Hand-edited plans are type-checked field by field.
-* **Integrity.** The plan id is a hash of the dataset path, the encoding options and the
-  operations. A plan edited after it was written is refused until you delete its `id` field to
+* **Integrity.** The plan id is a hash of the plan format, the dataset path, the encoding
+  options and the operations. A plan edited after it was written is refused until you delete its `id` field to
   accept the edits. Before writing, `apply` checks every source file against its SHA-256 and every
   target entry against the dataset. It then applies all operations in one transaction, or none,
 and checks each source file's hash again after reading it.
@@ -100,6 +100,12 @@ and checks each source file's hash again after reading it.
   plan in `~/.usif/plans/applied/<id>.json`. Together they record what was added, from which files,
   and why; the `note` of each operation holds the agent's reason. `usif agent plans` lists the
   plans waiting for review, and `usif agent plans --applied` lists the journal.
+* **Plan format.** USIF 0.12 reads and writes `usif.agent.plan.v2` only (the operations above).
+  Plans saved by 0.10 and 0.11 (`usif.agent.plan.v1`) are not read: `show` and `apply` refuse
+  them with a message naming the format, and `usif agent plans` lists them with that message.
+  Their files are left as they are, so the journal keeps its record of what was applied (and
+  entries keep their `plan` ids); a pending v1 plan has to be made again, for example by
+  running the same `usif dataset import` or asking the agent again.
 
 From Python:
 

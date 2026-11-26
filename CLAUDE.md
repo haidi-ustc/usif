@@ -71,8 +71,8 @@ indexed by `docs/README.md`); keep it, `README.md` and `examples/` in sync with 
   format-5/6 records to `upgrade`, everything else to a backend.
 - `usif/agent`: local-dataset import and the LLM data agent (CLI-first, no GUI). `discover.scan`
   finds VASP directories and structure files and builds `Candidate`s with provenance attrs
-  (`source`, `source_sha256`, `incar`, `notes`, ...). `plan.Plan` (JSON `usif.agent.plan.v1`, id =
-  hash of content) and `apply_plan`, the only write path: it re-checks sources and runs in one
+  (`source`, `source_sha256`, `incar`, `notes`, ...). `plan.Plan` (JSON `usif.agent.plan.v2`, id =
+  hash of format + content; v1 plans of 0.10/0.11 are refused, not converted) and `apply_plan`, the only write path: it re-checks sources and runs in one
   transaction. `tools.Toolbox` holds read-only tools plus `propose_*` tools that only extend the
   plan. `session.Session` is the tool loop, and `llm.ChatClient` is OpenAI-compatible HTTP (stdlib)
   with DeepSeek as the default (`config.py`; key only from the env var named by `api_key_env`).
