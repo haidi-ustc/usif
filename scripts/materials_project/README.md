@@ -10,7 +10,7 @@ fixtures in `tests/fixtures/mp_structures` have the same layout as a download.
 Run from the repository root:
 
 ```bash
-python -m pip install -e ".[mp]"          # monty and mp-api
+python -m pip install -r scripts/materials_project/requirements.txt   # monty and mp-api
 export MP_API_KEY="your_api_key_here"
 ```
 

@@ -1,7 +1,7 @@
 """Materials Project data for USIF: download, load, and map to structures and datasets.
 
 Run ``python -m scripts.materials_project --help`` from the repository root.
-Needs ``pip install usif[mp]`` (mp-api, monty).
+Needs ``pip install -r scripts/materials_project/requirements.txt`` (mp-api, monty).
 """
 
 from .archive import create_mp_data_archive, load_mp_data_from_archive, safe_extract

@@ -5,7 +5,7 @@
 From a source checkout, with the development dependencies:
 
 ```bash
-python -m pip install -e ".[dev,pymatgen,ase,mp]"
+python -m pip install -e ".[dev,pymatgen,ase]" -r scripts/materials_project/requirements.txt
 ```
 
 matsimpy is optional and not on PyPI; install it from its source checkout to run its tests.

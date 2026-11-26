@@ -17,7 +17,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Install dev dependencies
-        run: python -m pip install -e ".[dev,pymatgen,ase,mp]"
+        run: python -m pip install -e ".[dev,pymatgen,ase]" -r scripts/materials_project/requirements.txt
       - name: Formatting
         run: |
           black --check usif tests examples scripts
@@ -58,7 +58,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Install integration dependencies
-        run: python -m pip install -e ".[dev,pymatgen,ase,mp]"
+        run: python -m pip install -e ".[dev,pymatgen,ase]" -r scripts/materials_project/requirements.txt
       - name: Integration and reliability tests
         run: pytest tests/integration tests/reliability tests/examples
 
