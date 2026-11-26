@@ -179,6 +179,10 @@ def test_default_dataset_is_configured_explicitly(capsys, monkeypatch, tmp_path)
     # Nothing configured: the dataset is required and no file is guessed or created.
     code, _, err = run(capsys, "agent", "ask", "hello")
     assert code == 2 and "no dataset: pass DATASET, set USIF_DATASET" in err
+    # A lone dataset path is a missing request, not a missing dataset.
+    for lone in ("d.usifc", tmp_path / "D.USIFC"):
+        code, _, err = run(capsys, "agent", "ask", lone)
+        assert code == 2 and "missing REQUEST after DATASET" in err and "no dataset" not in err
     code, out, _ = run(capsys, "agent", "config", "--json")
     assert json.loads(out)["dataset"] is None
     home = tmp_path / "home"

@@ -88,6 +88,12 @@ def agent_ask(
     """
     if first is None:
         raise typer.BadParameter("missing REQUEST", param_hint="REQUEST")
+    if second is None and first.lower().endswith(".usifc") and not any(c.isspace() for c in first):
+        # One word naming a dataset is a DATASET without a request, not a request.
+        raise typer.BadParameter(
+            f"missing REQUEST after DATASET {first}: say what you want, in quotes",
+            param_hint="REQUEST",
+        )
     dataset_path, request = (None, first) if second is None else (Path(first), second)
     session = _session(dataset_path, allow, model, base_url)
     typer.echo(terminal_text(session.ask(request)))
