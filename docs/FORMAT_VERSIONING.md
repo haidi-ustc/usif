@@ -6,8 +6,8 @@ one.
 
 | Version | Where | Current | Changes when |
 |---|---|---|---|
-| package version | `pyproject.toml` `[project].version` | 0.12.0 | every release (see [RELEASE.md](RELEASE.md)) |
-| release record | `pyproject.toml` `[tool.usif.release]` | `20261126.021` | every release |
+| package version | `pyproject.toml` `[project].version` | 1.0.0 | every release (see [RELEASE.md](RELEASE.md)) |
+| release record | `pyproject.toml` `[tool.usif.release]` | `20261126.022` | every release |
 | `.usif` record format | `usif.version.FORMAT_VERSION` | 7 | the record layout changes in a way readers must know about |
 | dataset schema | `usif.version.DATASET_SCHEMA_VERSION` (SQLite `user_version`) | 1 | the `.usifc` tables change |
 

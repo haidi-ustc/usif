@@ -90,8 +90,8 @@ jobs:
           cd /tmp  # import the installed wheel, not the checkout
           /tmp/usif-wheel-smoke/bin/python - <<'PY'
           import usif
-          assert usif.__version__ == "0.12.0"
-          assert usif.RELEASE_RECORD == "20261126.021"
+          assert usif.__version__ == "1.0.0"
+          assert usif.RELEASE_RECORD == "20261126.022"
           from usif import Cell, Dataset, Structure, decode, encode
           s = Structure.from_fractional(["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]], Cell.cubic(5.64))
           assert decode(encode(s)) == s

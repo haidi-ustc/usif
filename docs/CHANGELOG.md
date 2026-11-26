@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0
+
+Release record `20261126.022`, release ID `usif-20261126-022`. The public API listed in
+[API_STABILITY.md](API_STABILITY.md) and [guide/api.md](guide/api.md) is stable from this release:
+the structure model, the `.usif` record format (7), the `.usifc` dataset schema (1), the command
+line and the backends. Patch releases fix, minor releases add, and only a major release removes or
+changes a public name.
+
+The library itself is unchanged since 0.12.0.
+
 ## 0.12.0
 
 Release record `20261126.021`, release ID `usif-20261126-021`. An optional default dataset for

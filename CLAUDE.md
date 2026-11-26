@@ -111,8 +111,8 @@ the end of `POSN`/`SYMM`; the header digest covers the stored (compressed) bytes
 ## Development principles
 
 - **Avoid overengineering.** Prefer one clear mechanism over a plugin system; add registries only
-  for the four extension points in `docs/ARCHITECTURE.md`. Breaking changes are fine pre-1.0 when
-  they simplify the design; old files stay readable through `usif/upgrade`.
+  for the four extension points in `docs/ARCHITECTURE.md`. Breaking a public name needs a major
+  release (see `docs/API_STABILITY.md`); old files stay readable through `usif/upgrade`.
 - **Exact by default, strict on input.** Lossy options are explicit (`precision="f32"`,
   `symmetry="auto"` within 1e-5 Å). Encoders cast to the declared wire type; decoders reject
   anything an encoder would not write. Validate at the boundary (`ValidationError` for user input,
@@ -140,9 +140,9 @@ the end of `POSN`/`SYMM`; the header digest covers the stored (compressed) bytes
 
 ## Versioning and release metadata
 
-**Bump policy:** pre-1.0 (current `0.12.0`). Releases bump the *minor* version (0.9.0, 0.10.0, …),
-patch versions are for fixes only, and 1.0.0 only happens when the user explicitly asks. Older
-CHANGELOG headings keep their historical numbers.
+**Bump policy:** `1.0.0` (current). Patch releases (`1.0.1`) are fixes only, minor releases
+(`1.1.0`) add to the public API without breaking it, and a major version is a deliberate decision,
+never automatic. Older CHANGELOG headings keep their historical numbers.
 
 `pyproject.toml` is the single source: `[project].version` plus `[tool.usif.release]` (date,
 sequence, record, id; the sequence increases by one per release). A release bump must update
