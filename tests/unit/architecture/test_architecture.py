@@ -148,3 +148,13 @@ def test_frozen_symmetry_tables_are_unchanged():
         hashlib.sha256(content.encode()).hexdigest()
         == "b98ed93282e4003cb9b402f196a5786513cc24ab23571edb817cbcb98af742de"
     )
+
+
+def test_tests_import_this_checkout():
+    """`pytest` from the repository root needs no install (pyproject sets ``pythonpath``).
+
+    A stale non-editable ``usif`` in the environment must not shadow the checkout.
+    """
+    import usif
+
+    assert Path(usif.__file__).resolve().parent == PACKAGE

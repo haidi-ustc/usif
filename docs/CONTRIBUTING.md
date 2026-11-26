@@ -11,6 +11,12 @@ python -m pip install -e ".[dev,pymatgen,ase]" -r scripts/materials_project/requ
 matsimpy is optional and not on PyPI; install it from its source checkout to run its tests.
 Run every command below from the repository root.
 
+`pytest` (or `python -m pytest`) run from the repository root always tests this checkout:
+`pyproject.toml` sets `pythonpath = ["."]`, so the tests import `usif` and `scripts` from the
+source tree even without an editable install, and an older `usif` installed in the same
+environment cannot shadow it. The editable install is still how you get the dependencies and the
+`usif` command.
+
 ## Checks
 
 CI runs these; all must pass before a change is merged:

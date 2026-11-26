@@ -8,6 +8,10 @@
 - `usif.cli` is a package (`root`, `dataset`, `agent`, `plans`, `common`). `usif.cli.main` and the
   `usif` command are unchanged; `python -m usif.cli` still works.
 - The format-6 golden fixtures are tracked, so the upgrade tests run on a clean clone.
+- A plain `pytest` from the repository root works without `pip install -e .` and is no longer
+  shadowed by another `usif` installed in the environment: `pyproject.toml` sets
+  `pythonpath = ["."]` (the `dev` extra now needs pytest 7). The subprocess tests run from the
+  repository root whatever the working directory.
 
 ## 0.10.0
 
