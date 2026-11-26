@@ -6,10 +6,10 @@ Run the examples from the repository root, with USIF installed (`pip install -e 
 |---|---|---|
 | `quickstart.py` | Build a structure, write and read a `.usif` file, store and query it in a dataset | core |
 | `01_structures_and_records.py` | Properties with units, per-atom arrays, record options (compression, precision, symmetry), geometry and record hashes, exact JSON round trip | core |
-| `02_dataset_workflow.py` | Datasets: `add_many`, groups and attributes, deduplication, `Q` queries, `check`, `compact`, read-only access | core |
+| `02_dataset_workflow.py` | Datasets: `add_many`, groups and attributes, deduplication, `link` (one record in two groups), `Q` queries, `check`, `compact`, read-only access | core |
 | `03_library_conversion.py` | Round trips through matsimpy, ASE and pymatgen objects; writing and reading extxyz | each installed backend (missing ones are skipped) |
 | `04_upgrade_0_8_files.py` | Reading a format-5 record, listing a v2 container, importing it into a dataset | core (uses `tests/fixtures/`) |
-| `05_cli_workflow.py` | The `usif` command line, run through `usif.cli.main` | core |
+| `05_cli_workflow.py` | The `usif` command line, run through `usif.cli.main`: inspect, convert, `dataset add`, `dataset import` with a saved change plan, `agent show`, `dataset list`, `validate` | core |
 | `06_local_dataset.py` | A group's local dataset: scan a project directory, review and apply the change plan, search by properties and provenance | core |
 | `07_agent_projects.py` | Projects in plain words: the data agent (a scripted model, no API key) creates a project, saves search results into it as links, and answers a question about it; the plan is applied after approval | core |
 

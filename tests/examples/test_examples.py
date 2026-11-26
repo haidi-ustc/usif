@@ -17,10 +17,21 @@ EXPECTED = {
         "Exact decode: True",
         "JSON exact: True",
     ],
-    "02_dataset_workflow.py": ["Entries: 12, records: 11", "Validation ok: True"],
+    "02_dataset_workflow.py": [
+        "Entries: 12, records: 11",
+        "After link: 13 entries, 11 records",
+        "Validation ok: True",
+        "Read-only entries: 12",
+    ],
     "03_library_conversion.py": [],
     "04_upgrade_0_8_files.py": ["Imported 6 entries", "Validation ok: True"],
-    "05_cli_workflow.py": ["$ usif validate"],
+    "05_cli_workflow.py": [
+        "$ usif dataset import",
+        "applied plan",
+        "add       /runs/kcl/relaxed",
+        "2 entries",
+        "$ usif validate",
+    ],
     "06_local_dataset.py": [
         "Found 3 structures, 3 new",
         "Applied: 3 added",

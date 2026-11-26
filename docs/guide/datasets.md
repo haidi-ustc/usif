@@ -38,6 +38,7 @@ with Dataset("scan.usifc", "w", symmetry="auto") as ds:
     ds.set_group_attrs("/eos", {"description": "NaCl equation of state"})
     ds.add(rocksalt(lattice[5], energies[5]), "reference", "/ref", attrs={"note": "copy"})
     print(ds.stats()["entries"], ds.stats()["records"])   # 12 11: the copy reuses a record
+    ds.link("/eos/a=5.65", "minimum", "/projects/eos")      # one more entry, no new record
 
 with Dataset("scan.usifc", "r") as ds:
     low = Q.group("/eos") & (Q.prop("energy") < -6.79)
