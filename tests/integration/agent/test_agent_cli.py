@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import sys
 
 import numpy as np
@@ -11,11 +12,15 @@ from usif import Cell, Structure, io
 from usif.cli import main
 from usif.dataset import Dataset
 
+# See tests/integration/test_cli.py: strip styling before assertions, since a
+# forced-colour environment (CI) puts escape sequences inside the help text.
+ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+
 
 def run(capsys, *argv):
     code = main(list(map(str, argv)))
     out = capsys.readouterr()
-    return code, out.out, out.err
+    return code, ANSI.sub("", out.out), ANSI.sub("", out.err)
 
 
 @pytest.fixture(autouse=True)

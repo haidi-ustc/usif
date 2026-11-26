@@ -1,6 +1,7 @@
 """The ``usif`` command line, driven through :func:`usif.cli.main`."""
 
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -11,11 +12,16 @@ from usif.cli import main
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
+# Rich styles the help panels when the environment forces colour (CI exports
+# FORCE_COLOR), which splits "Usage: usif" across escape sequences; assertions
+# read the stripped text.
+ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+
 
 def run(capsys, *argv):
     code = main(list(map(str, argv)))
     out = capsys.readouterr()
-    return code, out.out, out.err
+    return code, ANSI.sub("", out.out), ANSI.sub("", out.err)
 
 
 @pytest.fixture
