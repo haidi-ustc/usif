@@ -76,7 +76,8 @@ indexed by `docs/README.md`); keep it, `README.md` and `examples/` in sync with 
   transaction. `tools.Toolbox` holds read-only tools plus `propose_*` tools that only extend the
   plan. `session.Session` is the tool loop, and `llm.ChatClient` is OpenAI-compatible HTTP (stdlib)
   with DeepSeek as the default (`config.py`; key only from the env var named by `api_key_env`).
-- `usif/cli.py` is Typer (never import click directly). Conventions, covered by
+- `usif/cli/` is Typer (never import click directly): `root.py` (app, file commands, `main`),
+  `dataset.py`, `agent.py`, `plans.py` (the approval step both groups share), `common.py`. Conventions, covered by
   `tests/integration/test_cli.py`: `-h` and `--help` everywhere (`context_settings`); a bare command
   group prints help and exits 0; usage errors exit 2; `USIFError`/`OSError`/`KeyError` print one
   line `usif: error: ...` and exit 2, never a traceback; `validate` exits 1 when invalid. The

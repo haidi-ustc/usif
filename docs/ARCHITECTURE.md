@@ -71,7 +71,12 @@ usif/
     tools.py       Toolbox: read-only dataset and file tools, propose_* tools
     session.py     Session: the model <-> tools loop
 
-  cli.py           the usif command (Typer)
+  cli/             the usif command (Typer)
+    root.py        app, file commands (version, inspect, convert, validate, upgrade), main()
+    dataset.py     usif dataset ... (add, list, export, compact, import)
+    agent.py       usif agent ... (ask, chat, show, apply, plans, config)
+    plans.py       review(): show a plan, apply it only on approval, keep or journal it
+    common.py      shared options, JSON/summary output, one-line error messages
 ```
 
 ## 3. Layering
