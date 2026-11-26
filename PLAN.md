@@ -1,7 +1,8 @@
 # USIF 0.9 architecture redesign
 
-Status: **in progress** on branch `refactor/0.9-architecture`.
-Target release: **0.9.0**. This is a breaking release; the project is pre-1.0, so the minor bump follows the versioning policy.
+Status: **done**. The redesign shipped in 0.9.0; 0.10.0 added the data agent (`usif/agent`).
+Section 11 records the review that followed 0.10.0. `docs/ARCHITECTURE.md` describes the current
+code; this file keeps the rationale.
 
 This document records:
 
@@ -129,7 +130,8 @@ usif/
 
   io.py                read/write/convert: native suffixes -> codec, older records -> upgrade,
                        everything else -> first capable backend
-  cli.py               Typer CLI over io, dataset and upgrade
+  agent/               local-dataset import, change plans, the LLM data agent (added in 0.10)
+  cli/                 Typer CLI: root.py, dataset.py, agent.py, plans.py, common.py
   (benchmarks and Materials Project tooling live in scripts/, outside the package)
 ```
 
@@ -362,3 +364,32 @@ Constraints during the work:
 - **Symmetric molecules are not written.** Format-5 symmetric molecules are still read.
 - **The JSON v1 document is not read.** Breaking change, documented. `.usif` and `.usifc` files have a migration path.
 - **No per-value range validation** in property specs. Shape and dtype are checked; physics plausibility is the caller's job.
+
+## 11. Review after 0.10.0
+
+The user asked four questions about the 0.10.0 tree. Decisions:
+
+1. **Code organisation.** The 0.9 layout (section 3) stays; the import table is enforced by
+   `tests/unit/architecture/test_architecture.py`. The one module that mixed concerns was
+   `cli.py` (712 lines: root commands, two command groups and the plan-approval step they share).
+   It is now the package `usif/cli/` (`root`, `dataset`, `agent`, `plans`, `common`), with the
+   same commands, options, output and exit codes. Other large modules stay whole:
+   `dataset/dataset.py` is one class over one SQLite schema, `codec/record.py` is one format,
+   `upgrade/format6.py` is frozen; splitting them would add indirection, not clarity.
+2. **Benchmarks and integrations out of the package.** Done in 0.9 (`scripts/benchmark.py`,
+   `scripts/materials_project/`; a guardrail test forbids `usif/integrations` and
+   `usif/benchmarks.py`). The remaining trace was the `mp` extra, which published the script's
+   dependencies (monty, mp-api) as part of `usif`. It is replaced by
+   `scripts/materials_project/requirements.txt`.
+3. **Scalar / vector / tensor.** Already a single mechanism: `PropertySpec` is dtype + per-entry
+   shape + unit, so a scalar is `shape=()`, a vector `shape=(3,)`, stress `shape=(6,)`. There is
+   no class per kind left to collapse into "tensor only"; nothing to change.
+4. **Other design problems found.**
+   - The format-6 golden records were matched by the `*.usif`/`*.usifc` ignore rules, so every
+     clean clone failed 20 upgrade and example tests. They are now tracked like format 5.
+   - This file still described the redesign as in progress; updated.
+   - Bare command groups each had their own copy of the "print help and exit 0" callback; one
+     `command_group()` helper builds them.
+
+Not changed, deliberately: record format 7 and dataset schema 1 (no layout change was needed),
+the public Python API, and the CLI surface.
