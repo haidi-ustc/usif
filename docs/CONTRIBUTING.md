@@ -26,11 +26,16 @@ black --check usif tests examples scripts
 isort --check-only usif tests examples scripts
 mypy usif
 bandit -q -r usif -x tests
-pip_audit
+pip-audit
 python scripts/check_release_metadata.py
-python -m pytest tests/unit --cov=usif --cov-report=term-missing   # coverage gate: 80%
-python -m pytest tests/integration tests/reliability tests/examples
+python -m pytest tests/unit --cov=usif --cov-fail-under=0   # fast; coverage reported only
+python -m pytest tests --cov=usif --cov-report=term-missing  # whole suite; coverage gate: 80%
 ```
+
+The coverage gate (`fail_under = 80` in `pyproject.toml`) applies to the whole suite, as in the
+CI `integration` job. The unit layer alone stays below it, because `usif.io`, `usif.upgrade` and
+the backends are exercised by the integration and reliability tests; the CI `unit` job (Python
+3.10 to 3.12) reports its coverage without gating it.
 
 black and isort use a line length of 100. Useful subsets:
 
