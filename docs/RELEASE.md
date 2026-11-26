@@ -61,3 +61,12 @@ only with their layouts; see [FORMAT_VERSIONING.md](FORMAT_VERSIONING.md).
 
 The wheel contains only the `usif` package; tests, examples, docs and `scripts/` ship in the
 source archive.
+
+## Publishing
+
+`.github/workflows/publish.yml` builds, checks and uploads the sdist and wheel. It uses PyPI
+trusted publishing (OIDC), so no token is stored in the repository: publishing a GitHub release
+whose tag is `v<project.version>` uploads to PyPI, and a manual run uploads to TestPyPI unless PyPI
+is chosen. The one-time setup on pypi.org / test.pypi.org (project `usif` → Publishing) names the
+workflow file, so it must match: owner `haidi-ustc`, repository `usif`, workflow `publish.yml`,
+environment `pypi` (or `testpypi`). Renaming the workflow file means updating that entry as well.

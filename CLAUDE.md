@@ -136,7 +136,7 @@ the end of `POSN`/`SYMM`; the header digest covers the stored (compressed) bytes
   descriptive body), merge into `main` (`--no-ff` for a multi-commit feature, fast-forward for a
   single fix), push, then delete merged branches locally and on `origin` so only `main` remains.
 - Never commit `newplan.md` or the user's uncommitted `.gitignore` edits.
-- Pushing does not publish: `workflow.yaml` uploads to PyPI only on a GitHub release or a manual run.
+- Pushing does not publish: `publish.yml` uploads to PyPI only on a GitHub release or a manual run.
 
 ## Versioning and release metadata
 

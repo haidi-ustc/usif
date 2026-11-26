@@ -8,7 +8,7 @@ name: Publish to PyPI
 #
 # Uses PyPI trusted publishing (OIDC): no API token is stored in the repository.
 # One-time setup on pypi.org / test.pypi.org -> project "usif" -> Publishing:
-#   owner: haidi-ustc, repository: usif, workflow: workflow.yaml,
+#   owner: haidi-ustc, repository: usif, workflow: publish.yml,
 #   environment: pypi (or testpypi)
 
 on:
