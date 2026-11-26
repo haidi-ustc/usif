@@ -335,33 +335,75 @@ class Dataset:
         name = _validate_name(name)
         attrs_text = _attrs_json(attrs) if attrs is not None else None
         with self.transaction():
-            conn = self._conn
-            record_id = self._ensure_record(conn, data, info, structure)
-            self._ensure_group(conn, group)
-            if name is None:
-                row = conn.execute(
-                    "SELECT id FROM entries WHERE grp = ? AND name IS NULL AND record_id = ?",
-                    (group, record_id),
-                ).fetchone()
-            else:
-                row = conn.execute(
-                    "SELECT id FROM entries WHERE grp = ? AND name = ?", (group, name)
-                ).fetchone()
-                if row is not None and not overwrite:
-                    raise DatasetError(f"entry {group.rstrip('/')}/{name} already exists")
+            record_id = self._ensure_record(self._conn, data, info, structure)
+            return self._put_entry(record_id, info.record_hash, name, group, attrs_text, overwrite)
+
+    def _put_entry(
+        self,
+        record_id: int,
+        record_hash: str,
+        name: Optional[str],
+        group: str,
+        attrs_text: Optional[str],
+        overwrite: bool,
+    ) -> Entry:
+        """Create or update the entry ``group/name`` for a stored record (inside a transaction)."""
+        conn = self._conn
+        self._ensure_group(conn, group)
+        if name is None:
+            row = conn.execute(
+                "SELECT id FROM entries WHERE grp = ? AND name IS NULL AND record_id = ?",
+                (group, record_id),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT id FROM entries WHERE grp = ? AND name = ?", (group, name)
+            ).fetchone()
+            if row is not None and not overwrite:
+                raise DatasetError(f"entry {group.rstrip('/')}/{name} already exists")
+        if row is None:
+            entry_id, final_attrs = conn.execute(
+                "INSERT INTO entries(grp, name, record_id, attrs) VALUES (?, ?, ?, ?) "
+                "RETURNING id, attrs",
+                (group, name, record_id, attrs_text or "{}"),
+            ).fetchone()
+        else:
+            entry_id, final_attrs = conn.execute(
+                "UPDATE entries SET record_id = ?, attrs = COALESCE(?, attrs) WHERE id = ? "
+                "RETURNING id, attrs",
+                (record_id, attrs_text, row[0]),
+            ).fetchone()
+        return Entry(int(entry_id), group, name, record_hash, json.loads(final_attrs), self)
+
+    def link(
+        self,
+        source: str,
+        name: str,
+        group: str = "/",
+        attrs: Optional[Mapping[str, Any]] = None,
+        *,
+        overwrite: bool = False,
+    ) -> Entry:
+        """Create the entry ``group/name`` for the record of the entry at path ``source``.
+
+        Nothing is re-encoded or copied: both entries refer to the same stored
+        record, so a structure can appear in several groups (a project and the
+        group it was imported into) for the size of one. ``attrs`` default to
+        a copy of the source entry's attributes.
+        """
+        group = normalize_group(group)
+        name = _validate_name(name)
+        if name is None:
+            raise ValidationError("link() needs an entry name")
+        with self.transaction():
+            entry = self.entry(source)
+            row = self._conn.execute(
+                "SELECT record_id FROM entries WHERE id = ?", (entry.id,)
+            ).fetchone()
             if row is None:
-                entry_id, final_attrs = conn.execute(
-                    "INSERT INTO entries(grp, name, record_id, attrs) VALUES (?, ?, ?, ?) "
-                    "RETURNING id, attrs",
-                    (group, name, record_id, attrs_text or "{}"),
-                ).fetchone()
-            else:
-                entry_id, final_attrs = conn.execute(
-                    "UPDATE entries SET record_id = ?, attrs = COALESCE(?, attrs) WHERE id = ? "
-                    "RETURNING id, attrs",
-                    (record_id, attrs_text, row[0]),
-                ).fetchone()
-        return Entry(int(entry_id), group, name, info.record_hash, json.loads(final_attrs), self)
+                raise KeyError(entry.path)
+            text = _attrs_json(entry.attrs if attrs is None else attrs)
+            return self._put_entry(int(row[0]), entry.record_hash, name, group, text, overwrite)
 
     @staticmethod
     def _ensure_record(

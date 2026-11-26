@@ -13,6 +13,9 @@
   `pythonpath = ["."]` (the `dev` extra now needs pytest 7). The subprocess tests run from the
   repository root whatever the working directory.
 
+- `Dataset.link(source, name, group, attrs=None)` creates a second entry for an existing entry's
+  record, without copying or re-encoding it, so one structure can belong to several groups.
+
 ## 0.10.0
 
 Release record `20261116.019`, release ID `usif-20261116-019`. A CLI-first data agent and local

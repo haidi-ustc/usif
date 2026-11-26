@@ -49,7 +49,7 @@ See [Records and JSON documents](records.md).
 
 | Name | Description |
 |---|---|
-| `Dataset(path, mode="a", *, compression="zlib", level=None, precision="f64", symmetry="off", schema=DEFAULT_SCHEMA, timeout=30.0)` | Methods: `add`, `add_many`, `add_record`, `remove`, `set_attrs`, `set_group_attrs`, `import_v2`, `transaction`, `get`, `[]`, `entry`, `in`, `query`, `structures`, `count`, `len`, `iter`, `groups`, `group_attrs`, `metadata`, `stats`, `check`, `compact`, `close`; context manager |
+| `Dataset(path, mode="a", *, compression="zlib", level=None, precision="f64", symmetry="off", schema=DEFAULT_SCHEMA, timeout=30.0)` | Methods: `add`, `add_many`, `add_record`, `link`, `remove`, `set_attrs`, `set_group_attrs`, `import_v2`, `transaction`, `get`, `[]`, `entry`, `in`, `query`, `structures`, `count`, `len`, `iter`, `groups`, `group_attrs`, `metadata`, `stats`, `check`, `compact`, `close`; context manager |
 | `Entry` | `id`, `group`, `name`, `path`, `record_hash`, `attrs`, `structure` |
 | `CheckReport` | `ok`, `errors`, `checked_records` |
 | `Q` | `all`, `formula`, `chemsys`, `elements`, `natoms`, `periodic`, `geometry`, `record`, `has_prop`, `prop`, `group`, `name`, `has_attr`, `attr`; `prop()` and `attr()` take comparisons and `.between(low, high)`; combine with `&`, `\|`, `~` |
