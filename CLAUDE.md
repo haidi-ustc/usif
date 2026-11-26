@@ -27,7 +27,9 @@ python -m scripts.benchmark -h              # size/speed of the encoding options
 python -m scripts.materials_project -h      # MP download / dataset build (needs scripts/materials_project/requirements.txt)
 ```
 
-Formatting is black/isort with line length 100. Coverage gate is `fail_under = 80`. Markers
+Formatting is black/isort with line length 100. Coverage gate is `fail_under = 80`, applied to the whole suite
+(`pytest tests --cov=usif`, the CI `integration` job); the unit layer alone reports coverage
+with `--cov-fail-under=0` because `io`, `upgrade` and the backends are covered by integration tests. Markers
 (`unit`, `integration`, `interop`, `reliability`, `examples`, ...) are applied automatically from the
 `tests/<layer>/` directory by `tests/conftest.py`, so don't add them by hand. Tests that need
 matsimpy/ASE/pymatgen/monty use `pytest.importorskip`; matsimpy is not on PyPI, so CI skips it.

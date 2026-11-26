@@ -38,6 +38,13 @@ the agent, query-to-file export on the command line, and change-plan format v2.
   place only when complete, and nothing is written when no entry matches.
 - Example `08_export_query.py`.
 
+### Fixes
+
+- CI: the security scan runs `pip-audit` (the step called `pip_audit`, which does not exist).
+  The 80% coverage gate applies to the whole suite in the `integration` job; the unit matrix
+  reports coverage without gating it, since `io`, `upgrade` and the backends are covered only by
+  integration tests. The wheel smoke step runs `usif` and Python from the wheel's environment.
+
 ### Kept
 
 - USIF 0.8 files (record formats 5/6, version-2 containers) stay readable through the frozen

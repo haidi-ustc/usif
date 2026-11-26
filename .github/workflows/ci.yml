@@ -7,7 +7,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  # CI quality command guardrails for tests: black --check | isort --check-only | mypy usif | bandit -q -r usif | pip_audit | python scripts/check_release_metadata.py | pytest tests/unit | pytest tests/integration tests/reliability tests/examples | python -m build | dist/*.whl
+  # CI quality command guardrails for tests: black --check | isort --check-only | mypy usif | bandit -q -r usif | pip-audit | python scripts/check_release_metadata.py | pytest tests/unit | pytest tests (coverage gate) | python -m build | dist/*.whl
+  #
+  # Coverage gate: `fail_under = 80` in pyproject.toml applies to the whole suite, which runs in
+  # the `integration` job (unit + integration + reliability + examples, all optional backends
+  # installed). The unit layer alone cannot reach it: modules such as usif/io.py, usif/upgrade and
+  # the backends are exercised only by the integration and reliability layers. The `unit` matrix
+  # therefore reports coverage per Python version without the gate (--cov-fail-under=0).
   lint-type-security:
     runs-on: ubuntu-latest
     steps:
@@ -27,7 +33,7 @@ jobs:
       - name: Security scan
         run: |
           bandit -q -r usif -x tests
-          pip_audit
+          pip-audit
       - name: Release metadata guard
         run: python scripts/check_release_metadata.py
 
@@ -45,8 +51,8 @@ jobs:
           cache: pip
       - name: Install runtime and test dependencies
         run: python -m pip install -e ".[dev]"
-      - name: Unit tests
-        run: pytest tests/unit --cov=usif --cov-report=xml --cov-report=term-missing
+      - name: Unit tests (coverage reported, gated in `integration`)
+        run: pytest tests/unit --cov=usif --cov-report=term --cov-fail-under=0
 
   integration:
     runs-on: ubuntu-latest
@@ -59,8 +65,8 @@ jobs:
           cache: pip
       - name: Install integration dependencies
         run: python -m pip install -e ".[dev,pymatgen,ase]" -r scripts/materials_project/requirements.txt
-      - name: Integration and reliability tests
-        run: pytest tests/integration tests/reliability tests/examples
+      - name: Full suite with the coverage gate (fail_under = 80)
+        run: pytest tests --cov=usif --cov-report=xml --cov-report=term-missing
 
   build-smoke:
     runs-on: ubuntu-latest
@@ -80,8 +86,9 @@ jobs:
           python -m venv /tmp/usif-wheel-smoke
           /tmp/usif-wheel-smoke/bin/python -m pip install dist/*.whl
           /tmp/usif-wheel-smoke/bin/usif version
-          usif --version
-          python - <<'PY'
+          /tmp/usif-wheel-smoke/bin/usif --version
+          cd /tmp  # import the installed wheel, not the checkout
+          /tmp/usif-wheel-smoke/bin/python - <<'PY'
           import usif
           assert usif.__version__ == "0.12.0"
           assert usif.RELEASE_RECORD == "20261126.021"
