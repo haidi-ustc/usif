@@ -1,6 +1,6 @@
 # USIF architecture
 
-This is the code-facing description of USIF 0.10. File layouts are specified in
+This is the code-facing description of USIF 0.11. File layouts are specified in
 [BINARY_FORMAT.md](BINARY_FORMAT.md) (`.usif` records), [DATASET_FORMAT.md](DATASET_FORMAT.md)
 (`.usifc` datasets) and [FORMATS_0_8.md](FORMATS_0_8.md) (files written by USIF 0.8 and earlier).
 
@@ -68,7 +68,7 @@ usif/
     llm.py         ChatClient: /chat/completions with tool calling (standard library HTTP)
     discover.py    scan(): calculations and structure files -> Candidates with provenance
     plan.py        Plan / Operation (usif.agent.plan.v1), apply_plan(): the only write path
-    tools.py       Toolbox: read-only dataset and file tools, propose_* tools
+    tools.py       Toolbox: read-only dataset and file tools, propose_* tools (projects, links)
     session.py     Session: the model <-> tools loop
 
   cli/             the usif command (Typer)

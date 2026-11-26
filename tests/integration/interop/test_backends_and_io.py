@@ -2,6 +2,7 @@
 
 import subprocess
 import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -123,7 +124,8 @@ class TestBackends:
             "s = Structure([1], [[0, 0, 0]]);"
             "assert not {'ase', 'pymatgen', 'matsimpy'} & set(sys.modules), sorted(sys.modules)"
         )
-        subprocess.run([sys.executable, "-c", code], check=True)
+        root = Path(__file__).resolve().parents[3]  # import this checkout, not an install
+        subprocess.run([sys.executable, "-c", code], check=True, cwd=root)
 
 
 class TestFiles:

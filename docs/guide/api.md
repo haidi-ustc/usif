@@ -1,6 +1,6 @@
 # Public API
 
-This is the public API of USIF 0.10.0. Everything else (for example `usif.codec.wire`, `usif.codec.columns`, `usif.dataset.sql`, `usif.symmetry.spacegroup`, `usif.fileio`, and names starting with `_`) is internal. See [API stability](../API_STABILITY.md).
+This is the public API of USIF 0.11.0. Everything else (for example `usif.codec.wire`, `usif.codec.columns`, `usif.dataset.sql`, `usif.symmetry.spacegroup`, `usif.fileio`, and names starting with `_`) is internal. See [API stability](../API_STABILITY.md).
 
 ## `usif`
 
@@ -49,7 +49,7 @@ See [Records and JSON documents](records.md).
 
 | Name | Description |
 |---|---|
-| `Dataset(path, mode="a", *, compression="zlib", level=None, precision="f64", symmetry="off", schema=DEFAULT_SCHEMA, timeout=30.0)` | Methods: `add`, `add_many`, `add_record`, `remove`, `set_attrs`, `set_group_attrs`, `import_v2`, `transaction`, `get`, `[]`, `entry`, `in`, `query`, `structures`, `count`, `len`, `iter`, `groups`, `group_attrs`, `metadata`, `stats`, `check`, `compact`, `close`; context manager |
+| `Dataset(path, mode="a", *, compression="zlib", level=None, precision="f64", symmetry="off", schema=DEFAULT_SCHEMA, timeout=30.0)` | Methods: `add`, `add_many`, `add_record`, `link`, `remove`, `set_attrs`, `set_group_attrs`, `import_v2`, `transaction`, `get`, `[]`, `entry`, `in`, `query`, `structures`, `count`, `len`, `iter`, `groups`, `group_attrs`, `metadata`, `stats`, `check`, `compact`, `close`; context manager |
 | `Entry` | `id`, `group`, `name`, `path`, `record_hash`, `attrs`, `structure` |
 | `CheckReport` | `ok`, `errors`, `checked_records` |
 | `Q` | `all`, `formula`, `chemsys`, `elements`, `natoms`, `periodic`, `geometry`, `record`, `has_prop`, `prop`, `group`, `name`, `has_attr`, `attr`; `prop()` and `attr()` take comparisons and `.between(low, high)`; combine with `&`, `\|`, `~` |
@@ -64,12 +64,12 @@ The data agent and local-dataset import ([guide](agent.md)). Nothing here is imp
 |---|---|
 | `scan(root, *, group="/", dataset=None, all_frames=False)` | Find calculations and structure files -> `ScanResult` (`candidates`, `new`, `skipped`) of `Candidate`s (`path`, `source`, `sha256`, `formula`, `natoms`, `properties`, `attrs`, `status`) |
 | `Plan(dataset, operations, options, origin, request)` | A change plan: `id`, `describe()`, `to_dict()`, `save(path)`, `Plan.load(path)`, `Plan.from_dict(data)` |
-| `Operation(op, target, attrs, source, sha256, frame, overwrite, note)` | One change: `add`, `set_attrs`, `set_group_attrs` or `remove` |
+| `Operation(op, target, attrs, source, sha256, frame, overwrite, note)` | One change: `add`, `link`, `set_attrs`, `set_group_attrs` or `remove` |
 | `plan_from_scan(dataset, candidates, *, update=False, options=None)` | A plan adding the new candidates |
 | `apply_plan(plan, *, dataset=None) -> ApplyReport` | Verify and apply an approved plan in one transaction |
 | `LLMConfig`, `load_config(overrides=None)` | OpenAI-compatible endpoint settings (DeepSeek by default) |
 | `ChatClient(config)`, `ChatModel` | The HTTP chat client and the protocol it implements (`complete(messages, tools)`) |
-| `Toolbox(dataset, *, roots=())` | The agent's read-only and `propose_*` tools; `plan` holds the proposals |
+| `Toolbox(dataset, *, roots=())` | The agent's read-only and `propose_*` tools (including projects: `list_projects`, `propose_project`, `propose_link`); `plan` holds the proposals |
 | `Session(model, toolbox, *, on_tool=None)` | The conversation loop: `ask(text) -> str`, `plan` |
 
 ## `usif.backends`

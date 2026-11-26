@@ -17,16 +17,35 @@ EXPECTED = {
         "Exact decode: True",
         "JSON exact: True",
     ],
-    "02_dataset_workflow.py": ["Entries: 12, records: 11", "Validation ok: True"],
+    "02_dataset_workflow.py": [
+        "Entries: 12, records: 11",
+        "After link: 13 entries, 11 records",
+        "Validation ok: True",
+        "Read-only entries: 12",
+    ],
     "03_library_conversion.py": [],
     "04_upgrade_0_8_files.py": ["Imported 6 entries", "Validation ok: True"],
-    "05_cli_workflow.py": ["$ usif validate"],
+    "05_cli_workflow.py": [
+        "$ usif dataset import",
+        "applied plan",
+        "add       /runs/kcl/relaxed",
+        "2 entries",
+        "$ usif validate",
+    ],
     "06_local_dataset.py": [
         "Found 3 structures, 3 new",
         "Applied: 3 added",
         "New after import: 0",
         "Near the minimum: ['/salts/eos/a5.60/final']",
         "Added by plan: 3",
+    ],
+    "07_agent_projects.py": [
+        "link      /projects/stable/SrTiO3/relax  <-  /oer/SrTiO3/relax",
+        "Applied: 1 project, 2 links",
+        "Search tool found: ['/projects/stable/SrTiO3/relax', '/projects/stable/BaTiO3/relax']",
+        "Proposed by the question: 0 changes",
+        "Records stored: 3 (links copy nothing)",
+        "Projects: [('stable', 2)]",
     ],
 }
 

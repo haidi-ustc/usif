@@ -124,8 +124,13 @@ def test_scripts_accept_short_help():
     import subprocess
     import sys
 
+    root = Path(__file__).resolve().parents[2]
     for module in ("scripts.benchmark", "scripts.materials_project"):
         result = subprocess.run(
-            [sys.executable, "-m", module, "-h"], capture_output=True, text=True, timeout=120
+            [sys.executable, "-m", module, "-h"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=root,  # `python -m scripts...` resolves against the repository root
         )
         assert result.returncode == 0 and "Usage" in result.stdout, result.stderr

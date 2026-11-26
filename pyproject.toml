@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "usif"
-version = "0.10.0"
+version = "0.11.0"
 description = "Exact, compact and queryable storage for atomistic structures"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -49,7 +49,7 @@ zstd = [
     "zstandard>=0.21.0",
 ]
 dev = [
-    "pytest>=6.0",
+    "pytest>=7.0",
     "pytest-cov>=2.0",
     "flake8>=6.0.0",
     "isort>=5.12.0",
@@ -65,7 +65,7 @@ all = [
     "zstandard>=0.21.0",
     "pymatgen>=2022.0.0",
     "ase>=3.22.0",
-    "pytest>=6.0",
+    "pytest>=7.0",
     "pytest-cov>=2.0",
     "flake8>=6.0.0",
     "isort>=5.12.0",
@@ -82,13 +82,16 @@ all = [
 packages = {find = {include = ["usif*"]}}
 
 [tool.usif.release]
-date = "2026-11-16"
-sequence = 19
-record = "20261116.019"
-id = "usif-20261116-019"
+date = "2026-11-26"
+sequence = 20
+record = "20261126.020"
+id = "usif-20261126-020"
 
 
 [tool.pytest.ini_options]
+# The checkout is imported, even without `pip install -e .` and even when another usif is
+# installed in the environment (pytest >= 7 puts these paths first on sys.path).
+pythonpath = ["."]
 testpaths = ["tests/unit", "tests/integration", "tests/reliability", "tests/examples"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]

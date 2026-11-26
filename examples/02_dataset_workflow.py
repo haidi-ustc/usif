@@ -1,4 +1,4 @@
-"""Datasets: deduplicated storage, groups, attributes, queries, integrity checks."""
+"""Datasets: deduplicated storage, groups, attributes, links, queries, integrity checks."""
 
 import tempfile
 from pathlib import Path
@@ -38,6 +38,11 @@ with tempfile.TemporaryDirectory() as tmp:
         print(f"Near the minimum: {[e.name for e in dataset.query(low)]}")
         print(f"Contains Na and Cl: {dataset.count(Q.elements('Na', 'Cl'))}")
         print(f"PBE entries: {dataset.count(Q.attr('method') == 'PBE')}")
+
+        # One structure in a second group: link() shares the record, nothing is copied.
+        dataset.link("/eos/a=5.65", "minimum", "/projects/eos", {"selected": True})
+        stats = dataset.stats()
+        print(f"After link: {stats['entries']} entries, {stats['records']} records")
 
         structure = dataset["/eos/a=5.65"]
         print(f"Loaded: {structure} energy={structure.properties['energy']:.4f}")

@@ -38,6 +38,7 @@ with Dataset("scan.usifc", "w", symmetry="auto") as ds:
     ds.set_group_attrs("/eos", {"description": "NaCl equation of state"})
     ds.add(rocksalt(lattice[5], energies[5]), "reference", "/ref", attrs={"note": "copy"})
     print(ds.stats()["entries"], ds.stats()["records"])   # 12 11: the copy reuses a record
+    ds.link("/eos/a=5.65", "minimum", "/projects/eos")      # one more entry, no new record
 
 with Dataset("scan.usifc", "r") as ds:
     low = Q.group("/eos") & (Q.prop("energy") < -6.79)
@@ -74,6 +75,7 @@ with Dataset("scan.usifc") as ds:
 | `add(structure, name=None, group="/", attrs=None, *, overwrite=False)` | Store a structure, return its `Entry`. A named entry that exists raises `DatasetError` unless `overwrite=True`. |
 | `add_many(structures, group="/", *, names=None, attrs=None, batch_size=1000)` | Add an iterable, committing every `batch_size`; returns the count. |
 | `add_record(data, name=None, group="/", attrs=None, *, overwrite=False)` | Store already encoded format-7 bytes (validated by decoding). |
+| `link(source, name, group="/", attrs=None, *, overwrite=False)` | Create entry `group/name` for the record of the entry at path `source`; nothing is copied or re-encoded. `attrs` default to a copy of the source entry's. Use it to show one structure in several groups, such as a project. |
 | `remove(path_or_entry)` | Delete an entry; the record stays until `compact()`. |
 | `set_attrs(path_or_entry, attrs, *, merge=True)` | Update entry attributes. |
 | `set_group_attrs(group, attrs, *, merge=True)` | Update group attributes. |

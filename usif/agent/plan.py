@@ -38,6 +38,7 @@ PLAN_FORMAT = "usif.agent.plan.v1"
 #: Operation kinds and what they do.
 OPERATIONS = {
     "add": "store the structure of `source` as entry `target`",
+    "link": "make entry `target` refer to the record of entry `source` (nothing is copied)",
     "set_attrs": "merge `attrs` into the attributes of entry `target`",
     "set_group_attrs": "merge `attrs` into the attributes of group `target`",
     "remove": "remove entry `target` (its record stays until compact)",
@@ -117,6 +118,17 @@ class Operation:
         object.__setattr__(self, "note", self.note[:MAX_NOTE])
         if self.op == "add" and (self.source is None or self.sha256 is None):
             raise AgentError(f"'add {shown(self.target)}' needs a source file and its sha256")
+        if self.op == "link":
+            if self.source is None or self.sha256 is not None or self.frame is not None:
+                raise AgentError(f"'link {shown(self.target)}' needs only a source entry path")
+            if self.overwrite:
+                raise AgentError(f"'link {shown(self.target)}' cannot overwrite an entry")
+            if not self.source.startswith("/") or self.source == self.target:
+                raise AgentError(f"'link {shown(self.target)}' needs another entry as its source")
+            try:
+                _entry_path(self.source)
+            except AgentError:
+                raise AgentError(f"invalid source entry {shown(self.source)}") from None
 
     def describe(self) -> str:
         """One line for the reviewer; every value is shown (escaped and capped)."""
@@ -126,6 +138,10 @@ class Operation:
             text = f"{verb:<9} {target}  <-  {shown(self.source)}"
             if self.frame is not None and self.attrs.get("source_frames", 1) != 1:
                 text += f" [frame {self.frame}]"
+        elif self.op == "link":
+            text = f"link      {target}  <-  {shown(self.source)}"
+            if self.attrs:
+                text += f"  {shown(self.attrs, 400)}"
         elif self.op == "remove":
             text = f"remove    {target}"
         else:
@@ -202,12 +218,13 @@ class Plan:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
     def add(self, operation: Operation) -> None:
-        """Append ``operation``; adding or removing the same entry twice in a row is an error."""
-        if operation.op in ("add", "remove"):
-            last = [op.op for op in self.operations if op.target == operation.target]
+        """Append ``operation``; creating or removing the same entry twice in a row is an error."""
+        kinds = {"add": "add", "link": "add", "remove": "remove"}
+        if operation.op in kinds:
+            last = [kinds[op.op] for op in self.operations if op.target == operation.target]
             last = [kind for kind in last if kind in ("add", "remove")]
-            if last and last[-1] == operation.op:
-                raise AgentError(f"the plan already has '{operation.op} {shown(operation.target)}'")
+            if last and last[-1] == kinds[operation.op]:
+                raise AgentError(f"the plan already creates or removes {shown(operation.target)}")
         self.operations.append(operation)
 
     def describe(self) -> str:
@@ -216,6 +233,9 @@ class Plan:
             counts[op.op] = counts.get(op.op, 0) + 1
         summary = ", ".join(f"{n} {k}" for k, n in sorted(counts.items())) or "no operations"
         lines = [f"plan {self.id} for {shown(self.dataset)}: {summary}"]
+        if self.options:
+            options = ", ".join(f"{k}={shown(v, 40)}" for k, v in sorted(self.options.items()))
+            lines.append(f"  options for added structures: {options}")
         if self.request:
             lines.append(f"  request: {shown(self.request, 200)}")
         lines += [f"  {op.describe()}" for op in self.operations]
@@ -320,7 +340,16 @@ def _check(plan: Plan, dataset_path: Path) -> List[str]:
         for op in plan.operations:
             exists = (op.target in existing) if existing is not None else False
             exists = (exists or op.target in added) and op.target not in removed
-            if op.op == "add":
+            if op.op == "link":
+                origin = op.source or ""
+                found = existing is not None and origin in existing
+                if not (found or origin in added) or origin in removed:
+                    problems.append(f"{op.target}: source entry {origin} does not exist")
+                if exists:
+                    problems.append(f"{op.target}: entry already exists")
+                added.add(op.target)
+                removed.discard(op.target)
+            elif op.op == "add":
                 source = Path(op.source or "")
                 if not source.is_file():
                     problems.append(f"{op.target}: source {source} is missing")
@@ -386,6 +415,11 @@ def _apply(data: Dataset, op: Operation, stamp: Mapping[str, Any]) -> None:
             raise AgentError(f"plan not applied: {source} has no frame {index}")
         group, _, name = op.target.rpartition("/")
         data.add(frames[index], name, group or "/", {**op.attrs, **stamp}, overwrite=op.overwrite)
+    elif op.op == "link":
+        origin = op.source or ""
+        group, _, name = op.target.rpartition("/")
+        attrs = {**data.entry(origin).attrs, **op.attrs, "linked_from": origin, **stamp}
+        data.link(origin, name, group or "/", attrs)
     elif op.op == "set_attrs":
         data.set_attrs(op.target, op.attrs)
     elif op.op == "set_group_attrs":

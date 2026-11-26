@@ -374,8 +374,10 @@ def test_add_remove_add_is_a_valid_sequence(tmp_path):
     plan.add(add)
     plan.add(Operation("remove", "/g/x"))
     plan.add(add)
-    with pytest.raises(AgentError, match="already has"):
+    with pytest.raises(AgentError, match="already creates or removes"):
         plan.add(add)
+    with pytest.raises(AgentError, match="already creates or removes"):
+        plan.add(Operation("link", "/g/x", source="/g/y"))
 
 
 def test_failed_tool_calls_leave_the_plan_unchanged(dataset, project):
@@ -392,3 +394,149 @@ def test_apply_reports_bad_frames_cleanly(project, tmp_path):
     op = Operation("add", "/g/x", source=str(candidate.source), sha256=candidate.sha256, frame=5)
     with pytest.raises(AgentError, match="no frame 5"):
         apply_plan(Plan(tmp_path / "d.usifc", [op]))
+
+
+# -- projects: create, save into, query ---------------------------------------------------
+
+
+def test_create_a_project_in_a_new_dataset(tmp_path):
+    path = tmp_path / "new.usifc"
+    tools = Toolbox(path)
+    assert json.loads(tools.call("list_projects", {}))["dataset_exists"] is False
+    bad = json.loads(tools.call("propose_project", {"name": "a/b", "description": "x"}))
+    assert "one path component" in bad["error"]
+    assert "description" in json.loads(tools.call("propose_project", {"name": "oer"}))["error"]
+    made = json.loads(
+        tools.call(
+            "propose_project",
+            {"name": "oer", "description": "OER perovskites", "attrs": {"owner": "li"}},
+        )
+    )
+    assert made["project_group"] == "/projects/oer" and made["dataset_exists"] is False
+    options = json.loads(tools.call("propose_storage_options", {"compression": "lzma"}))
+    assert options["options"] == {"compression": "lzma"}
+    assert "error" in json.loads(tools.call("propose_storage_options", {"symmetry": "maybe"}))
+    assert "error" in json.loads(tools.call("propose_storage_options", {"precision": "f32"}))
+    assert json.loads(tools.call("list_projects", {}))["proposed"] == ["/projects/oer"]
+    text = tools.plan.describe()
+    assert "options for added structures: compression=lzma" in text
+    assert not path.exists()  # proposing writes nothing
+    apply_plan(Plan.from_dict(tools.plan.to_dict()))
+    listed = json.loads(Toolbox(path).call("list_projects", {}))["projects"]
+    assert listed == [
+        {
+            "project": "oer",
+            "group": "/projects/oer",
+            "entries": 0,
+            "attrs": {"owner": "li", "description": "OER perovskites"},
+        }
+    ]
+
+
+def test_save_search_results_into_a_project(tmp_path):
+    path = tmp_path / "group.usifc"
+    with Dataset(path) as data:
+        data.add(nacl(5.6, -6.7), "relax", "/oer/SrTiO3", {"code": "vasp"})
+        data.add(nacl(5.7, -6.9), "relax", "/oer/BaTiO3", {"code": "vasp"})
+        data.add(nacl(5.8, -5.0), "relax", "/other")
+        records = data.stats()["records"]
+    before = path.read_bytes()
+    tools = Toolbox(path)
+    tools.call("propose_project", {"name": "low", "description": "low-energy salts"})
+    low = {"properties": [{"name": "energy", "op": "<", "value": -6.5}]}
+    saved = json.loads(
+        tools.call("propose_link", {"group": "/projects/low", "filters": low, "reason": "E<-6.5"})
+    )
+    assert saved["proposed"] == [
+        "link      /projects/low/SrTiO3/relax  <-  /oer/SrTiO3/relax  (E<-6.5)",
+        "link      /projects/low/BaTiO3/relax  <-  /oer/BaTiO3/relax  (E<-6.5)",
+    ]
+    again = json.loads(tools.call("propose_link", {"group": "/projects/low", "filters": low}))
+    assert again["proposed"] == []
+    assert {s["reason"] for s in again["skipped"]} == {"already saved there"}
+    clash = json.loads(
+        tools.call("propose_link", {"group": "/projects/low/SrTiO3", "paths": ["/other/relax"]})
+    )
+    assert clash["proposed"] == [] and clash["skipped"][0]["reason"] == "path taken"
+    for bad in (
+        {"group": "/projects/low"},
+        {"group": "/projects/low", "paths": ["/oer/SrTiO3/relax"], "filters": low},
+        {"group": "/", "paths": ["/oer/SrTiO3/relax"]},
+        {"group": "/projects/low", "filters": {"colour": "red"}},
+        {"group": "/projects/low", "paths": ["/oer/none"]},
+    ):
+        assert "error" in json.loads(tools.call("propose_link", bad)), bad
+    assert len(tools.plan) == 3 and path.read_bytes() == before
+    apply_plan(tools.plan)
+    with Dataset(path, "r") as data:
+        assert data.stats()["records"] == records  # linked, not copied
+        entry = data.entry("/projects/low/BaTiO3/relax")
+        assert entry.attrs["linked_from"] == "/oer/BaTiO3/relax" and entry.attrs["code"] == "vasp"
+        assert entry.attrs["plan"] == tools.plan.id
+        assert entry.record_hash == data.entry("/oer/BaTiO3/relax").record_hash
+    found = json.loads(Toolbox(path).call("search_entries", {"group": "/projects/low"}))
+    assert found["returned"] == 2
+    listed = json.loads(Toolbox(path).call("list_projects", {}))["projects"]
+    assert [(p["project"], p["entries"]) for p in listed] == [("low", 2)]
+    repeat = Toolbox(path)
+    result = json.loads(
+        repeat.call(
+            "propose_link",
+            {
+                "group": "/projects/low",
+                "paths": ["/oer/BaTiO3/relax", "/projects/low/SrTiO3/relax"],
+            },
+        )
+    )
+    assert result["proposed"] == [] and {s["reason"] for s in result["skipped"]} == {
+        "already saved there",
+        "already in the group",
+    }
+
+
+def test_link_operations_are_checked(tmp_path):
+    path = tmp_path / "d.usifc"
+    with Dataset(path) as data:
+        data.add(nacl(), "a", "/g")
+    for bad in (
+        {"op": "link", "target": "/p/a"},
+        {"op": "link", "target": "/p/a", "source": "g/a"},
+        {"op": "link", "target": "/p/a", "source": "/p/a"},
+        {"op": "link", "target": "/p/a", "source": "/g/a", "sha256": "0" * 64},
+        {"op": "link", "target": "/p/a", "source": "/g/a", "overwrite": True},
+    ):
+        with pytest.raises(AgentError):
+            Operation.from_dict(bad)
+    with pytest.raises(AgentError, match="source entry /g/none does not exist"):
+        apply_plan(Plan(path, [Operation("link", "/p/a", source="/g/none")]))
+    with pytest.raises(AgentError, match="already exists"):
+        apply_plan(Plan(path, [Operation("link", "/g/a", source="/g/a2")]))
+    removed = Plan(path, [Operation("remove", "/g/a"), Operation("link", "/p/a", source="/g/a")])
+    with pytest.raises(AgentError, match="does not exist"):
+        apply_plan(removed)
+    chained = Plan(path, [Operation("link", "/p/a", source="/g/a")])
+    chained.add(Operation("link", "/q/a", source="/p/a", attrs={"tag": "x"}))
+    assert "link      /q/a  <-  /p/a  {" in chained.describe()
+    assert apply_plan(Plan.load(chained.save(tmp_path / "plan.json"))).counts["link"] == 2
+    with Dataset(path, "r") as data:
+        assert data.entry("/q/a").attrs["linked_from"] == "/p/a"
+        assert data.entry("/q/a").attrs["tag"] == "x"
+
+
+def test_session_creates_a_project_from_plain_words(tmp_path):
+    model = ScriptedModel(
+        [
+            {"tool_calls": [call("list_projects", {})]},
+            {
+                "tool_calls": [
+                    call("propose_project", {"name": "eos", "description": "NaCl EOS"}, "c2")
+                ]
+            },
+            {"content": "Proposed the project /projects/eos."},
+        ]
+    )
+    session = Session(model, Toolbox(tmp_path / "new.usifc"))
+    assert "does not exist yet" in session.messages[0]["content"]
+    assert session.ask("start a project for the NaCl EOS") == "Proposed the project /projects/eos."
+    assert [op.target for op in session.plan.operations] == ["/projects/eos"]
+    assert not (tmp_path / "new.usifc").exists()

@@ -97,6 +97,25 @@ class TestStorage:
             entry = d.add_record(encode(water()), "w", "/raw")
             assert entry.structure == water()
 
+    def test_link_shares_the_record(self, ds):
+        records = ds.stats()["records"]
+        linked = ds.link("/salts/nacl", "nacl", "/projects/demo")
+        assert ds.stats()["records"] == records and len(ds) == 5
+        assert linked.record_hash == ds.entry("/salts/nacl").record_hash
+        assert linked.attrs == {"source": "mp", "id": 1}  # copied by default
+        assert ds.link("/salts/nacl", "x", "/p", {"k": 1}).attrs == {"k": 1}
+        assert ds["/projects/demo/nacl"] == nacl() and "/projects" in ds.groups()
+        with pytest.raises(DatasetError, match="exists"):
+            ds.link("/oxides/fe2o3", "nacl", "/projects/demo")
+        assert ds.link("/oxides/fe2o3", "nacl", "/projects/demo", overwrite=True).attrs == {}
+        with pytest.raises(KeyError):
+            ds.link("/salts/none", "y", "/p")
+        with pytest.raises(ValidationError):
+            ds.link("/salts/nacl", "a/b", "/p")
+        ds.remove("/salts/nacl")  # the record stays while another entry refers to it
+        assert ds.stats()["unreferenced_records"] == 0
+        assert ds["/p/x"] == nacl()
+
     def test_remove_and_compact(self, ds):
         ds.remove("/oxides/fe2o3")
         assert ds.stats()["unreferenced_records"] == 1

@@ -1,6 +1,6 @@
 # USIF documentation
 
-USIF 0.10 is a Python library and a set of file formats for atomistic structures. Start with the
+USIF 0.11 is a Python library and a set of file formats for atomistic structures. Start with the
 [project README](../README.md) for installation and a first example.
 
 ## User guide
@@ -14,7 +14,7 @@ USIF 0.10 is a Python library and a set of file formats for atomistic structures
 | [Datasets](guide/datasets.md) | `.usifc` datasets: groups, attributes, deduplication, queries, checks, concurrency |
 | [Other libraries](guide/libraries.md) | matsimpy, ASE and pymatgen conversion and file formats; writing a backend |
 | [Command line](guide/command-line.md) | The `usif` command |
-| [Data agent and local datasets](guide/agent.md) | Importing project directories, change plans with approval, the LLM agent (`usif agent`) |
+| [Data agent and local datasets](guide/agent.md) | Importing project directories, change plans with approval, the LLM agent (`usif agent`): querying, creating projects and saving data into them in plain words |
 | [Upgrading from 0.8](guide/upgrading.md) | Reading and converting files written by USIF 0.8 and earlier |
 | [Materials Project data](guide/materials-project.md) | The `scripts/materials_project` download and dataset tool |
 | [Public API](guide/api.md) | Every public name, by module |

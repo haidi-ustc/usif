@@ -134,7 +134,7 @@ the end of `POSN`/`SYMM`; the header digest covers the stored (compressed) bytes
 
 ## Versioning and release metadata
 
-**Bump policy:** pre-1.0 (current `0.10.0`). Releases bump the *minor* version (0.9.0, 0.10.0, …),
+**Bump policy:** pre-1.0 (current `0.11.0`). Releases bump the *minor* version (0.9.0, 0.10.0, …),
 patch versions are for fixes only, and 1.0.0 only happens when the user explicitly asks. Older
 CHANGELOG headings keep their historical numbers.
 

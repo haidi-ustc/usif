@@ -7,13 +7,16 @@ growing and can be searched and reused. Two command-line tools build it:
   deterministic and needs no LLM.
 * `usif agent` is a language-model assistant. You ask it questions and give it instructions in
   plain words ("which SrTiO3 runs used ENCUT 520?", "register the new calculations in
-  ~/projects/oer"). It uses the dataset tools to answer.
+  ~/projects/oer", "create a project for the OER work and save every Ti oxide with a band gap
+  above 1 eV into it"). It uses the dataset tools to answer.
 
 Neither tool writes to the dataset without your approval. Both produce a **change plan** that you
 review, and only an approved plan is applied. Everything stays local: the only data that leaves
 your machine is what the agent sends to the LLM endpoint you configure.
 
-Example: [`examples/06_local_dataset.py`](../../examples/06_local_dataset.py).
+Examples: [`examples/06_local_dataset.py`](../../examples/06_local_dataset.py) (import and
+plans) and [`examples/07_agent_projects.py`](../../examples/07_agent_projects.py) (projects in
+plain words, with a scripted model instead of an LLM).
 
 ## Importing project directories
 
@@ -67,6 +70,7 @@ A plan is a JSON file (`usif.agent.plan.v1`) listing operations on one dataset:
 | Operation | Effect |
 |---|---|
 | `add` | store the structure from `source` (verified against `sha256`) as entry `target` |
+| `link` | make entry `target` refer to the record of entry `source`: nothing is copied, the attributes are copied and `linked_from` is added |
 | `set_attrs` | merge attributes into an entry |
 | `set_group_attrs` | merge attributes into a group, such as its description |
 | `remove` | remove an entry; its record stays until `usif dataset compact` |
@@ -123,13 +127,49 @@ The agent works with these tools:
 | Tool | Effect |
 |---|---|
 | `dataset_overview`, `search_entries`, `get_entry` | read the dataset, opened read-only. Search filters: group, formula, chemical system, elements present or absent, atom count, numeric properties (`energy < -10`), exact attributes, and text in paths, notes and parameters |
+| `list_projects` | the projects (`/projects/<name>`) with their descriptions and entry counts |
 | `inspect_file`, `scan_directory` | read structure files and scan directories, only inside `--allow` directories (default: the current directory) |
-| `propose_import`, `propose_entry_attrs`, `propose_group_attrs`, `propose_remove` | add operations to the change plan |
+| `propose_project` | create or describe the project `/projects/<name>` |
+| `propose_import`, `propose_link` | save scanned files, or entries already in the dataset (listed paths or a search), into a group such as a project |
+| `propose_entry_attrs`, `propose_group_attrs`, `propose_remove` | change attributes, remove entries |
+| `propose_storage_options` | compression and symmetry of the structures the plan adds (lossless choices only; only when you ask) |
 | `show_plan`, `discard_plan` | review or drop the plan |
 
 The agent reports what it proposed. When it finishes, the command prints the plan and asks for
 approval as described above. `chat` keeps the plan across turns: `/plan` shows it and `/apply`
 asks for approval. On `/quit`, an unapproved plan is saved to a file.
+
+## Projects in plain words
+
+A project is the group `/projects/<name>`; its group attributes describe it. Projects need no
+special support in the dataset: an entry belongs to a project when its path is below the project
+group, and `Q.group("/projects/oer")` finds them.
+
+```bash
+usif agent ask lab.usifc "Create a project 'oer' for our OER perovskite work"
+usif agent ask lab.usifc "Save every Ti oxide with a band gap above 1 eV into the oer project"
+usif agent ask lab.usifc "Save the runs in ~/runs/srtio3 into project oer" --allow ~/runs
+usif agent ask lab.usifc "Which projects do we have? What is in oer below -40 eV?"
+```
+
+* **Create.** `propose_project` proposes `set_group_attrs /projects/<name> {description, ...}`.
+  The dataset may not exist yet: the approved plan creates it.
+* **Save existing entries.** `propose_link` takes entry paths, or the same filters as a search,
+  and proposes one `link` per entry (at most 500). A link is a second entry for the same stored
+  record, so saving into a project costs no space and the original entry is untouched. The
+  entries keep their layout below their common parent group: `/oer/SrTiO3/relax` and
+  `/oer/BaTiO3/relax` become `/projects/<name>/SrTiO3/relax` and `.../BaTiO3/relax`. Entries
+  already in the project, or saved there before (`linked_from`), are skipped.
+* **Save new files.** The agent scans the files with the group `/projects/<name>/...` and proposes
+  an import, as above.
+* **Query.** `search_entries` and `list_projects` answer questions; nothing is proposed.
+
+Each of these is a plan you approve, as described above. The plan shows the storage options when
+the agent set them (`options for added structures: compression=lzma`); the agent cannot choose
+the lossy `precision="f32"`. In Python, `Dataset.link(source, name, group)` does the same as a
+`link` operation.
+
+## Privacy
 
 The agent sends your questions and the tool results (entry paths, formulas, attributes, file paths)
 to the LLM endpoint. It never sends the API key: the key goes only into the HTTP `Authorization`
