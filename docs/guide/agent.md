@@ -65,7 +65,7 @@ Two candidates can map to the same entry, for example a VASP directory `calc/` a
 
 ## Change plans and approval
 
-A plan is a JSON file (`usif.agent.plan.v1`) listing operations on one dataset:
+A plan is a JSON file (`usif.agent.plan.v2`) listing operations on one dataset:
 
 | Operation | Effect |
 |---|---|
@@ -91,8 +91,8 @@ plan 148d5135ac05c74a for /data/group.usifc: 1 add, 1 set_group_attrs
   Text that can come from the model (notes, paths, attributes, the request) has control characters
   escaped and is shortened, and so does the agent's answer. A crafted answer cannot hide or forge
   lines of the plan. Hand-edited plans are type-checked field by field.
-* **Integrity.** The plan id is a hash of the dataset path, the encoding options and the
-  operations. A plan edited after it was written is refused until you delete its `id` field to
+* **Integrity.** The plan id is a hash of the plan format, the dataset path, the encoding
+  options and the operations. A plan edited after it was written is refused until you delete its `id` field to
   accept the edits. Before writing, `apply` checks every source file against its SHA-256 and every
   target entry against the dataset. It then applies all operations in one transaction, or none,
 and checks each source file's hash again after reading it.
@@ -100,6 +100,12 @@ and checks each source file's hash again after reading it.
   plan in `~/.usif/plans/applied/<id>.json`. Together they record what was added, from which files,
   and why; the `note` of each operation holds the agent's reason. `usif agent plans` lists the
   plans waiting for review, and `usif agent plans --applied` lists the journal.
+* **Plan format.** USIF 0.12 reads and writes `usif.agent.plan.v2` only (the operations above).
+  Plans saved by 0.10 and 0.11 (`usif.agent.plan.v1`) are not read: `show` and `apply` refuse
+  them with a message naming the format, and `usif agent plans` lists them with that message.
+  Their files are left as they are, so the journal keeps its record of what was applied (and
+  entries keep their `plan` ids); a pending v1 plan has to be made again, for example by
+  running the same `usif dataset import` or asking the agent again.
 
 From Python:
 
@@ -121,6 +127,33 @@ usif agent ask group.usifc "Which Ti-containing calculations do we have, with EN
 usif agent ask group.usifc "Register new runs in ~/projects/oer under /oer" --allow ~/projects/oer
 usif agent chat group.usifc --allow ~/projects    # interactive; /plan /apply /save FILE /discard /quit
 ```
+
+### Default dataset
+
+`DATASET` can be left out (`usif agent ask "Which projects do we have?"`, `usif agent chat`)
+when a default dataset is configured explicitly. The dataset is, in order of priority:
+
+1. the `DATASET` argument;
+2. the `USIF_DATASET` environment variable;
+3. `dataset` in the `[agent]` table of `~/.usif/config.toml`:
+
+```toml
+# ~/.usif/config.toml
+[agent]
+dataset = "/data/group/lab.usifc"
+```
+
+Nothing else is guessed: with none of the three, the command fails and asks for `DATASET`.
+A default must be an absolute path to a `.usifc` file that exists; it is never created. To
+start a new dataset, give its path as `DATASET` (an approved plan creates it). `usif agent
+config` shows the default in effect and where it comes from. A default changes nothing about
+approval: `ask` and `chat` still cannot apply a plan.
+
+### Exports
+
+The agent cannot write files. Asked to export data, it gives you a `usif dataset export`
+command with the matching filters (see [Exporting](datasets.md#exporting)), which you run
+yourself.
 
 The agent works with these tools:
 
@@ -185,7 +218,7 @@ until something is saved there.
 
 ```text
 ~/.usif/
-  config.toml        [llm] settings (below)
+  config.toml        [llm] and [agent] settings (below and "Default dataset")
   plans/             change plans waiting for review
   plans/applied/     every plan applied from the command line, by id
 ```
@@ -224,4 +257,4 @@ api_key_env = "OPENAI_API_KEY"
 ```
 
 A local server such as vLLM or Ollama works too (`base_url = "http://localhost:11434/v1"`).
-`usif agent config` shows the settings in effect.
+`usif agent config` shows the settings in effect, including the default dataset.

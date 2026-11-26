@@ -71,11 +71,15 @@ indexed by `docs/README.md`); keep it, `README.md` and `examples/` in sync with 
   format-5/6 records to `upgrade`, everything else to a backend.
 - `usif/agent`: local-dataset import and the LLM data agent (CLI-first, no GUI). `discover.scan`
   finds VASP directories and structure files and builds `Candidate`s with provenance attrs
-  (`source`, `source_sha256`, `incar`, `notes`, ...). `plan.Plan` (JSON `usif.agent.plan.v1`, id =
-  hash of content) and `apply_plan`, the only write path: it re-checks sources and runs in one
+  (`source`, `source_sha256`, `incar`, `notes`, ...). `plan.Plan` (JSON `usif.agent.plan.v2`, id =
+  hash of format + content; v1 plans of 0.10/0.11 are refused, not converted) and `apply_plan`, the only write path: it re-checks sources and runs in one
   transaction. `tools.Toolbox` holds read-only tools plus `propose_*` tools that only extend the
   plan. `session.Session` is the tool loop, and `llm.ChatClient` is OpenAI-compatible HTTP (stdlib)
   with DeepSeek as the default (`config.py`; key only from the env var named by `api_key_env`).
+  `config.agent_dataset` resolves the dataset of `ask`/`chat`: the argument, else `USIF_DATASET`,
+  else `[agent] dataset` in `~/.usif/config.toml`; a default must be absolute and exist (never
+  guessed, never created). The agent has no file-writing tool: exports are `usif dataset export`
+  (query or `--entry` -> one file, refuses an existing file without `--overwrite`).
 - `usif/cli/` is Typer (never import click directly): `root.py` (app, file commands, `main`),
   `dataset.py`, `agent.py`, `plans.py` (the approval step both groups share), `common.py`. Conventions, covered by
   `tests/integration/test_cli.py`: `-h` and `--help` everywhere (`context_settings`); a bare command
@@ -134,7 +138,7 @@ the end of `POSN`/`SYMM`; the header digest covers the stored (compressed) bytes
 
 ## Versioning and release metadata
 
-**Bump policy:** pre-1.0 (current `0.11.0`). Releases bump the *minor* version (0.9.0, 0.10.0, …),
+**Bump policy:** pre-1.0 (current `0.12.0`). Releases bump the *minor* version (0.9.0, 0.10.0, …),
 patch versions are for fixes only, and 1.0.0 only happens when the user explicitly asks. Older
 CHANGELOG headings keep their historical numbers.
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "usif"
-version = "0.11.0"
+version = "0.12.0"
 description = "Exact, compact and queryable storage for atomistic structures"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -83,9 +83,9 @@ packages = {find = {include = ["usif*"]}}
 
 [tool.usif.release]
 date = "2026-11-26"
-sequence = 20
-record = "20261126.020"
-id = "usif-20261126-020"
+sequence = 21
+record = "20261126.021"
+id = "usif-20261126-021"
 
 
 [tool.pytest.ini_options]

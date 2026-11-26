@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.12.0
+
+Release record `20261126.021`, release ID `usif-20261126-021`. An optional default dataset for
+the agent, query-to-file export on the command line, and change-plan format v2.
+
+### Breaking changes
+
+- Change plans are `usif.agent.plan.v2` (the operations of 0.11: `add`, `link`, `set_attrs`,
+  `set_group_attrs`, `remove`). The plan id now also hashes the format name. Plans saved by 0.10
+  and 0.11 (`usif.agent.plan.v1`) are not read: `usif agent show/apply` refuse them with a
+  message naming the format, `usif agent plans [--applied]` lists them with that message, and
+  their files in `~/.usif/plans` are left unchanged. Make a pending v1 plan again (rerun the
+  `usif dataset import` or the request); applied entries keep their `plan` ids.
+- `usif dataset export DATASET KEY OUTPUT` is now `usif dataset export DATASET OUTPUT
+  --entry KEY` (see below), and it no longer replaces an existing `OUTPUT` without
+  `--overwrite`.
+
+### Data agent
+
+- Optional default dataset, set explicitly only: `usif agent ask [DATASET] REQUEST` and
+  `usif agent chat [DATASET]` use, in order, the argument, the `USIF_DATASET` environment
+  variable, or `dataset` in the `[agent]` table of `~/.usif/config.toml`. A default must be an
+  absolute `.usifc` path that exists: no path is guessed and no file is created from a default
+  (a new dataset still needs an explicit `DATASET`). `usif agent config` shows the default and
+  where it comes from. Approval is unchanged: `ask` and `chat` cannot apply plans.
+- The agent has no file-writing tool. Asked for an export, it suggests the
+  `usif dataset export` command for you to run.
+
+### Command line
+
+- `usif dataset export DATASET OUTPUT` writes several entries to one file, in dataset order:
+  named entries (`--entry`, repeatable) or every entry matching the `dataset list` filters
+  (`--group`, `--formula`, `--chemsys`, `--elements`, `--max-atoms`, `--prop`, `--limit`).
+  Several structures need a multi-frame format (`.extxyz`, ...); `--format` names the backend
+  format. An existing `OUTPUT` is refused unless `--overwrite` is given, the file is moved into
+  place only when complete, and nothing is written when no entry matches.
+- Example `08_export_query.py`.
+
+### Kept
+
+- USIF 0.8 files (record formats 5/6, version-2 containers) stay readable through the frozen
+  readers in `usif.upgrade` and `usif upgrade`; they hold users' data, and 0.9, the first release
+  that writes the new formats, is only weeks old.
+
 ## 0.11.0
 
 Release record `20261126.020`, release ID `usif-20261126-020`. Projects in plain words: the data

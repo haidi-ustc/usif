@@ -122,17 +122,80 @@ def dataset_list(
 @dataset_app.command("export")
 def dataset_export(
     dataset_path: Path = typer.Argument(..., metavar="DATASET"),
-    key: str = typer.Argument(
-        ..., metavar="ENTRY", help="Entry path (/group/name) or record hash."
+    output: Path = typer.Argument(
+        ..., metavar="OUTPUT", help="Output file; its suffix (or --format) chooses the format."
     ),
-    output: Path = typer.Argument(..., metavar="OUTPUT"),
+    entries: List[str] = typer.Option(
+        [], "--entry", help="Entry path (/group/name) or record hash (repeatable)."
+    ),
+    group: Optional[str] = typer.Option(None, help="Entries in this group and below."),
+    formula: Optional[str] = typer.Option(None, help="Reduced formula, e.g. NaCl."),
+    chemsys: Optional[str] = typer.Option(None, help="Exact element set, e.g. Na-Cl."),
+    elements: Optional[str] = typer.Option(None, help="Must contain these, e.g. Fe,O."),
+    max_atoms: Optional[int] = typer.Option(None),
+    prop: List[str] = typer.Option([], help="Numeric filter, e.g. 'energy<-1.5' (repeatable)."),
+    limit: Optional[int] = typer.Option(None, min=1, help="Export at most this many entries."),
+    file_format: Optional[str] = typer.Option(
+        None, "--format", help="Backend format name, e.g. extxyz (default: from the suffix)."
+    ),
+    overwrite: bool = typer.Option(False, "--overwrite", help="Replace OUTPUT if it exists."),
 ) -> None:
-    """Write one dataset entry to a structure file."""
+    """Write the selected entries to one structure file, in dataset order.
+
+    Select entries with --entry, or with the filters of 'usif dataset list'
+    (no selection exports every entry). One entry can go to any format,
+    including .usif and .json; several need a multi-frame format such as
+    .xyz or .extxyz. OUTPUT is never replaced unless --overwrite is given,
+    and nothing is written when no entry matches.
+    """
     from usif.dataset import Dataset
 
+    filters = (group, formula, chemsys, elements, max_atoms)
+    if entries and (any(f is not None for f in filters) or prop or limit is not None):
+        raise ValidationError("--entry selects entries by name; do not combine it with filters")
+    if output.exists() and not overwrite:
+        raise ValidationError(f"{output} exists; pass --overwrite to replace it")
+    suffix = output.name.lower()
+    if suffix.endswith(".usifc"):
+        raise ValidationError("OUTPUT must be a structure file, not a .usifc dataset")
+    where = build_query(group, formula, chemsys, elements, max_atoms, prop)
     with Dataset(dataset_path, "r") as dataset:
-        io.write(dataset.get(key), output)
-    typer.echo(f"{key} -> {output}")
+        if entries:
+            structures = [dataset.get(key) for key in entries]
+        else:
+            structures = [entry.structure for entry in dataset.query(where, limit=limit, load=True)]
+    if not structures:
+        raise ValidationError("no entries match; nothing written")
+    if len(structures) > 1 and file_format is None and suffix.endswith((".usif", ".json")):
+        raise ValidationError(
+            f"{len(structures)} entries match, but a .usif or .json file holds one structure: "
+            "use a multi-frame format such as .extxyz"
+        )
+    _write_replacing(structures, output, file_format)
+    count = len(structures)
+    typer.echo(f"{count} structure{'s' if count != 1 else ''} -> {output}")
+
+
+def _write_replacing(structures: Sequence[Any], output: Path, file_format: Optional[str]) -> None:
+    """Write next to ``output`` under the same name, then move it into place.
+
+    Backends pick the format from the file name, so the temporary file keeps
+    it (in a private directory); a failed write leaves ``output`` untouched.
+    """
+    import os
+    import shutil
+    import tempfile
+
+    scratch = Path(tempfile.mkdtemp(prefix=".usif-export-", dir=output.parent))
+    try:
+        partial = scratch / output.name
+        if len(structures) == 1:
+            io.write(structures[0], partial, format=file_format)
+        else:
+            io.write_all(structures, partial, format=file_format)
+        os.replace(partial, output)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
 
 
 @dataset_app.command("compact")

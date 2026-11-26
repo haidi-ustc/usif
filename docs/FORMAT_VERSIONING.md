@@ -1,11 +1,13 @@
 # Format versioning
 
-USIF has four version numbers. They change for different reasons and are never merged into one.
+USIF has four version numbers for the package and its data files, plus the format name of the
+data agent's change plans (below). They change for different reasons and are never merged into
+one.
 
 | Version | Where | Current | Changes when |
 |---|---|---|---|
-| package version | `pyproject.toml` `[project].version` | 0.11.0 | every release (see [RELEASE.md](RELEASE.md)) |
-| release record | `pyproject.toml` `[tool.usif.release]` | `20261126.020` | every release |
+| package version | `pyproject.toml` `[project].version` | 0.12.0 | every release (see [RELEASE.md](RELEASE.md)) |
+| release record | `pyproject.toml` `[tool.usif.release]` | `20261126.021` | every release |
 | `.usif` record format | `usif.version.FORMAT_VERSION` | 7 | the record layout changes in a way readers must know about |
 | dataset schema | `usif.version.DATASET_SCHEMA_VERSION` (SQLite `user_version`) | 1 | the `.usifc` tables change |
 
@@ -30,6 +32,15 @@ entry.
 `Dataset` refuses a file whose `user_version` it does not know. A schema change bumps
 `DATASET_SCHEMA_VERSION` and adds a migration that `Dataset` runs inside one transaction when it
 opens an older file for writing.
+
+## Change plans
+
+Change plans (`usif.agent.plan.v2`, `usif.agent.plan.PLAN_FORMAT`) are JSON documents waiting for a
+person's approval, not stored data, so only the current format is read. The format name changes
+when the operations or their meaning change; the plan id hashes the format name with the
+content. A plan of an earlier format (`usif.agent.plan.v1`, written by 0.10 and 0.11) is refused
+with a message naming the format and is left on disk unchanged; it is made again rather than
+converted.
 
 ## Earlier formats
 

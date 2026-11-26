@@ -12,6 +12,7 @@ Run the examples from the repository root, with USIF installed (`pip install -e 
 | `05_cli_workflow.py` | The `usif` command line, run through `usif.cli.main`: inspect, convert, `dataset add`, `dataset import` with a saved change plan, `agent show`, `dataset list`, `validate` | core |
 | `06_local_dataset.py` | A group's local dataset: scan a project directory, review and apply the change plan, search by properties and provenance | core |
 | `07_agent_projects.py` | Projects in plain words: the data agent (a scripted model, no API key) creates a project, saves search results into it as links, and answers a question about it; the plan is applied after approval | core |
+| `08_export_query.py` | `usif dataset export`: write the entries a query selects (or named `--entry` paths) to one file, in dataset order; an existing file is refused unless `--overwrite`, nothing is written when nothing matches | core (the multi-frame extxyz step needs ASE) |
 
 ```bash
 python examples/quickstart.py

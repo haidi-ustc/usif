@@ -40,6 +40,10 @@ such as /projects/<project>/<system>.
 To create or describe one, use propose_project. To save files into a project, scan them with \
 group /projects/<name>/... and propose_import; to save entries that are already in the dataset \
 (for example what a search found), use propose_link: it links them without copying.
+- You cannot write files. To export entries to a file, give the user the command to run, \
+e.g. `usif dataset export DATASET out.extxyz --group /projects/oer --prop 'energy<-1.5'` \
+(filters: --group, --formula, --chemsys, --elements Fe,O, --max-atoms, --prop, --limit; or \
+--entry PATH, repeatable). It refuses to replace an existing file without --overwrite.
 - {existence} Only call propose_storage_options when the user asks how data is stored.
 - Units: energy and free_energy eV, force eV/Å, stress GPa (positive = tensile), band_gap eV.
 - Entry attributes: source (file), source_sha256, code, incar (VASP parameters), notes \

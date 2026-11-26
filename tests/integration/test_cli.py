@@ -86,9 +86,72 @@ def test_dataset_commands(capsys, nacl_file, tmp_path):
     code, _, err = run(capsys, "dataset", "list", dataset, "--prop", "energy<<1")
     assert code == 2 and "needs a number" in err
     exported = tmp_path / "out.usif"
-    assert run(capsys, "dataset", "export", dataset, "/set/water", exported)[0] == 0
+    assert run(capsys, "dataset", "export", dataset, exported, "--entry", "/set/water")[0] == 0
     assert io.read(exported).reduced_formula == "H2O"
     assert run(capsys, "dataset", "compact", dataset)[0] == 0
+
+
+@pytest.fixture
+def salts(tmp_path):
+    from usif.dataset import Dataset
+
+    path = tmp_path / "salts.usifc"
+    with Dataset(path, "w") as dataset:
+        for group, numbers, energy in (
+            ("/salts", [11, 17], -1.0),
+            ("/salts", [19, 17], -2.0),
+            ("/other", [11, 35], -3.0),
+        ):
+            structure = Structure.from_fractional(
+                numbers,
+                [[0, 0, 0], [0.5, 0.5, 0.5]],
+                Cell.cubic(3.0),
+                properties={"energy": energy},
+            )
+            dataset.add(structure, structure.reduced_formula, group)
+    return path
+
+
+def test_export_selected_entries_to_one_file(capsys, tmp_path, salts):
+    pytest.importorskip("ase")
+    out = tmp_path / "salts.extxyz"
+    code, text, _ = run(capsys, "dataset", "export", salts, out, "--group", "/salts")
+    assert code == 0 and "2 structures" in text
+    assert [s.reduced_formula for s in io.read_all(out)] == ["NaCl", "KCl"]  # dataset order
+    code, _, err = run(capsys, "dataset", "export", salts, out)
+    assert code == 2 and "--overwrite" in err and len(io.read_all(out)) == 2  # refused
+    code, text, _ = run(capsys, "dataset", "export", salts, out, "--overwrite", "--limit", "3")
+    assert code == 0 and len(io.read_all(out)) == 3
+    code, _, _ = run(
+        capsys, "dataset", "export", salts, out, "--overwrite", "--prop", "energy<-1.5"
+    )
+    assert code == 0 and [s.reduced_formula for s in io.read_all(out)] == ["KCl", "NaBr"]
+    entries = ("--entry", "/other/NaBr", "--entry", "/salts/NaCl")
+    code, _, _ = run(capsys, "dataset", "export", salts, out, "--overwrite", *entries)
+    assert code == 0 and [s.reduced_formula for s in io.read_all(out)] == ["NaBr", "NaCl"]
+    assert [p.name for p in tmp_path.iterdir() if p.name.startswith(".")] == []  # no scratch
+
+
+def test_export_refusals_write_nothing(capsys, tmp_path, salts):
+    one = tmp_path / "one.usif"
+    code, text, _ = run(capsys, "dataset", "export", salts, one, "--formula", "KCl")
+    assert code == 0 and "1 structure ->" in text and io.read(one).reduced_formula == "KCl"
+    before = one.read_bytes()
+    for argv, message in (
+        ((one, "--formula", "NaBr"), "--overwrite"),
+        ((tmp_path / "many.usif", "--group", "/salts"), "multi-frame"),
+        ((tmp_path / "none.xyz", "--formula", "XeF2"), "no entries match"),
+        ((tmp_path / "e.json", "--entry", "/salts/KCl", "--group", "/salts"), "filters"),
+        ((tmp_path / "missing.json", "--entry", "/salts/LiF"), "not found"),
+        ((tmp_path / "copy.usifc",), "not a .usifc"),
+    ):
+        code, _, err = run(capsys, "dataset", "export", salts, *argv)
+        assert code == 2 and message in err and err.startswith("usif: error:")
+    assert run(capsys, "dataset", "export", salts, tmp_path / "x.xyz", "--limit", "0")[0] == 2
+    assert one.read_bytes() == before
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["one.usif", "salts.usifc"]
+    code, _, _ = run(capsys, "dataset", "export", salts, one, "--formula", "NaBr", "--overwrite")
+    assert code == 0 and io.read(one).reduced_formula == "NaBr"
 
 
 def test_errors_and_usage(capsys, tmp_path):

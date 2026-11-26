@@ -47,6 +47,12 @@ EXPECTED = {
         "Records stored: 3 (links copy nothing)",
         "Projects: [('stable', 2)]",
     ],
+    "08_export_query.py": [
+        "Read back: NaCl",
+        "Existing file refused: exit 2",
+        "Replaced with --overwrite: KCl",
+        "No match, nothing written: exit 2",
+    ],
 }
 
 

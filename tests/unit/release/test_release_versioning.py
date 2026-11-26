@@ -15,13 +15,13 @@ def test_pyproject_is_single_release_metadata_source():
     project = pyproject["project"]
     release = pyproject["tool"]["usif"]["release"]
 
-    assert project["version"] == "0.11.0"
+    assert project["version"] == "0.12.0"
     assert "dynamic" not in project
     assert release == {
         "date": "2026-11-26",
-        "sequence": 20,
-        "record": "20261126.020",
-        "id": "usif-20261126-020",
+        "sequence": 21,
+        "record": "20261126.021",
+        "id": "usif-20261126-021",
     }
 
 
@@ -42,20 +42,20 @@ def test_release_metadata_checker_passes_and_can_write_report(tmp_path):
     from scripts.check_release_metadata import main, validate_release_metadata
 
     meta = validate_release_metadata(ROOT)
-    assert meta.version == "0.11.0"
-    assert meta.record == "20261126.020"
+    assert meta.version == "0.12.0"
+    assert meta.record == "20261126.021"
 
     report = tmp_path / "release-checks.txt"
     assert main(["--root", str(ROOT), "--write-report", str(report)]) == 0
     text = report.read_text()
     assert "USIF release metadata check: PASS" in text
-    assert "record=20261126.020" in text
+    assert "record=20261126.021" in text
 
 
 def test_release_constants_are_public():
     """The CI and publish wheel smoke steps assert these on the installed package."""
     import usif
 
-    assert usif.RELEASE_RECORD == "20261126.020"
-    assert usif.RELEASE_ID == "usif-20261126-020"
+    assert usif.RELEASE_RECORD == "20261126.021"
+    assert usif.RELEASE_ID == "usif-20261126-021"
     assert {"RELEASE_RECORD", "RELEASE_ID", "RELEASE_DATE"} <= set(usif.__all__)
