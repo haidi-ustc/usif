@@ -68,7 +68,7 @@ usif/
     llm.py         ChatClient: /chat/completions with tool calling (standard library HTTP)
     discover.py    scan(): calculations and structure files -> Candidates with provenance
     plan.py        Plan / Operation (usif.agent.plan.v1), apply_plan(): the only write path
-    tools.py       Toolbox: read-only dataset and file tools, propose_* tools
+    tools.py       Toolbox: read-only dataset and file tools, propose_* tools (projects, links)
     session.py     Session: the model <-> tools loop
 
   cli/             the usif command (Typer)

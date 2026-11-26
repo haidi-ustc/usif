@@ -142,6 +142,43 @@ def test_agent_ask_with_a_scripted_model(capsys, monkeypatch, tmp_path):
         assert "/s/nacl" in data  # nothing happens without approval
 
 
+def test_agent_creates_a_project_only_after_approval(capsys, monkeypatch, tmp_path):
+    import usif.agent as agent
+
+    arguments = {"name": "oer", "description": "OER perovskites", "reason": "asked"}
+    replies = [
+        {
+            "tool_calls": [
+                {
+                    "id": "1",
+                    "function": {"name": "propose_project", "arguments": json.dumps(arguments)},
+                }
+            ]
+        },
+        {"content": "I proposed the project /projects/oer."},
+    ]
+
+    class Fake:
+        def __init__(self, config):
+            self.config = config
+
+        def complete(self, messages, tools):
+            return replies.pop(0)
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-x")
+    monkeypatch.setattr(agent, "ChatClient", Fake)
+    target = tmp_path / "new.usifc"
+    code, out, _ = run(
+        capsys, "agent", "ask", target, "start a project for OER", "--plan-out", "p.json"
+    )
+    assert code == 0 and "group     /projects/oer" in out and "not applied" in out
+    assert not target.exists()  # the dataset is created only by the approved plan
+    code, out, _ = run(capsys, "agent", "apply", "p.json", "--yes")
+    assert code == 0 and "1 set_group_attrs" in out
+    with Dataset(target, "r") as data:
+        assert data.group_attrs("/projects/oer") == {"description": "OER perovskites"}
+
+
 @pytest.mark.parametrize(
     "argv", [["agent"], ["agent", "-h"], ["agent", "ask", "-h"], ["dataset", "import", "-h"]]
 )

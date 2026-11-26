@@ -4,6 +4,12 @@
 dataset in ``"r"`` mode for each call; files are read only below the allowed
 roots. ``propose_*`` tools only append operations to :attr:`Toolbox.plan`;
 nothing here writes to the dataset (see :mod:`usif.agent.plan`).
+
+A *project* is the group ``/projects/<name>``, described by its group
+attributes. ``propose_project`` creates or describes one, ``propose_import``
+saves scanned files into it and ``propose_link`` saves existing entries (for
+example the results of a search) into it without copying them. A dataset that
+does not exist yet is created when the first plan for it is applied.
 """
 
 from __future__ import annotations
@@ -11,7 +17,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence
 
 import numpy as np
 
@@ -20,13 +26,31 @@ from usif.agent.discover import ScanResult, scan
 from usif.agent.llm import tool_spec
 from usif.agent.plan import Operation, Plan, add_operation
 from usif.dataset import Dataset, Q
+from usif.dataset.query import normalize_group
 from usif.errors import AgentError, USIFError, ValidationError
 
 __all__ = ["Toolbox"]
 
 MAX_RESULT_CHARS = 16000
 MAX_LIMIT = 50
+MAX_LINKS = 500
 TEXT_SCAN_LIMIT = 20000
+#: Projects are the groups directly below this one.
+PROJECTS = "/projects"
+#: Encoding options the agent may choose; lossy ``precision`` is left to people.
+STORAGE_OPTIONS = {"compression": ("none", "zlib", "lzma", "zstd"), "symmetry": ("off", "auto")}
+FILTERS = (
+    "group",
+    "formula",
+    "chemsys",
+    "elements",
+    "exclude_elements",
+    "natoms_min",
+    "natoms_max",
+    "properties",
+    "attrs",
+    "text",
+)
 _OPS = {
     "<": "__lt__",
     "<=": "__le__",
@@ -67,9 +91,13 @@ class Toolbox:
             "dataset_overview": self.dataset_overview,
             "search_entries": self.search_entries,
             "get_entry": self.get_entry,
+            "list_projects": self.list_projects,
             "inspect_file": self.inspect_file,
             "scan_directory": self.scan_directory,
+            "propose_project": self.propose_project,
             "propose_import": self.propose_import,
+            "propose_link": self.propose_link,
+            "propose_storage_options": self.propose_storage_options,
             "propose_entry_attrs": self.propose_entry_attrs,
             "propose_group_attrs": self.propose_group_attrs,
             "propose_remove": self.propose_remove,
@@ -149,43 +177,24 @@ class Toolbox:
         text: Optional[str] = None,
         limit: int = 20,
     ) -> Dict[str, Any]:
-        where = Q.all()
-        if group:
-            where &= Q.group(group)
-        if formula:
-            where &= Q.formula(formula)
-        if chemsys:
-            where &= Q.chemsys(chemsys)
-        if elements:
-            where &= Q.elements(*elements)
-        for symbol in exclude_elements or []:
-            where &= ~Q.elements(symbol)
-        if natoms_min is not None or natoms_max is not None:
-            where &= Q.natoms(min=natoms_min, max=natoms_max)
-        for condition in properties or []:
-            op = _OPS.get(str(condition.get("op")))
-            if op is None or "name" not in condition or "value" not in condition:
-                raise ValidationError(
-                    f"property conditions are {{name, op, value}} with op in {sorted(_OPS)}"
-                )
-            where &= getattr(Q.prop(str(condition["name"])), op)(condition["value"])
-        for key, value in (attrs or {}).items():
-            where &= Q.attr(key) == value
+        filters = {
+            "group": group,
+            "formula": formula,
+            "chemsys": chemsys,
+            "elements": elements,
+            "exclude_elements": exclude_elements,
+            "natoms_min": natoms_min,
+            "natoms_max": natoms_max,
+            "properties": properties,
+            "attrs": attrs,
+            "text": text,
+        }
         limit = max(1, min(int(limit), MAX_LIMIT))
-        needle = text.lower() if text else None
         rows = []
         with self._open() as data:
+            where = _where(filters)
             total = data.count(where)
-            scan_limit = TEXT_SCAN_LIMIT if needle else limit
-            for entry in data.query(where, limit=scan_limit, load=True):
-                if (
-                    needle
-                    and needle
-                    not in (
-                        (entry.path or "") + json.dumps(entry.attrs, ensure_ascii=False)
-                    ).lower()
-                ):
-                    continue
+            for entry in _matches(data, where, text, limit):
                 structure = entry.structure
                 rows.append(
                     {
@@ -196,8 +205,6 @@ class Toolbox:
                         "attrs": _trim({k: v for k, v in entry.attrs.items() if k != "incar"}, 200),
                     }
                 )
-                if len(rows) >= limit:
-                    break
         return {"matching_records_conditions": total, "returned": len(rows), "entries": rows}
 
     def get_entry(self, path: str) -> Dict[str, Any]:
@@ -228,6 +235,31 @@ class Toolbox:
                 "volume": round(float(cell.volume), 4),
             }
         return result
+
+    def list_projects(self) -> Dict[str, Any]:
+        """The projects (groups below /projects) with entry counts, and those proposed."""
+        proposed = sorted(
+            {
+                op.target
+                for op in self.plan.operations
+                if op.op == "set_group_attrs" and _is_project(op.target)
+            }
+        )
+        if not self.dataset.exists():
+            return {"dataset_exists": False, "projects": [], "proposed": proposed}
+        rows = []
+        with self._open() as data:
+            for group in data.groups():
+                if _is_project(group):
+                    rows.append(
+                        {
+                            "project": group.rsplit("/", 1)[1],
+                            "group": group,
+                            "entries": data.count(Q.group(group)),
+                            "attrs": _trim(data.group_attrs(group)),
+                        }
+                    )
+        return {"dataset_exists": True, "projects": rows, "proposed": proposed}
 
     def inspect_file(self, path: str) -> Dict[str, Any]:
         source = self._allowed(path)
@@ -266,6 +298,28 @@ class Toolbox:
             "note": "Recorded in the change plan. Nothing was written: the user reviews and approves the plan.",
         }
 
+    def propose_project(
+        self,
+        name: str,
+        description: str,
+        attrs: Optional[Dict[str, Any]] = None,
+        reason: str = "",
+    ) -> Dict[str, Any]:
+        group = project_group(name)
+        if not isinstance(description, str) or not description.strip():
+            raise AgentError("a project needs a description")
+        values = {**dict(attrs or {}), "description": description.strip()}
+        exists = False
+        if self.dataset.exists():
+            with self._open() as data:
+                exists = group in data.groups()
+        self.plan.add(Operation("set_group_attrs", group, values, note=reason))
+        result = self._proposed(self.plan.operations[-1:])
+        result["project_group"] = group
+        result["project_exists"] = exists
+        result["dataset_exists"] = self.dataset.exists()
+        return result
+
     def propose_import(
         self,
         scan_id: int,
@@ -297,6 +351,90 @@ class Toolbox:
             self.plan.add(operation)
             added.append(operation)
         return self._proposed(added)
+
+    def propose_link(
+        self,
+        group: str,
+        paths: Optional[List[str]] = None,
+        filters: Optional[Dict[str, Any]] = None,
+        reason: str = "",
+    ) -> Dict[str, Any]:
+        """Save existing entries into ``group``; their relative layout is kept."""
+        target_group = normalize_group(group)
+        if target_group == "/":
+            raise AgentError("choose a group to save into, e.g. /projects/<name>")
+        if (paths is None) == (filters is None):
+            raise AgentError("give either 'paths' or 'filters' (the search_entries filters)")
+        planned = {op.target for op in self.plan.operations if op.op in ("add", "link")}
+        sources: List[Any] = []
+        with self._open() as data:
+            if paths is not None:
+                if not isinstance(paths, list) or not paths:
+                    raise AgentError("paths must be a non-empty list of entry paths")
+                if len(paths) > MAX_LINKS:
+                    raise AgentError(f"at most {MAX_LINKS} entries per proposal")
+                sources = [data.entry(str(path)) for path in paths]
+            else:
+                if not isinstance(filters, dict):
+                    raise AgentError("filters must be an object of search_entries filters")
+                unknown = set(filters) - set(FILTERS)
+                if unknown:
+                    raise AgentError(f"unknown filters {sorted(unknown)}; use {list(FILTERS)}")
+                where = _where(filters)
+                sources = list(_matches(data, where, filters.get("text"), MAX_LINKS + 1))
+                if len(sources) > MAX_LINKS:
+                    raise AgentError(f"more than {MAX_LINKS} entries match; narrow the filters")
+            # Entries saved into the group before, by an applied plan or earlier in this one.
+            saved = {e.attrs.get("linked_from") for e in data.query(Q.group(target_group))}
+            saved |= {
+                op.source
+                for op in self.plan.operations
+                if op.op == "link" and op.target.startswith(target_group + "/")
+            }
+            skipped = []
+            chosen = []
+            seen = set()
+            for entry in sources:
+                path = entry.path
+                if path is None:
+                    skipped.append({"entry": f"{entry.group} (unnamed)", "reason": "no name"})
+                elif path in seen:
+                    continue
+                elif entry.group == target_group or entry.group.startswith(target_group + "/"):
+                    skipped.append({"entry": path, "reason": "already in the group"})
+                elif path in saved:
+                    skipped.append({"entry": path, "reason": "already saved there"})
+                else:
+                    seen.add(path)
+                    chosen.append(entry)
+            added = []
+            for entry, target in zip(chosen, _link_targets(target_group, chosen)):
+                if target in data or target in planned:
+                    skipped.append({"entry": entry.path, "target": target, "reason": "path taken"})
+                    continue
+                operation = Operation("link", target, source=entry.path, note=reason)
+                self.plan.add(operation)
+                added.append(operation)
+        result = self._proposed(added)
+        result["skipped"] = skipped[:50]
+        return result
+
+    def propose_storage_options(
+        self,
+        compression: Optional[str] = None,
+        symmetry: Optional[str] = None,
+        reason: str = "",
+    ) -> Dict[str, Any]:
+        """How the structures this plan adds are encoded (lossless choices only)."""
+        chosen = {"compression": compression, "symmetry": symmetry}
+        for key, value in chosen.items():
+            if value is not None and value not in STORAGE_OPTIONS[key]:
+                raise AgentError(f"{key} must be one of {list(STORAGE_OPTIONS[key])}")
+        self.plan.options.update({k: v for k, v in chosen.items() if v is not None})
+        return {
+            "options": dict(self.plan.options),
+            "note": "Applies to the structures this plan adds; shown to the user for approval.",
+        }
 
     def propose_entry_attrs(
         self, path: str, attrs: Dict[str, Any], reason: str = ""
@@ -385,6 +523,13 @@ class Toolbox:
                 ["path"],
             ),
             tool_spec(
+                "list_projects",
+                "Projects (groups /projects/<name>) with their description and entry counts, "
+                "and projects proposed in the current plan.",
+                {},
+                [],
+            ),
+            tool_spec(
                 "inspect_file",
                 "Read a structure file (allowed directories only) without storing it.",
                 {"path": string},
@@ -421,6 +566,49 @@ class Toolbox:
                 ["scan_id"],
             ),
             tool_spec(
+                "propose_project",
+                "Propose creating (or re-describing) the project group /projects/<name>. "
+                "Creates the dataset too if it does not exist yet.",
+                {
+                    "name": {"type": "string", "description": "Short name without '/', e.g. oer."},
+                    "description": {"type": "string", "description": "What the project is about."},
+                    "attrs": {**_ATTRS, "description": 'More attributes, e.g. {"owner": "li"}.'},
+                    "reason": _REASON,
+                },
+                ["name", "description"],
+            ),
+            tool_spec(
+                "propose_link",
+                "Propose saving existing entries into a group, typically a project "
+                "(/projects/<name>): either the listed paths or every entry matching filters. "
+                "Entries are linked, not copied; their layout below the common parent group is "
+                f"kept. At most {MAX_LINKS} entries.",
+                {
+                    "group": {"type": "string", "description": "Target group, e.g. /projects/oer."},
+                    "paths": {**strings, "description": "Entry paths from search_entries."},
+                    "filters": {
+                        "type": "object",
+                        "description": "The search_entries filters (not limit), e.g. "
+                        '{"chemsys": "Fe-O", "properties": [{"name": "band_gap", "op": ">", '
+                        '"value": 1}]}.',
+                    },
+                    "reason": _REASON,
+                },
+                ["group"],
+            ),
+            tool_spec(
+                "propose_storage_options",
+                "Propose how the structures this plan adds are stored: compression "
+                f"({', '.join(STORAGE_OPTIONS['compression'])}) and symmetry ('auto' stores the "
+                "asymmetric unit when that is exact and smaller). Only when the user asks.",
+                {
+                    "compression": {"type": "string", "enum": list(STORAGE_OPTIONS["compression"])},
+                    "symmetry": {"type": "string", "enum": list(STORAGE_OPTIONS["symmetry"])},
+                    "reason": _REASON,
+                },
+                [],
+            ),
+            tool_spec(
                 "propose_entry_attrs",
                 "Propose merging attributes into an entry (e.g. a description, tags, method).",
                 {"path": string, "attrs": _ATTRS, "reason": _REASON},
@@ -441,6 +629,74 @@ class Toolbox:
             tool_spec("show_plan", "The change plan proposed so far.", {}, []),
             tool_spec("discard_plan", "Drop every proposed change.", {}, []),
         ]
+
+
+def project_group(name: str) -> str:
+    """The group of project ``name``: ``/projects/<name>``."""
+    if not isinstance(name, str) or not name.strip() or "/" in name:
+        raise AgentError(f"project names are one path component without '/', got {name!r}")
+    group = f"{PROJECTS}/{name.strip()}"
+    if normalize_group(group) != group:
+        raise AgentError(f"invalid project name {name!r}")
+    return group
+
+
+def _is_project(group: str) -> bool:
+    return group.startswith(PROJECTS + "/") and group.count("/") == 2
+
+
+def _where(filters: Mapping[str, Any]) -> Q:
+    """The dataset query for the search_entries filters (``text`` is matched separately)."""
+    where = Q.all()
+    if filters.get("group"):
+        where &= Q.group(filters["group"])
+    if filters.get("formula"):
+        where &= Q.formula(filters["formula"])
+    if filters.get("chemsys"):
+        where &= Q.chemsys(filters["chemsys"])
+    if filters.get("elements"):
+        where &= Q.elements(*filters["elements"])
+    for symbol in filters.get("exclude_elements") or []:
+        where &= ~Q.elements(symbol)
+    low, high = filters.get("natoms_min"), filters.get("natoms_max")
+    if low is not None or high is not None:
+        where &= Q.natoms(min=low, max=high)
+    for condition in filters.get("properties") or []:
+        op = _OPS.get(str(condition.get("op"))) if isinstance(condition, dict) else None
+        if op is None or "name" not in condition or "value" not in condition:
+            raise ValidationError(
+                f"property conditions are {{name, op, value}} with op in {sorted(_OPS)}"
+            )
+        where &= getattr(Q.prop(str(condition["name"])), op)(condition["value"])
+    for key, value in (filters.get("attrs") or {}).items():
+        where &= Q.attr(key) == value
+    return where
+
+
+def _matches(data: Dataset, where: Q, text: Optional[str], limit: int) -> Iterator[Any]:
+    """Up to ``limit`` entries matching ``where`` whose path or attributes contain ``text``."""
+    needle = text.lower() if text else None
+    found = 0
+    for entry in data.query(where, limit=TEXT_SCAN_LIMIT if needle else limit, load=True):
+        if needle:
+            haystack = (entry.path or "") + json.dumps(entry.attrs, ensure_ascii=False)
+            if needle not in haystack.lower():
+                continue
+        yield entry
+        found += 1
+        if found >= limit:
+            return
+
+
+def _link_targets(group: str, entries: Sequence[Any]) -> List[str]:
+    """Targets below ``group`` that keep each entry's path below the entries' common parent."""
+    parts = [[p for p in entry.group.split("/") if p] for entry in entries]
+    common = 0
+    if parts:
+        while all(len(p) > common and p[common] == parts[0][common] for p in parts):
+            common += 1
+    base = group.rstrip("/")
+    return ["/".join([base, *p[common:], entry.name]) for p, entry in zip(parts, entries)]
 
 
 def _jsonable(value: Any) -> Any:

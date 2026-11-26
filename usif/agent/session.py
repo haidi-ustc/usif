@@ -16,6 +16,11 @@ MAX_STEPS = 16
 
 def system_prompt(toolbox: Toolbox) -> str:
     roots = ", ".join(map(str, toolbox.roots)) or "none (scanning is disabled)"
+    existence = (
+        "The dataset exists."
+        if toolbox.dataset.exists()
+        else "The dataset does not exist yet: the first approved plan creates it."
+    )
     return f"""You are the data agent of USIF, a local, searchable dataset of computational \
 materials results (structures with energies, forces, stresses and provenance) kept by a \
 research group.
@@ -31,9 +36,15 @@ return; never claim that data was imported, changed or removed.
 - Before proposing an import, scan the directory and check the candidates (status new, \
 registered, conflict). Follow the group layout already in the dataset; otherwise use groups \
 such as /projects/<project>/<system>.
+- Projects are the groups /projects/<name>, described by their attributes (list_projects). \
+To create or describe one, use propose_project. To save files into a project, scan them with \
+group /projects/<name>/... and propose_import; to save entries that are already in the dataset \
+(for example what a search found), use propose_link: it links them without copying.
+- {existence} Only call propose_storage_options when the user asks how data is stored.
 - Units: energy and free_energy eV, force eV/Å, stress GPa (positive = tensile), band_gap eV.
 - Entry attributes: source (file), source_sha256, code, incar (VASP parameters), notes \
-(README text), plan (the approved plan that added the entry).
+(README text), plan (the approved plan that added the entry), linked_from (the entry a \
+linked entry was saved from).
 - Be concise. Use tables or short lists for several entries. Answer in the user's language."""
 
 

@@ -11,6 +11,7 @@ Run the examples from the repository root, with USIF installed (`pip install -e 
 | `04_upgrade_0_8_files.py` | Reading a format-5 record, listing a v2 container, importing it into a dataset | core (uses `tests/fixtures/`) |
 | `05_cli_workflow.py` | The `usif` command line, run through `usif.cli.main` | core |
 | `06_local_dataset.py` | A group's local dataset: scan a project directory, review and apply the change plan, search by properties and provenance | core |
+| `07_agent_projects.py` | Projects in plain words: the data agent (a scripted model, no API key) creates a project, saves search results into it as links, and answers a question about it; the plan is applied after approval | core |
 
 ```bash
 python examples/quickstart.py

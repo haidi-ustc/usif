@@ -13,6 +13,16 @@
   `pythonpath = ["."]` (the `dev` extra now needs pytest 7). The subprocess tests run from the
   repository root whatever the working directory.
 
+- Projects in plain words: `usif agent ask/chat` can create a project (the group
+  `/projects/<name>` with a description), save files or existing entries into it, and answer
+  questions about it ("create a project oer and save every Ti oxide with a gap above 1 eV into
+  it"). New agent tools: `list_projects`, `propose_project`, `propose_link` (entry paths or search
+  filters, at most 500, layout kept below the common parent group, entries already saved
+  skipped) and `propose_storage_options` (compression and symmetry only; never the lossy
+  precision). Approval is unchanged: everything is a plan a person applies. `DATASET` may be a
+  new file, created by the first approved plan.
+- Change plans have a `link` operation (entry `target` for the record of entry `source`,
+  attributes copied plus `linked_from`), and the review shows the plan's storage options.
 - `Dataset.link(source, name, group, attrs=None)` creates a second entry for an existing entry's
   record, without copying or re-encoding it, so one structure can belong to several groups.
 

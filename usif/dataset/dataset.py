@@ -392,8 +392,7 @@ class Dataset:
         a copy of the source entry's attributes.
         """
         group = normalize_group(group)
-        name = _validate_name(name)
-        if name is None:
+        if _validate_name(name) is None:
             raise ValidationError("link() needs an entry name")
         with self.transaction():
             entry = self.entry(source)

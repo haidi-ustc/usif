@@ -64,12 +64,12 @@ The data agent and local-dataset import ([guide](agent.md)). Nothing here is imp
 |---|---|
 | `scan(root, *, group="/", dataset=None, all_frames=False)` | Find calculations and structure files -> `ScanResult` (`candidates`, `new`, `skipped`) of `Candidate`s (`path`, `source`, `sha256`, `formula`, `natoms`, `properties`, `attrs`, `status`) |
 | `Plan(dataset, operations, options, origin, request)` | A change plan: `id`, `describe()`, `to_dict()`, `save(path)`, `Plan.load(path)`, `Plan.from_dict(data)` |
-| `Operation(op, target, attrs, source, sha256, frame, overwrite, note)` | One change: `add`, `set_attrs`, `set_group_attrs` or `remove` |
+| `Operation(op, target, attrs, source, sha256, frame, overwrite, note)` | One change: `add`, `link`, `set_attrs`, `set_group_attrs` or `remove` |
 | `plan_from_scan(dataset, candidates, *, update=False, options=None)` | A plan adding the new candidates |
 | `apply_plan(plan, *, dataset=None) -> ApplyReport` | Verify and apply an approved plan in one transaction |
 | `LLMConfig`, `load_config(overrides=None)` | OpenAI-compatible endpoint settings (DeepSeek by default) |
 | `ChatClient(config)`, `ChatModel` | The HTTP chat client and the protocol it implements (`complete(messages, tools)`) |
-| `Toolbox(dataset, *, roots=())` | The agent's read-only and `propose_*` tools; `plan` holds the proposals |
+| `Toolbox(dataset, *, roots=())` | The agent's read-only and `propose_*` tools (including projects: `list_projects`, `propose_project`, `propose_link`); `plan` holds the proposals |
 | `Session(model, toolbox, *, on_tool=None)` | The conversation loop: `ask(text) -> str`, `plan` |
 
 ## `usif.backends`

@@ -28,6 +28,14 @@ EXPECTED = {
         "Near the minimum: ['/salts/eos/a5.60/final']",
         "Added by plan: 3",
     ],
+    "07_agent_projects.py": [
+        "link      /projects/stable/SrTiO3/relax  <-  /oer/SrTiO3/relax",
+        "Applied: 1 project, 2 links",
+        "Search tool found: ['/projects/stable/SrTiO3/relax', '/projects/stable/BaTiO3/relax']",
+        "Proposed by the question: 0 changes",
+        "Records stored: 3 (links copy nothing)",
+        "Projects: [('stable', 2)]",
+    ],
 }
 
 
