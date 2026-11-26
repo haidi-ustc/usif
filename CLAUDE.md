@@ -64,8 +64,8 @@ indexed by `docs/README.md`); keep it, `README.md` and `examples/` in sync with 
   `DATASET_SCHEMA_VERSION`). Records are deduplicated by `record_hash`; entries are `(group, name)`
   with JSON attrs; `Q` compiles to parameterised SQL. `"w"` mode builds a temp file and replaces.
 - `usif/upgrade`: frozen readers for USIF 0.8 files — `format6.py` (records formats 5/6, checks the
-  SHA-256 geometry hash) and `container_v2.py` (v2 containers, used by `Dataset.import_v2` and
-  `usif upgrade`). Do not change their behaviour; golden fixtures live in `tests/fixtures/format5`
+  SHA-256 geometry hash) and `container_v2.py` (v2 containers, used by `Dataset.import_v2`; there is
+  no `usif upgrade` command). Do not change their behaviour; golden fixtures live in `tests/fixtures/format5`
   and `tests/fixtures/format6` (`generate.py` there was run against the real 0.8.0 code).
 - `usif/backends`: `Backend` protocol + registry (matsimpy → ase → pymatgen → `usif.backends`
   entry points). Backends only map library objects/files to and from `Structure`.

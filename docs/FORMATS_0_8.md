@@ -4,7 +4,7 @@ USIF 0.9 reads these files but no longer writes them:
 
 * `.usif` records of formats 5 and 6 are read by `usif.read()` through `usif.upgrade.format6`;
 * `.usifc` version-2 containers are read by `usif.upgrade.open_container_v2()` and converted with
-  `Dataset.import_v2()` or `usif upgrade old.usifc new.usifc`.
+  `Dataset.import_v2()`.
 
 The readers are frozen. Their notes on how 0.8 data maps to a `Structure` are:
 

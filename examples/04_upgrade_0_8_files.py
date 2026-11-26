@@ -1,7 +1,7 @@
 """Reading and converting files written by USIF 0.8 and earlier.
 
-Format-5/6 records are read transparently; v2 containers are imported into a
-dataset (or converted with ``usif upgrade old.usifc new.usifc``).
+Format-5/6 records are read transparently (``usif convert old.usif new.usif`` rewrites
+one as format 7); v2 containers are imported into a dataset with ``Dataset.import_v2``.
 """
 
 import tempfile

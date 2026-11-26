@@ -59,19 +59,20 @@ def test_inspect_convert_validate(capsys, nacl_file, tmp_path):
     assert code == 1 and json.loads(out)["ok"] is False
 
 
-def test_upgrade_record_and_container(capsys, tmp_path):
+def test_usif_0_8_files_without_an_upgrade_command(capsys, tmp_path):
+    # There is no `usif upgrade`: a format-5/6 record is read by every command (convert rewrites
+    # it as format 7), and `inspect` points a v2 container at Dataset.import_v2.
+    assert run(capsys, "upgrade", "-h")[0] == 2
     record = tmp_path / "new.usif"
-    assert run(capsys, "upgrade", FIXTURES / "format5" / "rutile_136.usif", record)[0] == 0
+    assert run(capsys, "convert", FIXTURES / "format5" / "rutile_136.usif", record)[0] == 0
     assert io.read(record).reduced_formula == "TiO2"
-    dataset = tmp_path / "data.usifc"
-    code, out, _ = run(capsys, "upgrade", FIXTURES / "format5" / "mixed.usifc", dataset)
-    assert code == 0 and "4 entries" in out
-    code, out, _ = run(capsys, "inspect", dataset, "--json")
-    assert json.loads(out)["entries"] == 4
+    code, out, _ = run(capsys, "inspect", record, "--json")
+    assert code == 0 and json.loads(out)["record"]["format"] == 7
     old = tmp_path / "old.usifc"
     shutil.copy(FIXTURES / "format5" / "mixed.usifc", old)
-    assert "usif upgrade" in run(capsys, "inspect", old)[1]
-    assert run(capsys, "validate", dataset, "--full")[0] == 0
+    code, out, _ = run(capsys, "inspect", old)
+    assert code == 0 and "import_v2" in out and "usif upgrade" not in out
+    assert "upgrade" not in run(capsys, "--help")[1]
 
 
 def test_dataset_commands(capsys, nacl_file, tmp_path):
@@ -178,7 +179,6 @@ def test_errors_and_usage(capsys, tmp_path):
         ["dataset", "list", "-h"],
         ["inspect", "-h"],
         ["convert", "-h"],
-        ["upgrade", "-h"],
         ["validate", "-h"],
     ],
     ids=lambda argv: " ".join(argv) or "bare",
