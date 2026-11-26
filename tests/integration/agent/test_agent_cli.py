@@ -176,6 +176,6 @@ def test_live_deepseek_answers_from_the_dataset(tmp_path, monkeypatch):
 
 
 def test_model_answers_cannot_inject_terminal_escapes():
-    from usif.cli import _terminal_text
+    from usif.cli.agent import terminal_text
 
-    assert _terminal_text("a\x1b[2Jb\nc\td") == "a\\x1b[2Jb\nc\td"
+    assert terminal_text("a\x1b[2Jb\nc\td") == "a\\x1b[2Jb\nc\td"

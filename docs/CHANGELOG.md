@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Packaging: the `mp` extra is gone (it installed monty and mp-api for a script that is not part
+  of the package). The Materials Project script's dependencies are in
+  `scripts/materials_project/requirements.txt`; `all` no longer includes them.
+- `usif.cli` is a package (`root`, `dataset`, `agent`, `plans`, `common`). `usif.cli.main` and the
+  `usif` command are unchanged; `python -m usif.cli` still works.
+- The format-6 golden fixtures are tracked, so the upgrade tests run on a clean clone.
+
 ## 0.10.0
 
 Release record `20261116.019`, release ID `usif-20261116-019`. A CLI-first data agent and local

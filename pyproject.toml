@@ -48,11 +48,6 @@ ase = [
 zstd = [
     "zstandard>=0.21.0",
 ]
-# Dependencies of scripts/materials_project (not part of the installed package).
-mp = [
-    "monty>=2022.0.0",
-    "mp-api>=0.35.0",
-]
 dev = [
     "pytest>=6.0",
     "pytest-cov>=2.0",
@@ -70,8 +65,6 @@ all = [
     "zstandard>=0.21.0",
     "pymatgen>=2022.0.0",
     "ase>=3.22.0",
-    "monty>=2022.0.0",
-    "mp-api>=0.35.0",
     "pytest>=6.0",
     "pytest-cov>=2.0",
     "flake8>=6.0.0",

@@ -32,7 +32,6 @@ pip install "usif[zstd]"          # + zstd record compression
 | `pymatgen` | pymatgen | `usif.convert(..., "pymatgen")` and pymatgen file formats |
 | `matsimpy` | matsimpy | the matsimpy backend (not on PyPI: `pip install -e /path/to/matsimpy`) |
 | `zstd` | zstandard | `compression="zstd"` |
-| `mp` | monty, mp-api | the Materials Project development script |
 | `dev` | pytest, black, isort, mypy, bandit, pip-audit, build | development |
 | `all` | everything above except matsimpy | |
 
@@ -125,7 +124,7 @@ the [changelog](docs/CHANGELOG.md) map each old call to its replacement.
 ## Development
 
 ```bash
-python -m pip install -e ".[dev,pymatgen,ase,mp]"
+python -m pip install -e ".[dev,pymatgen,ase]" -r scripts/materials_project/requirements.txt
 python -m pytest tests/unit
 ```
 

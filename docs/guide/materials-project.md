@@ -1,6 +1,6 @@
 # Materials Project data
 
-The Materials Project (MP) tooling is a development script in [`scripts/materials_project`](../../scripts/materials_project/README.md), not part of the installed package. Run it from the repository root; it needs the `mp` extra (`monty`, plus `mp-api` for downloads).
+The Materials Project (MP) tooling is a development script in [`scripts/materials_project`](../../scripts/materials_project/README.md), not part of the installed package. Run it from the repository root; it needs `pip install -r scripts/materials_project/requirements.txt` (`monty`, plus `mp-api` for downloads).
 
 ## Build a dataset
 

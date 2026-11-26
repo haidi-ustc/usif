@@ -1,0 +1,4 @@
+# Dependencies of scripts/materials_project (not of the usif package).
+# pip install -r scripts/materials_project/requirements.txt
+monty>=2022.0.0
+mp-api>=0.35.0
