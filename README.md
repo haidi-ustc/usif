@@ -17,7 +17,7 @@ USIF stores atomistic structures (crystals and molecules) exactly, compactly and
   plan; nothing is written until a person approves it.
 - **Small core.** Only numpy, spglib and typer are required; every structure library is optional.
 
-Python 3.10+. Version 0.11.0 (see the [changelog](docs/CHANGELOG.md)). Files written by USIF 0.8 and earlier are still readable (see
+Python 3.10+. Version 0.12.0 (see the [changelog](docs/CHANGELOG.md)). Files written by USIF 0.8 and earlier are still readable (see
 [Upgrading from 0.8](#upgrading-from-08)).
 
 ## Installation

@@ -6,17 +6,17 @@
 
 ```toml
 [project]
-version = "0.11.0"
+version = "0.12.0"
 
 [tool.usif.release]
 date = "2026-11-26"
-sequence = 20
-record = "20261126.020"
-id = "usif-20261126-020"
+sequence = 21
+record = "20261126.021"
+id = "usif-20261126-021"
 ```
 
 **Bump policy.** USIF is pre-1.0 (it was renumbered from `7.1.0` to `0.7.1` with identical
-code). Releases bump the **minor** version (`0.10.0` -> `0.11.0`); patch releases (`0.11.1`) are
+code). Releases bump the **minor** version (`0.11.0` -> `0.12.0`); patch releases (`0.12.1`) are
 for fixes only. A major version (`1.0.0`) is a deliberate decision, never an automatic bump.
 
 **Release record.** `date` is the ISO release date, `sequence` increases by one with every
@@ -50,8 +50,8 @@ only with their layouts; see [FORMAT_VERSIONING.md](FORMAT_VERSIONING.md).
    /tmp/usif-wheel-smoke/bin/python -m pip install dist/*.whl
    /tmp/usif-wheel-smoke/bin/python - <<'PY'
    import usif
-   assert usif.__version__ == "0.11.0"
-   assert usif.RELEASE_RECORD == "20261126.020"
+   assert usif.__version__ == "0.12.0"
+   assert usif.RELEASE_RECORD == "20261126.021"
    from usif import Cell, Dataset, Structure, decode, encode
    s = Structure.from_fractional(["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]], Cell.cubic(5.64))
    assert decode(encode(s)) == s

@@ -1,6 +1,6 @@
 # Public API
 
-This is the public API of USIF 0.11.0. Everything else (for example `usif.codec.wire`, `usif.codec.columns`, `usif.dataset.sql`, `usif.symmetry.spacegroup`, `usif.fileio`, and names starting with `_`) is internal. See [API stability](../API_STABILITY.md).
+This is the public API of USIF 0.12.0. Everything else (for example `usif.codec.wire`, `usif.codec.columns`, `usif.dataset.sql`, `usif.symmetry.spacegroup`, `usif.fileio`, and names starting with `_`) is internal. See [API stability](../API_STABILITY.md).
 
 ## `usif`
 
