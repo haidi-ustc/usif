@@ -73,7 +73,7 @@ usif/
 
   cli/             the usif command (Typer)
     root.py        app, file commands (version, inspect, convert, validate, upgrade), main()
-    dataset.py     usif dataset ... (add, list, export, compact, import)
+    dataset.py     usif dataset ... (add, list, export of a query to one file, compact, import)
     agent.py       usif agent ... (ask, chat, show, apply, plans, config)
     plans.py       review(): show a plan, apply it only on approval, keep or journal it
     common.py      shared options, JSON/summary output, one-line error messages
@@ -152,4 +152,5 @@ are labels).
   `--allow` directories; `propose_*` tools build a `Plan`, and only `apply_plan` writes, after a
   person approves. `apply_plan` re-checks source SHA-256s and target entries and runs in one
   transaction. The API key is read from the environment by the HTTP client alone and is redacted
-  from error text.
+  from error text. The agent has no file-writing tool: exports are `usif dataset export`, run by
+  a person (the agent may only suggest the command).

@@ -89,7 +89,7 @@ usif convert POSCAR nacl.usif --symmetry auto
 usif validate data.usifc --full            # exit code 1 if invalid
 usif dataset add data.usifc *.cif --group /cifs
 usif dataset list data.usifc --elements Na,Cl --prop 'energy<-1.5'
-usif dataset export data.usifc /salts/nacl nacl.cif
+usif dataset export data.usifc salts.extxyz --group /salts --prop 'energy<-1.5'  # never overwrites without --overwrite
 usif upgrade old.usifc new.usifc           # USIF 0.8 files -> current formats
 ```
 
@@ -122,7 +122,8 @@ What you can ask for:
 The agent reads the dataset and your files and proposes changes as a change plan. Nothing is
 written until you approve the plan (`[y/N]`; the agent itself can never approve): changes are
 applied in one transaction, checked against source-file hashes, and each new entry records the
-plan that added it. See the [agent guide](docs/guide/agent.md) and
+plan that added it. The agent never writes files either: for an export it gives you the
+`usif dataset export` command to run. See the [agent guide](docs/guide/agent.md) and
 [`examples/07_agent_projects.py`](examples/07_agent_projects.py), which runs offline with a
 scripted model.
 

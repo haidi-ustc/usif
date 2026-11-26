@@ -152,6 +152,32 @@ with Dataset("demo.usifc", "r") as ds:
 
 To find other entries with the same geometry, use `Q.geometry(info.geometry_hash)` with `info` from `usif.codec.encode_with_info`.
 
+## Exporting
+
+`usif dataset export` writes the entries a query selects to one structure file, in dataset
+(insertion) order. The selection is either named entries (`--entry /group/name` or a record
+hash, repeatable, in the order given) or the filters of `usif dataset list` (`--group`,
+`--formula`, `--chemsys`, `--elements`, `--max-atoms`, `--prop`) with an optional `--limit`;
+with neither, every entry is exported.
+
+```bash
+usif dataset export data.usifc stable.extxyz --group /projects/oer --prop 'energy<-40'
+usif dataset export data.usifc nacl.json --entry /salts/nacl
+usif dataset export data.usifc stable.extxyz --group /projects/oer --overwrite
+```
+
+- One structure can go to any format, including `.usif` and `.json`. Several need a
+  multi-frame format written by a backend (`.xyz`, `.extxyz`, ...); `--format` names the
+  backend format when the suffix does not.
+- An existing `OUTPUT` is refused unless `--overwrite` is given. The file is written under its
+  own name in a private directory next to `OUTPUT` and moved into place when complete, so a
+  failed export never leaves a half-written or truncated `OUTPUT`.
+- When nothing matches, the command fails (exit 2) and writes nothing.
+
+The same in Python is `usif.write_all(list(ds.structures(where)), "out.extxyz")`. The data agent
+never writes files: asked for an export, it gives you the command to run.
+[`examples/08_export_query.py`](../../examples/08_export_query.py) runs these rules.
+
 ## Checking and maintenance
 
 - `stats()`: counts of `entries`, `records`, `unreferenced_records`, `groups`, distinct `formulas` and `atoms`, plus `record_bytes` and `file_bytes`.
