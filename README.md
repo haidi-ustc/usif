@@ -107,6 +107,8 @@ usif agent ask group.usifc "Which Ti oxides do we have, and with which ENCUT?"
 usif agent ask group.usifc "Create a project 'stable' and save every Ti oxide below -40 eV into it"
 usif agent ask new.usifc "Start a project for the OER work"   # a new dataset, created on approval
 usif agent chat group.usifc --allow ~/projects                # "save the new runs in ~/projects/oer into oer"
+export USIF_DATASET=$PWD/group.usifc                          # optional default (or [agent] dataset in ~/.usif/config.toml)
+usif agent ask "Which projects do we have?"
 ```
 
 What you can ask for:

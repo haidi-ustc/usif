@@ -40,13 +40,15 @@ def terminal_text(text: str) -> str:
 
 
 def _session(
-    dataset_path: Path, allow: List[Path], model: Optional[str], base_url: Optional[str]
+    dataset_path: Optional[Path], allow: List[Path], model: Optional[str], base_url: Optional[str]
 ) -> Any:
     from usif.agent import ChatClient, Session, Toolbox, load_config
+    from usif.agent.config import agent_dataset
 
+    dataset = agent_dataset(dataset_path)
     config = load_config({"model": model, "base_url": base_url})
     config.api_key()  # fail early, before the first question
-    toolbox = Toolbox(dataset_path, roots=allow or [Path.cwd()])
+    toolbox = Toolbox(dataset, roots=allow or [Path.cwd()])
 
     def on_tool(name: str, arguments: Dict[str, Any]) -> None:
         shown = json.dumps(arguments, ensure_ascii=False)
@@ -60,18 +62,33 @@ _ALLOW = typer.Option(
 )
 _MODEL = typer.Option(None, "--model", help="Model name (default from configuration).")
 _BASE_URL = typer.Option(None, "--base-url", help="OpenAI-compatible endpoint URL.")
+_DATASET_HELP = (
+    "The .usifc dataset. Default: $USIF_DATASET, else the 'dataset' setting of the agent "
+    "table in ~/.usif/config.toml (it must exist). A new dataset needs an explicit path."
+)
 
 
 @agent_app.command("ask")
 def agent_ask(
-    dataset_path: Path = typer.Argument(..., metavar="DATASET"),
-    request: str = typer.Argument(..., metavar="REQUEST", help="What you want, in plain words."),
+    first: Optional[str] = typer.Argument(
+        None, metavar="DATASET", help=_DATASET_HELP, show_default=False
+    ),
+    second: Optional[str] = typer.Argument(
+        None, metavar="REQUEST", help="What you want, in plain words.", show_default=False
+    ),
     allow: List[Path] = _ALLOW,
     plan_out: Optional[Path] = typer.Option(None, "--plan-out", help="Save proposed changes here."),
     model: Optional[str] = _MODEL,
     base_url: Optional[str] = _BASE_URL,
 ) -> None:
-    """Ask one question or give one instruction; proposed changes need your approval."""
+    """Ask one question or give one instruction; proposed changes need your approval.
+
+    DATASET may be left out when a default dataset is configured: USIF_DATASET,
+    else 'dataset' in the agent table of ~/.usif/config.toml.
+    """
+    if first is None:
+        raise typer.BadParameter("missing REQUEST", param_hint="REQUEST")
+    dataset_path, request = (None, first) if second is None else (Path(first), second)
     session = _session(dataset_path, allow, model, base_url)
     typer.echo(terminal_text(session.ask(request)))
     if len(session.plan):
@@ -81,12 +98,18 @@ def agent_ask(
 
 @agent_app.command("chat")
 def agent_chat(
-    dataset_path: Path = typer.Argument(..., metavar="DATASET"),
+    dataset_path: Optional[Path] = typer.Argument(
+        None, metavar="DATASET", help=_DATASET_HELP, show_default=False
+    ),
     allow: List[Path] = _ALLOW,
     model: Optional[str] = _MODEL,
     base_url: Optional[str] = _BASE_URL,
 ) -> None:
-    """Talk to the agent. /plan shows proposals, /apply approves them, /quit ends."""
+    """Talk to the agent. /plan shows proposals, /apply approves them, /quit ends.
+
+    DATASET may be left out when a default dataset is configured: USIF_DATASET,
+    else 'dataset' in the agent table of ~/.usif/config.toml.
+    """
     session = _session(dataset_path, allow, model, base_url)
     typer.echo(f"usif agent on {session.toolbox.dataset} ({session.model.config.model})")
     typer.echo("Commands: /plan  /apply  /save FILE  /discard  /quit")
@@ -203,15 +226,19 @@ def agent_plans(
 
 @agent_app.command("config")
 def agent_config(json_output: bool = JSON_OPTION) -> None:
-    """Show the LLM settings in effect (the API key is only reported as set or not)."""
-    from usif.agent.config import config_path, load_config, usif_home
+    """Show the settings in effect: LLM, default dataset (the API key only as set or not)."""
+    from usif.agent.config import config_path, default_dataset, load_config, usif_home
 
+    found = default_dataset()
     data = {
         **load_config().describe(),
+        "dataset": str(found[0]) if found else None,
+        "dataset_from": found[1] if found else None,
+        "dataset_exists": found[0].is_file() if found else None,
         "usif_home": str(usif_home()),
         "config_file": str(config_path()),
     }
     if json_output:
         print_json(data)
     else:
-        echo_summary(data)
+        echo_summary({key: "-" if value is None else value for key, value in data.items()})

@@ -21,6 +21,7 @@ def run(capsys, *argv):
 @pytest.fixture(autouse=True)
 def no_user_config(tmp_path, monkeypatch):
     monkeypatch.setenv("USIF_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("USIF_DATASET", raising=False)
     monkeypatch.chdir(tmp_path)
 
 
@@ -140,6 +141,60 @@ def test_agent_ask_with_a_scripted_model(capsys, monkeypatch, tmp_path):
     assert "[propose_remove]" in err and "not applied" in out
     with Dataset(tmp_path / "d.usifc", "r") as data:
         assert "/s/nacl" in data  # nothing happens without approval
+
+
+def test_default_dataset_is_configured_explicitly(capsys, monkeypatch, tmp_path):
+    import usif.agent as agent
+
+    seen = []
+
+    class Fake:
+        def __init__(self, config):
+            self.config = config
+
+        def complete(self, messages, tools):
+            seen.append(messages[0]["content"])
+            return {"content": "ok"}
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-x")
+    monkeypatch.setattr(agent, "ChatClient", Fake)
+    # Nothing configured: the dataset is required and no file is guessed or created.
+    code, _, err = run(capsys, "agent", "ask", "hello")
+    assert code == 2 and "no dataset: pass DATASET, set USIF_DATASET" in err
+    code, out, _ = run(capsys, "agent", "config", "--json")
+    assert json.loads(out)["dataset"] is None
+    home = tmp_path / "home"
+    home.mkdir()
+    configured = tmp_path / "group.usifc"
+    (home / "config.toml").write_text(f'[agent]\ndataset = "{configured.as_posix()}"\n')
+    code, _, err = run(capsys, "agent", "ask", "hello")
+    assert code == 2 and "does not exist" in err and not configured.exists()
+    Dataset(configured, "w").close()
+    code, out, _ = run(capsys, "agent", "ask", "hello")
+    assert code == 0 and out.strip() == "ok" and f"Dataset: {configured.resolve()}" in seen[-1]
+    code, out, _ = run(capsys, "agent", "config", "--json")
+    data = json.loads(out)
+    assert data["dataset"] == str(configured) and data["dataset_from"].endswith("[agent]")
+    assert data["dataset_exists"] is True
+    # USIF_DATASET wins over the file, and an explicit DATASET wins over both.
+    other = tmp_path / "other.usifc"
+    Dataset(other, "w").close()
+    monkeypatch.setenv("USIF_DATASET", str(other))
+    assert (
+        run(capsys, "agent", "ask", "hello")[0] == 0 and f"Dataset: {other.resolve()}" in seen[-1]
+    )
+    assert json.loads(run(capsys, "agent", "config", "--json")[1])["dataset_from"] == (
+        "USIF_DATASET"
+    )
+    assert run(capsys, "agent", "ask", "d.usifc", "hello")[0] == 0
+    assert f"Dataset: {(tmp_path / 'd.usifc').resolve()}" in seen[-1]
+    monkeypatch.setenv("USIF_DATASET", "relative.usifc")
+    code, _, err = run(capsys, "agent", "ask", "hello")
+    assert code == 2 and "absolute path" in err
+    monkeypatch.delenv("USIF_DATASET")
+    (home / "config.toml").write_text('[agent]\ndatset = "/x.usifc"\n')
+    code, _, err = run(capsys, "agent", "config")
+    assert code == 2 and "unknown [agent] settings" in err
 
 
 def test_agent_creates_a_project_only_after_approval(capsys, monkeypatch, tmp_path):

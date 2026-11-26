@@ -68,6 +68,7 @@ The data agent and local-dataset import ([guide](agent.md)). Nothing here is imp
 | `plan_from_scan(dataset, candidates, *, update=False, options=None)` | A plan adding the new candidates |
 | `apply_plan(plan, *, dataset=None) -> ApplyReport` | Verify and apply an approved plan in one transaction |
 | `LLMConfig`, `load_config(overrides=None)` | OpenAI-compatible endpoint settings (DeepSeek by default) |
+| `usif.agent.config.default_dataset()`, `agent_dataset(explicit=None)` | The explicitly configured default dataset (`USIF_DATASET`, then `[agent] dataset`) and where it is set; the dataset `ask`/`chat` use |
 | `ChatClient(config)`, `ChatModel` | The HTTP chat client and the protocol it implements (`complete(messages, tools)`) |
 | `Toolbox(dataset, *, roots=())` | The agent's read-only and `propose_*` tools (including projects: `list_projects`, `propose_project`, `propose_link`); `plan` holds the proposals |
 | `Session(model, toolbox, *, on_tool=None)` | The conversation loop: `ask(text) -> str`, `plan` |

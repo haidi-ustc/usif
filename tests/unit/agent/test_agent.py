@@ -50,7 +50,7 @@ def project(tmp_path):
 @pytest.fixture(autouse=True)
 def isolated_config(tmp_path, monkeypatch):
     monkeypatch.setenv("USIF_HOME", str(tmp_path / "home"))
-    for name in ("USIF_LLM_BASE_URL", "USIF_LLM_MODEL", "USIF_LLM_API_KEY_ENV"):
+    for name in ("USIF_LLM_BASE_URL", "USIF_LLM_MODEL", "USIF_LLM_API_KEY_ENV", "USIF_DATASET"):
         monkeypatch.delenv(name, raising=False)
 
 

@@ -122,6 +122,33 @@ usif agent ask group.usifc "Register new runs in ~/projects/oer under /oer" --al
 usif agent chat group.usifc --allow ~/projects    # interactive; /plan /apply /save FILE /discard /quit
 ```
 
+### Default dataset
+
+`DATASET` can be left out (`usif agent ask "Which projects do we have?"`, `usif agent chat`)
+when a default dataset is configured explicitly. The dataset is, in order of priority:
+
+1. the `DATASET` argument;
+2. the `USIF_DATASET` environment variable;
+3. `dataset` in the `[agent]` table of `~/.usif/config.toml`:
+
+```toml
+# ~/.usif/config.toml
+[agent]
+dataset = "/data/group/lab.usifc"
+```
+
+Nothing else is guessed: with none of the three, the command fails and asks for `DATASET`.
+A default must be an absolute path to a `.usifc` file that exists; it is never created. To
+start a new dataset, give its path as `DATASET` (an approved plan creates it). `usif agent
+config` shows the default in effect and where it comes from. A default changes nothing about
+approval: `ask` and `chat` still cannot apply a plan.
+
+### Exports
+
+The agent cannot write files. Asked to export data, it gives you a `usif dataset export`
+command with the matching filters (see [Exporting](datasets.md#exporting)), which you run
+yourself.
+
 The agent works with these tools:
 
 | Tool | Effect |
@@ -185,7 +212,7 @@ until something is saved there.
 
 ```text
 ~/.usif/
-  config.toml        [llm] settings (below)
+  config.toml        [llm] and [agent] settings (below and "Default dataset")
   plans/             change plans waiting for review
   plans/applied/     every plan applied from the command line, by id
 ```
@@ -224,4 +251,4 @@ api_key_env = "OPENAI_API_KEY"
 ```
 
 A local server such as vLLM or Ollama works too (`base_url = "http://localhost:11434/v1"`).
-`usif agent config` shows the settings in effect.
+`usif agent config` shows the settings in effect, including the default dataset.

@@ -15,12 +15,12 @@ Installing USIF provides the `usif` command. From Python, `usif.cli.main(argv)` 
 | `usif dataset export DATASET OUTPUT [--entry KEY]... [filters] [--limit N] [--format F] [--overwrite]` | Write the selected entries to one file, in dataset order: the `--entry` paths (`/group/name` or record hash, repeatable), or every entry matching the filters of `dataset list` (all entries if neither is given). One structure can go to any format, including `.usif` and `.json`; several need a multi-frame format such as `.extxyz`. An existing `OUTPUT` is refused unless `--overwrite` is given (it is then replaced only after the new file is complete), and nothing is written when no entry matches. See [Exporting](datasets.md#exporting). |
 | `usif dataset compact DATASET` | Drop unreferenced records and reclaim space. |
 | `usif dataset import SOURCE DATASET [--group G] [--all-frames] [--update] [--symmetry] [--plan-out FILE] [-y]` | Scan a project directory for calculations and structure files and register them with provenance attributes. Shows the change plan and asks before applying; `--yes` applies directly. See [Data agent](agent.md). |
-| `usif agent ask DATASET REQUEST [--allow DIR] [--plan-out FILE] [--model] [--base-url]` | Ask the LLM agent a question or give it an instruction ("which runs used ENCUT 520?", "create a project oer and save the Ti oxides with a gap above 1 eV into it"). `DATASET` may be a new file: an approved plan creates it. Proposed changes are shown as a plan and need your approval. |
-| `usif agent chat DATASET [--allow DIR]` | Interactive agent session (`/plan`, `/apply`, `/save FILE`, `/discard`, `/quit`). |
+| `usif agent ask [DATASET] REQUEST [--allow DIR] [--plan-out FILE] [--model] [--base-url]` | Ask the LLM agent a question or give it an instruction ("which runs used ENCUT 520?", "create a project oer and save the Ti oxides with a gap above 1 eV into it"). An explicit `DATASET` may be a new file: an approved plan creates it. Without `DATASET`, the [default dataset](agent.md#default-dataset) is used. Proposed changes are shown as a plan and need your approval. |
+| `usif agent chat [DATASET] [--allow DIR]` | Interactive agent session (`/plan`, `/apply`, `/save FILE`, `/discard`, `/quit`); `DATASET` as for `ask`. |
 | `usif agent show PLAN [--json]` | Print a saved change plan. |
 | `usif agent apply PLAN [-y]` | Apply a reviewed plan in one transaction (asks first; `--yes` when not on a terminal). |
 | `usif agent plans [--applied] [--json]` | Plans waiting for review in `~/.usif/plans`, or the journal of applied plans. |
-| `usif agent config [--json]` | The LLM settings in effect (the key is only reported as set or not). |
+| `usif agent config [--json]` | The LLM settings and the default dataset in effect, with where the default comes from (the key is only reported as set or not). |
 
 Every command and group accepts `-h`/`--help`; a bare group (`usif dataset`, `usif agent`) prints its help. USIF errors are printed as `usif: error: ...` with exit code 2.
 

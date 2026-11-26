@@ -64,7 +64,8 @@ usif/
   io.py            read / read_all / write / write_all / convert
 
   agent/           local-dataset import and the LLM data agent (CLI-first)
-    config.py      LLMConfig: OpenAI-compatible endpoint, DeepSeek by default; key from the environment
+    config.py      LLMConfig: OpenAI-compatible endpoint, DeepSeek by default; key from the environment;
+                   the explicit default dataset (USIF_DATASET, then [agent] dataset; never guessed)
     llm.py         ChatClient: /chat/completions with tool calling (standard library HTTP)
     discover.py    scan(): calculations and structure files -> Candidates with provenance
     plan.py        Plan / Operation (usif.agent.plan.v1), apply_plan(): the only write path
