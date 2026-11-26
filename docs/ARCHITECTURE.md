@@ -1,6 +1,6 @@
 # USIF architecture
 
-This is the code-facing description of USIF 0.10. File layouts are specified in
+This is the code-facing description of USIF 0.11. File layouts are specified in
 [BINARY_FORMAT.md](BINARY_FORMAT.md) (`.usif` records), [DATASET_FORMAT.md](DATASET_FORMAT.md)
 (`.usifc` datasets) and [FORMATS_0_8.md](FORMATS_0_8.md) (files written by USIF 0.8 and earlier).
 

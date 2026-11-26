@@ -1,17 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.11.0
 
-- Packaging: the `mp` extra is gone (it installed monty and mp-api for a script that is not part
-  of the package). The Materials Project script's dependencies are in
-  `scripts/materials_project/requirements.txt`; `all` no longer includes them.
-- `usif.cli` is a package (`root`, `dataset`, `agent`, `plans`, `common`). `usif.cli.main` and the
-  `usif` command are unchanged; `python -m usif.cli` still works.
-- The format-6 golden fixtures are tracked, so the upgrade tests run on a clean clone.
-- A plain `pytest` from the repository root works without `pip install -e .` and is no longer
-  shadowed by another `usif` installed in the environment: `pyproject.toml` sets
-  `pythonpath = ["."]` (the `dev` extra now needs pytest 7). The subprocess tests run from the
-  repository root whatever the working directory.
+Release record `20261126.020`, release ID `usif-20261126-020`. Projects in plain words: the data
+agent creates projects, saves data into them and answers questions about them, still only
+through plans a person approves. A plain `pytest` works in a fresh checkout.
+
+### Data agent and projects
 
 - Projects in plain words: `usif agent ask/chat` can create a project (the group
   `/projects/<name>` with a description), save files or existing entries into it, and answer
@@ -23,8 +18,29 @@
   new file, created by the first approved plan.
 - Change plans have a `link` operation (entry `target` for the record of entry `source`,
   attributes copied plus `linked_from`), and the review shows the plan's storage options.
+  Plans that use `link` cannot be applied by 0.10.
+
+### Datasets
+
 - `Dataset.link(source, name, group, attrs=None)` creates a second entry for an existing entry's
   record, without copying or re-encoding it, so one structure can belong to several groups.
+  The dataset schema is unchanged.
+
+### Packaging, layout and tests
+
+- Packaging: the `mp` extra is gone (it installed monty and mp-api for a script that is not part
+  of the package). The Materials Project script's dependencies are in
+  `scripts/materials_project/requirements.txt`; `all` no longer includes them.
+- `usif.cli` is a package (`root`, `dataset`, `agent`, `plans`, `common`). `usif.cli.main` and the
+  `usif` command are unchanged; `python -m usif.cli` still works.
+- A plain `pytest` from the repository root works without `pip install -e .` and is no longer
+  shadowed by another `usif` installed in the environment: `pyproject.toml` sets
+  `pythonpath = ["."]` (the `dev` extra now needs pytest 7). The subprocess and release tests no
+  longer depend on the working directory.
+- The format-6 golden fixtures are tracked, so the upgrade tests run on a clean clone.
+- Examples: `07_agent_projects.py` (projects with a scripted model, no API key);
+  `05_cli_workflow.py` shows `dataset import` and `agent show`; `02_dataset_workflow.py` shows
+  `Dataset.link`.
 
 ## 0.10.0
 

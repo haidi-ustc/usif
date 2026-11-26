@@ -1,6 +1,6 @@
 # API stability
 
-USIF is pre-1.0. Releases bump the minor version (0.9.0, 0.10.0, ...) and may change the public API; patch releases (0.9.1, ...) contain fixes only and do not change it.
+USIF is pre-1.0. Releases bump the minor version (0.10.0, 0.11.0, ...) and may change the public API; patch releases (0.9.1, ...) contain fixes only and do not change it.
 
 USIF 0.9.0 is a breaking redesign. The 0.8 API (`USIFStructure`, `USIF`, `StructureContainer`, `usif.services`, `usif.interop`, `SymmetryPolicy`, `PropertyRegistry`, `AtomicProperties`/`StructureProperties`, `CompressionType`) was removed without a compatibility layer. The 0.9.0 entry of [CHANGELOG.md](CHANGELOG.md) has the migration guide.
 

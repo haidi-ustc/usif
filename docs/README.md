@@ -1,6 +1,6 @@
 # USIF documentation
 
-USIF 0.10 is a Python library and a set of file formats for atomistic structures. Start with the
+USIF 0.11 is a Python library and a set of file formats for atomistic structures. Start with the
 [project README](../README.md) for installation and a first example.
 
 ## User guide

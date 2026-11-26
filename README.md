@@ -12,9 +12,12 @@ USIF stores atomistic structures (crystals and molecules) exactly, compactly and
   queries (formula, elements, atom count, property ranges).
 - **Works with your tools.** USIF converts to and from matsimpy, ASE and pymatgen objects, reads
   and writes every file format they support, and has a `usif` command line.
+- **A data agent you talk to.** Register a group's calculations in one local dataset, then query
+  it, create projects and save data into them in plain words. An LLM proposes every change as a
+  plan; nothing is written until a person approves it.
 - **Small core.** Only numpy, spglib and typer are required; every structure library is optional.
 
-Python 3.10+. Version 0.10.0. Files written by USIF 0.8 and earlier are still readable (see
+Python 3.10+. Version 0.11.0 (see the [changelog](docs/CHANGELOG.md)). Files written by USIF 0.8 and earlier are still readable (see
 [Upgrading from 0.8](#upgrading-from-08)).
 
 ## Installation
@@ -34,6 +37,10 @@ pip install "usif[zstd]"          # + zstd record compression
 | `zstd` | zstandard | `compression="zstd"` |
 | `dev` | pytest, black, isort, mypy, bandit, pip-audit, build | development |
 | `all` | everything above except matsimpy | |
+
+There is no `mp` extra any more: the Materials Project download script is a development tool in
+`scripts/materials_project/`, and its dependencies (mp-api, monty) are in
+`scripts/materials_project/requirements.txt`.
 
 ## Quickstart
 
@@ -70,7 +77,8 @@ With ASE installed, other formats and objects work the same way:
 | Structure | `Structure(numbers, positions, cell=None, *, pbc, arrays, properties)`. Immutable geometry; exact `==`, tolerant `allclose()`; derived `formula`, `volume`, ... | [structures](docs/guide/structures.md) |
 | Properties | `arrays` (per atom) and `properties` (per structure) hold numbers, arrays or JSON, each with a unit. Built-ins such as `energy` (eV), `force` (eV/Å), `stress` (GPa) come from `DEFAULT_SCHEMA`. Stored values are never converted. | [properties](docs/guide/properties.md) |
 | Records | `usif.encode(s, compression="zlib", precision="f64", symmetry="off")`. Encoding is deterministic, and `record_hash`/`geometry_hash` identify content. | [records](docs/guide/records.md) |
-| Datasets | `Dataset(path)`: `add`, `add_many`, `query(Q...)`, `count`, groups and attributes, `check`, `compact`. Many readers can work alongside one writer. | [datasets](docs/guide/datasets.md) |
+| Datasets | `Dataset(path)`: `add`, `add_many`, `link`, `query(Q...)`, `count`, groups and attributes, `check`, `compact`. Many readers can work alongside one writer. | [datasets](docs/guide/datasets.md) |
+| Data agent | `usif dataset import` and `usif agent ask/chat`: provenance-tracked import, plain-language queries, projects, change plans you approve. | [agent](docs/guide/agent.md) |
 | Backends | matsimpy, ASE and pymatgen built in; values convert to each library's units. Third-party backends plug in through the `usif.backends` entry point. | [libraries](docs/guide/libraries.md) |
 
 ## Command line
@@ -90,19 +98,33 @@ See the [command-line guide](docs/guide/command-line.md) for every command and o
 ## A local dataset for your group, with an AI agent
 
 Register the calculations scattered across project directories in one searchable dataset, and
-ask about it in plain words:
+work with it in plain words:
 
 ```bash
 usif dataset import ~/projects/oer group.usifc --group /oer   # VASP dirs, CIF, extxyz, ... + provenance
 export DEEPSEEK_API_KEY=...                                   # any OpenAI-compatible LLM; DeepSeek by default
 usif agent ask group.usifc "Which Ti oxides do we have, and with which ENCUT?"
-usif agent chat group.usifc --allow ~/projects                # "register the new runs in ~/projects/oer"
+usif agent ask group.usifc "Create a project 'stable' and save every Ti oxide below -40 eV into it"
+usif agent ask new.usifc "Start a project for the OER work"   # a new dataset, created on approval
+usif agent chat group.usifc --allow ~/projects                # "save the new runs in ~/projects/oer into oer"
 ```
 
+What you can ask for:
+
+- **Query.** Search by formula, elements, atom count, property ranges (`energy < -10`),
+  attributes and text in paths, notes and INCAR parameters; list projects and their contents.
+- **Create a project.** A project is the group `/projects/<name>` with a description. The dataset
+  is created if it does not exist yet.
+- **Save into a project.** New files from allowed directories are imported with provenance;
+  entries already in the dataset (for example what a search found) are *linked*, so nothing is
+  copied.
+
 The agent reads the dataset and your files and proposes changes as a change plan. Nothing is
-written until you approve the plan: changes are applied in one transaction, checked against
-source-file hashes, and each new entry records the plan that added it. See the
-[agent guide](docs/guide/agent.md).
+written until you approve the plan (`[y/N]`; the agent itself can never approve): changes are
+applied in one transaction, checked against source-file hashes, and each new entry records the
+plan that added it. See the [agent guide](docs/guide/agent.md) and
+[`examples/07_agent_projects.py`](examples/07_agent_projects.py), which runs offline with a
+scripted model.
 
 ## Upgrading from 0.8
 
@@ -125,7 +147,7 @@ the [changelog](docs/CHANGELOG.md) map each old call to its replacement.
 
 ```bash
 python -m pip install -e ".[dev,pymatgen,ase]" -r scripts/materials_project/requirements.txt
-python -m pytest tests/unit
+pytest                      # from the repository root; always tests this checkout
 ```
 
 See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for the checks CI runs, the test layout and the

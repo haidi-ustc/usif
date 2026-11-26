@@ -7,19 +7,21 @@ try:
 except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib  # type: ignore[no-redef]
 
+ROOT = Path(__file__).resolve().parents[3]
+
 
 def test_pyproject_is_single_release_metadata_source():
-    pyproject = tomllib.loads(Path("pyproject.toml").read_text())
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
     project = pyproject["project"]
     release = pyproject["tool"]["usif"]["release"]
 
-    assert project["version"] == "0.10.0"
+    assert project["version"] == "0.11.0"
     assert "dynamic" not in project
     assert release == {
-        "date": "2026-11-16",
-        "sequence": 19,
-        "record": "20261116.019",
-        "id": "usif-20261116-019",
+        "date": "2026-11-26",
+        "sequence": 20,
+        "record": "20261126.020",
+        "id": "usif-20261126-020",
     }
 
 
@@ -27,7 +29,7 @@ def test_usif_version_metadata_matches_pyproject():
     import usif
     from usif import version
 
-    pyproject = tomllib.loads(Path("pyproject.toml").read_text())
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
     release = pyproject["tool"]["usif"]["release"]
 
     assert usif.__version__ == pyproject["project"]["version"]
@@ -39,21 +41,21 @@ def test_usif_version_metadata_matches_pyproject():
 def test_release_metadata_checker_passes_and_can_write_report(tmp_path):
     from scripts.check_release_metadata import main, validate_release_metadata
 
-    meta = validate_release_metadata(Path.cwd())
-    assert meta.version == "0.10.0"
-    assert meta.record == "20261116.019"
+    meta = validate_release_metadata(ROOT)
+    assert meta.version == "0.11.0"
+    assert meta.record == "20261126.020"
 
     report = tmp_path / "release-checks.txt"
-    assert main(["--root", str(Path.cwd()), "--write-report", str(report)]) == 0
+    assert main(["--root", str(ROOT), "--write-report", str(report)]) == 0
     text = report.read_text()
     assert "USIF release metadata check: PASS" in text
-    assert "record=20261116.019" in text
+    assert "record=20261126.020" in text
 
 
 def test_release_constants_are_public():
     """The CI and publish wheel smoke steps assert these on the installed package."""
     import usif
 
-    assert usif.RELEASE_RECORD == "20261116.019"
-    assert usif.RELEASE_ID == "usif-20261116-019"
+    assert usif.RELEASE_RECORD == "20261126.020"
+    assert usif.RELEASE_ID == "usif-20261126-020"
     assert {"RELEASE_RECORD", "RELEASE_ID", "RELEASE_DATE"} <= set(usif.__all__)
